@@ -35,7 +35,22 @@ const DATA_SOURCE = 'sync' as 'sqlite' | 'http' | 'sync';
 
 
 // Ajuste para 127.0.0.1 para evitar erros de DNS/IPv6 no localhost do Windows
-const API_BASE_URL = "http://192.168.25.77:8787/sistema_escolar_api";
+// OLD CONST: const API_BASE_URL = "http://192.168.25.77:8787/sistema_escolar_api";
+
+let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api";
+try {
+  const saved = localStorage.getItem('escola360_api_url');
+  if (saved) apiBaseUrl = saved;
+} catch (e) {
+  console.warn("Could not access localStorage for API URL");
+}
+
+export const getApiBaseUrl = () => apiBaseUrl;
+
+export const setApiBaseUrl = (url: string) => {
+  apiBaseUrl = url.replace(/\/$/, ''); // Remove trailing slash if present
+  localStorage.setItem('escola360_api_url', apiBaseUrl);
+};
 
 // Helper for TypeScript to recognize the sql.js window object
 declare global {
@@ -519,7 +534,7 @@ class HttpApi implements ApiService {
 
     let response;
     try {
-        response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+        response = await fetch(`${getApiBaseUrl()}${endpoint}`, config);
         clearTimeout(timeoutId);
     } catch (networkError: any) {
         clearTimeout(timeoutId);

@@ -13,7 +13,8 @@ import {
   Moon,
   Sun,
   AlertTriangle,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 
 import { 
@@ -35,7 +36,7 @@ import {
 } from '@/types';
 
 import { generateSmartReport } from '@/services/geminiService';
-import { api } from '@/services/api';
+import { api, setApiBaseUrl } from '@/services/api';
 import {
     GRADE_GROUPS,
     GRADES_LIST,
@@ -47,6 +48,7 @@ import {
 // --- Components ---
 import { SidebarItem } from '@/components/SidebarItem';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SettingsModal } from '@/components/SettingsModal';
 import { Breadcrumbs } from '@/components/features/Breadcrumbs';
 
 // --- View Components ---
@@ -155,6 +157,7 @@ export default function App() {
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [state, setState] = useState<AppState>(EMPTY_STATE);
 
@@ -333,6 +336,12 @@ export default function App() {
         window.location.reload();
       }
     );
+  };
+
+  const handleSaveSettings = (newUrl: string) => {
+    setApiBaseUrl(newUrl);
+    setIsSettingsOpen(false);
+    window.location.reload();
   };
 
   // Student Actions
@@ -1477,6 +1486,12 @@ export default function App() {
         onCancel={closeConfirm}
       />
 
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSaveSettings}
+      />
+
       {/* Sidebar Mobile Overlay */}
       {isSidebarOpen && (
           <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
@@ -1558,6 +1573,14 @@ export default function App() {
                     title="Sincronizar com Servidor"
                   >
                       <RefreshCw size={20} />
+                  </button>
+
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                    title="Configurações de Conexão"
+                  >
+                      <Settings size={20} />
                   </button>
 
                   <button 
