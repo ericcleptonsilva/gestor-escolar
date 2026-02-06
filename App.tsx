@@ -13,7 +13,8 @@ import {
   Moon,
   Sun,
   AlertTriangle,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 
 import { 
@@ -35,7 +36,7 @@ import {
 } from '@/types';
 
 import { generateSmartReport } from '@/services/geminiService';
-import { api } from '@/services/api';
+import { api, setApiBaseUrl } from '@/services/api';
 import {
     GRADE_GROUPS,
     GRADES_LIST,
@@ -47,6 +48,7 @@ import {
 // --- Components ---
 import { SidebarItem } from '@/components/SidebarItem';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SettingsModal } from '@/components/SettingsModal';
 import { Breadcrumbs } from '@/components/features/Breadcrumbs';
 
 // --- View Components ---
@@ -155,7 +157,12 @@ export default function App() {
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  // Custom Settings
+  const [appTitle, setAppTitle] = useState(() => localStorage.getItem('escola360_school_name') || 'Gestor de Alunos');
+  const [appLogo, setAppLogo] = useState(() => localStorage.getItem('escola360_logo') || '');
+
   const [state, setState] = useState<AppState>(EMPTY_STATE);
 
   // --- FILTER STATE ---
@@ -333,6 +340,14 @@ export default function App() {
         window.location.reload();
       }
     );
+  };
+
+  const handleSaveSettings = (settings: { apiBaseUrl: string; schoolName: string; logo: string }) => {
+    setApiBaseUrl(settings.apiBaseUrl);
+    localStorage.setItem('escola360_school_name', settings.schoolName);
+    localStorage.setItem('escola360_logo', settings.logo);
+    setIsSettingsOpen(false);
+    window.location.reload();
   };
 
   // Student Actions
@@ -1336,7 +1351,7 @@ export default function App() {
         </head>
         <body>
           <div class="header">
-            <h1>Gestor de Alunos</h1>
+            <h1>${appTitle}</h1>
             <h2>${title}</h2>
             <p>Relatório gerado em: ${new Date().toLocaleString('pt-BR')}</p>
           </div>
@@ -1349,7 +1364,7 @@ export default function App() {
             </tbody>
           </table>
           <div class="footer">
-            Sistema Gestor de Alunos • Página gerada automaticamente
+            ${appTitle} • Página gerada automaticamente
           </div>
         </body>
       </html>
@@ -1416,10 +1431,14 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md p-8 border border-white/10">
            <div className="text-center mb-8">
-              <div className="bg-white/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-inner">
+              {appLogo ? (
+                <img src={appLogo} alt="Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
+              ) : (
+                <div className="bg-white/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-inner">
                   <LayoutDashboard size={40} />
-              </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Gestor de Alunos</h1>
+                </div>
+              )}
+              <h1 className="text-3xl font-bold text-white mb-2">{appTitle}</h1>
               <p className="text-slate-300">Gestão Escolar</p>
            </div>
            
@@ -1477,6 +1496,12 @@ export default function App() {
         onCancel={closeConfirm}
       />
 
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSaveSettings}
+      />
+
       {/* Sidebar Mobile Overlay */}
       {isSidebarOpen && (
           <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
@@ -1490,10 +1515,14 @@ export default function App() {
       `}>
           <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
               <div className="flex items-center space-x-3">
-                  <div className="bg-indigo-500 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/20">
-                      <LayoutDashboard size={24} />
-                  </div>
-                  <span className="font-bold text-xl text-white tracking-tight">Gestor de Alunos</span>
+                  {appLogo ? (
+                      <img src={appLogo} alt="App Logo" className="w-10 h-10 object-contain" />
+                  ) : (
+                      <div className="bg-indigo-500 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/20">
+                          <LayoutDashboard size={24} />
+                      </div>
+                  )}
+                  <span className="font-bold text-xl text-white tracking-tight">{appTitle}</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
                   <X size={24} />
@@ -1558,6 +1587,14 @@ export default function App() {
                     title="Sincronizar com Servidor"
                   >
                       <RefreshCw size={20} />
+                  </button>
+
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                    title="Configurações do Sistema"
+                  >
+                      <Settings size={20} />
                   </button>
 
                   <button 
