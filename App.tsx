@@ -247,6 +247,32 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // --- POLLING / AUTO-SYNC ---
+  useEffect(() => {
+    // Only poll if logged in and not editing (to avoid overwriting work)
+    if (!currentUser || isEditingStudent || isEditingUser || isImporting) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        // Silent sync (background)
+        await api.sync();
+        const freshData = await api.loadAllData();
+
+        // Simple optimization: only setState if record counts changed or something obvious
+        // For now, we just update to ensure freshness. React handles DOM diffing.
+        setState(prev => {
+           // Optional: Deep comparison could be here to avoid re-renders if data is identical.
+           // For this size app, direct replacement is usually fine.
+           return freshData;
+        });
+      } catch (e) {
+        console.error("Auto-sync failed", e);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(intervalId);
+  }, [currentUser, isEditingStudent, isEditingUser, isImporting]);
+
   // --- COMPUTED VALUES ---
   const getVisibleStudents = useMemo(() => {
     if (!currentUser) return [];
@@ -346,9 +372,6 @@ export default function App() {
     setApiBaseUrl(settings.apiBaseUrl);
     localStorage.setItem('escola360_school_name', settings.schoolName);
     localStorage.setItem('escola360_logo', settings.logo);
-=======
-  const handleSaveSettings = (newUrl: string) => {
-    setApiBaseUrl(newUrl);
     setIsSettingsOpen(false);
     window.location.reload();
   };
@@ -1596,8 +1619,6 @@ export default function App() {
                     onClick={() => setIsSettingsOpen(true)}
                     className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
                     title="Configurações do Sistema"
-=======
-                    title="Configurações de Conexão"
                   >
                       <Settings size={20} />
                   </button>
