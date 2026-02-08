@@ -86,6 +86,7 @@ export interface MakeUpExam {
 export interface MissedClass {
   date: string;
   time: string;
+  hours?: number; // Added to track hours missed
   reason?: string;
 }
 

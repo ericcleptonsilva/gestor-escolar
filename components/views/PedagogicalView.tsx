@@ -37,7 +37,7 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
   });
 
   const [newChecklistItem, setNewChecklistItem] = useState('');
-  const [newMissedClass, setNewMissedClass] = useState<{date: string, time: string, reason: string}>({ date: '', time: '', reason: '' });
+  const [newMissedClass, setNewMissedClass] = useState<{date: string, time: string, hours: number, reason: string}>({ date: '', time: '', hours: 1, reason: '' });
 
   const filteredRecords = useMemo(() => {
     return (state.pedagogicalRecords || []).filter(record => {
@@ -100,11 +100,18 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
 
   const handleAddMissedClass = () => {
       if (newMissedClass.date && newMissedClass.time) {
+          const hoursMissed = newMissedClass.hours || 0;
+
           setFormData(prev => ({
               ...prev,
+              classHours: {
+                  ...prev.classHours,
+                  given: Math.max(0, prev.classHours.given - hoursMissed)
+              },
               missedClasses: [...(prev.missedClasses || []), newMissedClass]
           }));
-          setNewMissedClass({ date: '', time: '', reason: '' });
+
+          setNewMissedClass({ date: '', time: '', hours: 1, reason: '' });
       } else {
           alert("Informe data e hora da falta.");
       }
@@ -171,9 +178,7 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                     <tr>
                         <th className="px-6 py-4">Professor</th>
                         <th className="px-6 py-4">Semana (Início)</th>
-                        <th className="px-6 py-4 text-center">Agenda</th>
-                        <th className="px-6 py-4 text-center">Provas</th>
-                        <th className="px-6 py-4 text-center">Diários</th>
+                        <th className="px-6 py-4 text-center">Checklist</th>
                         <th className="px-6 py-4 text-center">Horas (Plan/Dada)</th>
                         <th className="px-6 py-4">Observação</th>
                         <th className="px-6 py-4 text-right">Ações</th>
@@ -193,9 +198,31 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                 <td className="px-6 py-4 text-slate-500">
                                     {new Date(record.weekStart).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                 </td>
-                                <td className="px-6 py-4 text-center"><StatusIcon checked={!!record.checklist['Agenda Atualizada'] || !!record.checklist['agenda']} /></td>
-                                <td className="px-6 py-4 text-center"><StatusIcon checked={!!record.checklist['Provas Entregues'] || !!record.checklist['exams']} /></td>
-                                <td className="px-6 py-4 text-center"><StatusIcon checked={!!record.checklist['Diários em Dia'] || !!record.checklist['diaries']} /></td>
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                        <div className="flex items-center gap-1 text-xs" title="Agenda Atualizada">
+                                            <span className="text-slate-500">Agenda:</span>
+                                            <StatusIcon checked={!!record.checklist['Agenda Atualizada'] || !!record.checklist['agenda']} />
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs" title="Provas Entregues">
+                                            <span className="text-slate-500">Provas:</span>
+                                            <StatusIcon checked={!!record.checklist['Provas Entregues'] || !!record.checklist['exams']} />
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs" title="Diários em Dia">
+                                            <span className="text-slate-500">Diários:</span>
+                                            <StatusIcon checked={!!record.checklist['Diários em Dia'] || !!record.checklist['diaries']} />
+                                        </div>
+                                        {Object.entries(record.checklist)
+                                            .filter(([k]) => !['Agenda Atualizada', 'Provas Entregues', 'Diários em Dia', 'agenda', 'exams', 'diaries'].includes(k))
+                                            .map(([k, v]) => (
+                                                <div key={k} className="flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
+                                                    <span className="text-indigo-600 dark:text-indigo-300 font-medium">{k}</span>
+                                                    {v ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-300" />}
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex flex-col items-center">
                                         <span className={record.classHours.given < record.classHours.planned ? "text-red-500 font-bold" : "text-green-600 font-bold"}>
@@ -319,10 +346,18 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                             <div className="space-y-2 mb-3">
                                 {(formData.missedClasses || []).map((missed, idx) => (
                                     <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700 text-xs">
-                                        <span>{new Date(missed.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} às {missed.time}</span>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-slate-400 italic">{missed.reason}</span>
-                                            <button onClick={() => handleRemoveMissedClass(idx)} className="text-red-400">
+                                            <span className="font-bold text-slate-700 dark:text-slate-300">{new Date(missed.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                                            <span className="text-slate-500">às {missed.time}</span>
+                                            {missed.hours && (
+                                                <span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[10px] border border-red-100 font-medium">
+                                                    -{missed.hours}h
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-400 italic truncate max-w-[100px]">{missed.reason}</span>
+                                            <button onClick={() => handleRemoveMissedClass(idx)} className="text-red-400 hover:text-red-600">
                                                 <X size={14} />
                                             </button>
                                         </div>
@@ -330,12 +365,26 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                 ))}
                             </div>
 
-                            <div className="grid grid-cols-3 gap-2">
-                                <Input type="date" className="h-8 text-xs" value={newMissedClass.date} onChange={e => setNewMissedClass({...newMissedClass, date: e.target.value})} />
-                                <Input type="time" className="h-8 text-xs" value={newMissedClass.time} onChange={e => setNewMissedClass({...newMissedClass, time: e.target.value})} />
-                                <div className="flex gap-2">
-                                    <Input placeholder="Motivo" className="h-8 text-xs" value={newMissedClass.reason} onChange={e => setNewMissedClass({...newMissedClass, reason: e.target.value})} />
-                                    <Button size="sm" onClick={handleAddMissedClass} className="h-8 w-8 p-0 flex items-center justify-center">
+                            <div className="grid grid-cols-12 gap-2">
+                                <div className="col-span-4">
+                                    <Input type="date" className="h-8 text-xs w-full" value={newMissedClass.date} onChange={e => setNewMissedClass({...newMissedClass, date: e.target.value})} />
+                                </div>
+                                <div className="col-span-3">
+                                    <Input type="time" className="h-8 text-xs w-full" value={newMissedClass.time} onChange={e => setNewMissedClass({...newMissedClass, time: e.target.value})} />
+                                </div>
+                                <div className="col-span-2">
+                                    <Input
+                                        type="number"
+                                        placeholder="Hrs"
+                                        className="h-8 text-xs w-full"
+                                        value={newMissedClass.hours}
+                                        onChange={e => setNewMissedClass({...newMissedClass, hours: parseInt(e.target.value) || 0})}
+                                        min={1}
+                                    />
+                                </div>
+                                <div className="col-span-3 flex gap-2">
+                                    <Input placeholder="Motivo" className="h-8 text-xs w-full" value={newMissedClass.reason} onChange={e => setNewMissedClass({...newMissedClass, reason: e.target.value})} />
+                                    <Button size="sm" onClick={handleAddMissedClass} className="h-8 w-8 p-0 flex items-center justify-center shrink-0">
                                         <Plus size={14} />
                                     </Button>
                                 </div>
