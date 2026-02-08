@@ -83,13 +83,30 @@ export interface MakeUpExam {
   period?: AcademicPeriod; // Novo campo para a tag editável
 }
 
+export interface PedagogicalRecord {
+  id: string;
+  teacherName: string;
+  weekStart: string; // YYYY-MM-DD of Monday
+  checklist: {
+    agenda: boolean;
+    exams: boolean;
+    diaries: boolean;
+  };
+  classHours: {
+    planned: number;
+    given: number;
+  };
+  observation?: string;
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
   attendance: AttendanceRecord[];
   documents: HealthDocument[];
   exams: MakeUpExam[];
-  subjects: string[]; // Lista dinâmica de matérias
+  subjects: string[];
+  pedagogicalRecords: PedagogicalRecord[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';

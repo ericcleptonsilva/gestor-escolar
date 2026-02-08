@@ -9,12 +9,15 @@ import {
   UserCog,
   Menu,
   RefreshCw,
+  Wifi,
+  WifiOff,
   LogOut,
   Moon,
   Sun,
   AlertTriangle,
   X,
-  Settings
+  Settings,
+  GraduationCap
 } from 'lucide-react';
 
 import { 
@@ -60,6 +63,7 @@ import { AttendanceView } from '@/components/views/AttendanceView';
 import { HealthView } from '@/components/views/HealthView';
 import { ExamView } from '@/components/views/ExamView';
 import { ReportView } from '@/components/views/ReportView';
+import { PedagogicalView } from '@/components/views/PedagogicalView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
 
@@ -133,6 +137,7 @@ export default function App() {
   // --- APP STATE ---
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'error'>('online');
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingPhotos, setIsImportingPhotos] = useState(false);
   const [isImportingPhones, setIsImportingPhones] = useState(false);
@@ -224,6 +229,11 @@ export default function App() {
 
   // --- INITIAL DATA LOAD ---
   useEffect(() => {
+    const handleSyncStatus = (e: any) => {
+        setSyncStatus(e.detail.status);
+    };
+    window.addEventListener('api-sync-status', handleSyncStatus);
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -231,12 +241,14 @@ export default function App() {
         setState(data);
       } catch (error: any) {
         console.error("Failed to load data", error);
-        alert("Erro ao carregar dados do servidor: " + error.message);
+        alert("Erro ao carregar dados locais: " + error.message);
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
+
+    return () => window.removeEventListener('api-sync-status', handleSyncStatus);
   }, []);
 
   useEffect(() => {
@@ -633,6 +645,21 @@ export default function App() {
       setState(prev => ({ ...prev, subjects: newSubjects }));
       closeConfirm();
     });
+  };
+
+  // Pedagogical Actions
+  const handleSavePedagogical = async (record: any) => {
+    await api.savePedagogicalRecord(record);
+    const refreshed = await api.loadAllData();
+    setState(refreshed); // Sync full state to get updated list
+  };
+
+  const handleDeletePedagogical = async (id: string) => {
+    await api.deletePedagogicalRecord(id);
+    setState(prev => ({
+        ...prev,
+        pedagogicalRecords: (prev.pedagogicalRecords || []).filter(r => r.id !== id)
+    }));
   };
 
   // Users
@@ -1563,6 +1590,10 @@ export default function App() {
               <SidebarItem icon={ClipboardList} label="2ª Chamada" active={view === 'exams'} onClick={() => { setView('exams'); setIsSidebarOpen(false); }} />
               <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
               
+              {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
+                  <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
+              )}
+
               {currentUser.role === 'Admin' && (
                   <>
                     <div className="pt-4 pb-2">
@@ -1607,10 +1638,21 @@ export default function App() {
               </div>
 
               <div className="flex items-center space-x-3 md:space-x-4">
+                  <div className={`flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                      syncStatus === 'online' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
+                      syncStatus === 'offline' ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700' :
+                      'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                  }`}>
+                      {syncStatus === 'online' ? <Wifi size={14} className="mr-1.5" /> : <WifiOff size={14} className="mr-1.5" />}
+                      <span className="hidden sm:inline">
+                          {syncStatus === 'online' ? 'Online' : syncStatus === 'offline' ? 'Offline' : 'Erro de Sync'}
+                      </span>
+                  </div>
+
                   <button 
                     onClick={handleManualSync} 
                     className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors ${isSyncing ? 'animate-spin text-indigo-500' : ''}`}
-                    title="Sincronizar com Servidor"
+                    title="Sincronizar Agora"
                   >
                       <RefreshCw size={20} />
                   </button>
@@ -1789,6 +1831,18 @@ export default function App() {
 
              {view === 'reports' && (
                  <ReportView state={state} />
+             )}
+
+             {view === 'pedagogical' && (
+                 (currentUser.role === 'Admin' || currentUser.role === 'Coordinator') ? (
+                     <PedagogicalView
+                        state={state}
+                        onSaveRecord={handleSavePedagogical}
+                        onDeleteRecord={handleDeletePedagogical}
+                     />
+                 ) : (
+                     <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
+                 )
              )}
 
              {view === 'users' && (
