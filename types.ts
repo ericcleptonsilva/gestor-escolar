@@ -83,19 +83,22 @@ export interface MakeUpExam {
   period?: AcademicPeriod; // Novo campo para a tag editável
 }
 
+export interface MissedClass {
+  date: string;
+  time: string;
+  reason?: string;
+}
+
 export interface PedagogicalRecord {
   id: string;
   teacherName: string;
   weekStart: string; // YYYY-MM-DD of Monday
-  checklist: {
-    agenda: boolean;
-    exams: boolean;
-    diaries: boolean;
-  };
+  checklist: Record<string, boolean>; // Dynamic Checklist
   classHours: {
     planned: number;
     given: number;
   };
+  missedClasses?: MissedClass[]; // New field for missed hours
   observation?: string;
 }
 

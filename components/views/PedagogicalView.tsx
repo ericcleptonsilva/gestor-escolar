@@ -30,10 +30,14 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
       id: '',
       teacherName: '',
       weekStart: '',
-      checklist: { agenda: false, exams: false, diaries: false },
+      checklist: { 'Agenda Atualizada': false, 'Provas Entregues': false, 'Diários em Dia': false },
       classHours: { planned: 0, given: 0 },
+      missedClasses: [],
       observation: ''
   });
+
+  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [newMissedClass, setNewMissedClass] = useState<{date: string, time: string, reason: string}>({ date: '', time: '', reason: '' });
 
   const filteredRecords = useMemo(() => {
     return (state.pedagogicalRecords || []).filter(record => {
@@ -46,15 +50,23 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
   const handleOpenModal = (record?: PedagogicalRecord) => {
     if (record) {
       setEditingRecord(record);
-      setFormData({ ...record });
+      // Ensure checklist has defaults if old record
+      const checklist = record.checklist || {};
+      if (Object.keys(checklist).length === 0) {
+          checklist['Agenda Atualizada'] = false;
+          checklist['Provas Entregues'] = false;
+          checklist['Diários em Dia'] = false;
+      }
+      setFormData({ ...record, checklist, missedClasses: record.missedClasses || [] });
     } else {
       setEditingRecord(null);
       setFormData({
         id: Math.random().toString(36).substr(2, 9),
         teacherName: '',
         weekStart: new Date().toISOString().split('T')[0],
-        checklist: { agenda: false, exams: false, diaries: false },
+        checklist: { 'Agenda Atualizada': false, 'Provas Entregues': false, 'Diários em Dia': false },
         classHours: { planned: 0, given: 0 },
+        missedClasses: [],
         observation: ''
       });
     }
@@ -68,6 +80,41 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
     }
     await onSaveRecord(formData);
     setIsModalOpen(false);
+  };
+
+  const handleAddChecklistItem = () => {
+      if (newChecklistItem.trim()) {
+          setFormData(prev => ({
+              ...prev,
+              checklist: { ...prev.checklist, [newChecklistItem]: false }
+          }));
+          setNewChecklistItem('');
+      }
+  };
+
+  const handleRemoveChecklistItem = (key: string) => {
+      const newChecklist = { ...formData.checklist };
+      delete newChecklist[key];
+      setFormData(prev => ({ ...prev, checklist: newChecklist }));
+  };
+
+  const handleAddMissedClass = () => {
+      if (newMissedClass.date && newMissedClass.time) {
+          setFormData(prev => ({
+              ...prev,
+              missedClasses: [...(prev.missedClasses || []), newMissedClass]
+          }));
+          setNewMissedClass({ date: '', time: '', reason: '' });
+      } else {
+          alert("Informe data e hora da falta.");
+      }
+  };
+
+  const handleRemoveMissedClass = (index: number) => {
+      setFormData(prev => ({
+          ...prev,
+          missedClasses: (prev.missedClasses || []).filter((_, i) => i !== index)
+      }));
   };
 
   const handleDelete = async (id: string) => {
@@ -146,13 +193,20 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                 <td className="px-6 py-4 text-slate-500">
                                     {new Date(record.weekStart).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                 </td>
-                                <td className="px-6 py-4 text-center"><StatusIcon checked={record.checklist.agenda} /></td>
-                                <td className="px-6 py-4 text-center"><StatusIcon checked={record.checklist.exams} /></td>
-                                <td className="px-6 py-4 text-center"><StatusIcon checked={record.checklist.diaries} /></td>
+                                <td className="px-6 py-4 text-center"><StatusIcon checked={!!record.checklist['Agenda Atualizada'] || !!record.checklist['agenda']} /></td>
+                                <td className="px-6 py-4 text-center"><StatusIcon checked={!!record.checklist['Provas Entregues'] || !!record.checklist['exams']} /></td>
+                                <td className="px-6 py-4 text-center"><StatusIcon checked={!!record.checklist['Diários em Dia'] || !!record.checklist['diaries']} /></td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className={record.classHours.given < record.classHours.planned ? "text-red-500 font-bold" : "text-green-600 font-bold"}>
-                                        {record.classHours.given} / {record.classHours.planned}
-                                    </span>
+                                    <div className="flex flex-col items-center">
+                                        <span className={record.classHours.given < record.classHours.planned ? "text-red-500 font-bold" : "text-green-600 font-bold"}>
+                                            {record.classHours.given} / {record.classHours.planned}
+                                        </span>
+                                        {(record.missedClasses?.length || 0) > 0 && (
+                                            <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded mt-1">
+                                                {record.missedClasses?.length} falta(s)
+                                            </span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 text-slate-500 max-w-xs truncate" title={record.observation}>{record.observation || '-'}</td>
                                 <td className="px-6 py-4 text-right">
@@ -208,35 +262,34 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl space-y-3">
                         <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Checklist de Entregas</h4>
 
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                checked={formData.checklist.agenda}
-                                onChange={e => setFormData({...formData, checklist: {...formData.checklist, agenda: e.target.checked}})}
-                            />
-                            <span className="text-slate-700 dark:text-slate-300">Agenda Atualizada</span>
-                        </label>
+                        {Object.entries(formData.checklist).map(([key, value]) => (
+                            <div key={key} className="flex items-center justify-between group">
+                                <label className="flex items-center space-x-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        checked={value}
+                                        onChange={e => setFormData({...formData, checklist: {...formData.checklist, [key]: e.target.checked}})}
+                                    />
+                                    <span className="text-slate-700 dark:text-slate-300">{key}</span>
+                                </label>
+                                <button onClick={() => handleRemoveChecklistItem(key)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
 
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                checked={formData.checklist.exams}
-                                onChange={e => setFormData({...formData, checklist: {...formData.checklist, exams: e.target.checked}})}
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <Input
+                                placeholder="Novo item..."
+                                value={newChecklistItem}
+                                onChange={e => setNewChecklistItem(e.target.value)}
+                                className="h-8 text-sm"
                             />
-                            <span className="text-slate-700 dark:text-slate-300">Provas Entregues</span>
-                        </label>
-
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                checked={formData.checklist.diaries}
-                                onChange={e => setFormData({...formData, checklist: {...formData.checklist, diaries: e.target.checked}})}
-                            />
-                            <span className="text-slate-700 dark:text-slate-300">Diários em Dia</span>
-                        </label>
+                            <Button size="sm" onClick={handleAddChecklistItem} disabled={!newChecklistItem.trim()}>
+                                <Plus size={16} />
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl space-y-3">
@@ -257,6 +310,35 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                     value={formData.classHours.given}
                                     onChange={e => setFormData({...formData, classHours: {...formData.classHours, given: parseInt(e.target.value) || 0}})}
                                 />
+                            </div>
+                        </div>
+
+                        <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-3">
+                            <label className="text-xs text-slate-500 mb-2 block font-bold">Faltas por Horário</label>
+
+                            <div className="space-y-2 mb-3">
+                                {(formData.missedClasses || []).map((missed, idx) => (
+                                    <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700 text-xs">
+                                        <span>{new Date(missed.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} às {missed.time}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-400 italic">{missed.reason}</span>
+                                            <button onClick={() => handleRemoveMissedClass(idx)} className="text-red-400">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                <Input type="date" className="h-8 text-xs" value={newMissedClass.date} onChange={e => setNewMissedClass({...newMissedClass, date: e.target.value})} />
+                                <Input type="time" className="h-8 text-xs" value={newMissedClass.time} onChange={e => setNewMissedClass({...newMissedClass, time: e.target.value})} />
+                                <div className="flex gap-2">
+                                    <Input placeholder="Motivo" className="h-8 text-xs" value={newMissedClass.reason} onChange={e => setNewMissedClass({...newMissedClass, reason: e.target.value})} />
+                                    <Button size="sm" onClick={handleAddMissedClass} className="h-8 w-8 p-0 flex items-center justify-center">
+                                        <Plus size={14} />
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>

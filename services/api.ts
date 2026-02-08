@@ -182,9 +182,20 @@ class SqliteApi implements ApiService {
         name TEXT PRIMARY KEY
       );
       CREATE TABLE IF NOT EXISTS pedagogical_records (
-        id TEXT PRIMARY KEY, teacherName TEXT, weekStart TEXT, checklist TEXT, classHours TEXT, observation TEXT
+        id TEXT PRIMARY KEY, teacherName TEXT, weekStart TEXT, checklist TEXT, classHours TEXT, observation TEXT, missed_classes TEXT
       );
     `);
+    // Migration: Add missed_classes column if it doesn't exist
+    try {
+        const columns = this.db.exec("PRAGMA table_info(pedagogical_records)");
+        if (columns.length > 0 && columns[0].values) {
+            const columnNames = columns[0].values.map((v: any) => v[1]);
+            if (!columnNames.includes('missed_classes')) {
+                console.log("Migrating: Adding missed_classes column...");
+                this.db.run("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT;");
+            }
+        }
+    } catch (e) { console.error("Migration Error:", e); }
     this.persist();
   }
 
@@ -233,7 +244,7 @@ class SqliteApi implements ApiService {
     try {
         this.db.run(sql, params);
         this.persist();
-    } catch(e) { }
+    } catch(e) { console.error("SQLite Execute Error:", e, sql); }
   }
 
   public async replaceAllData(data: AppState) {
@@ -294,7 +305,8 @@ class SqliteApi implements ApiService {
     const pedagogicalRecords = (await this.query("SELECT * FROM pedagogical_records")).map((p: any) => ({
         ...p,
         checklist: JSON.parse(p.checklist || '{}'),
-        classHours: JSON.parse(p.classHours || '{}')
+        classHours: JSON.parse(p.classHours || '{}'),
+        missedClasses: p.missed_classes ? JSON.parse(p.missed_classes) : []
     }));
 
     return {
@@ -354,8 +366,8 @@ class SqliteApi implements ApiService {
   async deleteDocument(id: string): Promise<void> { await this.execute("DELETE FROM documents WHERE id = ?", [id]); }
 
   async savePedagogicalRecord(record: PedagogicalRecord): Promise<PedagogicalRecord> {
-      await this.execute(`INSERT OR REPLACE INTO pedagogical_records VALUES (?, ?, ?, ?, ?, ?)`,
-      [record.id, record.teacherName, record.weekStart, JSON.stringify(record.checklist), JSON.stringify(record.classHours), record.observation || '']);
+      await this.execute(`INSERT OR REPLACE INTO pedagogical_records (id, teacherName, weekStart, checklist, classHours, observation, missed_classes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [record.id, record.teacherName, record.weekStart, JSON.stringify(record.checklist), JSON.stringify(record.classHours), record.observation || '', JSON.stringify(record.missedClasses || [])]);
       return record;
   }
   async deletePedagogicalRecord(id: string): Promise<void> { await this.execute("DELETE FROM pedagogical_records WHERE id = ?", [id]); }
