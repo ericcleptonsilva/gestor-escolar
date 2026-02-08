@@ -36,7 +36,7 @@ def run(playwright):
         page.get_by_role("button", name="Novo Registro").click()
 
         # Unique Teacher Name
-        teacher_name = f"Prof. DisplayTest {datetime.datetime.now().strftime('%H%M%S')}"
+        teacher_name = f"Prof. SwapTest {datetime.datetime.now().strftime('%H%M%S')}"
         print(f"Creating record for: {teacher_name}")
 
         # Target Modal Inputs explicitly
@@ -45,40 +45,41 @@ def run(playwright):
         modal.get_by_placeholder("Ex: João da Silva").fill(teacher_name)
 
         # Fill Week Start (First date input in modal)
-        # Using a fixed date for week start
         modal.locator("input[type='date']").first.fill("2024-02-05")
 
-        # 4. Add Missed Class
-        print("Adding Missed Class...")
-        # The missed class inputs are in a grid-cols-12 container inside the modal (updated layout?)
-        # Let's find inputs by placeholder or type relative to "Faltas por Horário"
+        # Set Hours
+        # We need to find the inputs for Planned and Given hours.
+        # They are inputs of type number.
+        # "Horas Planejadas" label is above the first one.
+        # "Horas Dadas" label is above the second one.
 
-        # Check if "Faltas por Horário" text is visible
-        if modal.get_by_text("Faltas por Horário").is_visible():
-            print("Found 'Faltas por Horário' section.")
+        # Since they are in a grid, let's target by label text if possible or order.
+        # Assuming Planned is the first number input in the "Gestão de Horas" section?
+        # Actually, "Horas Planejadas" -> Input
 
-        # Find the inputs for adding missed class.
-        # In my read of the code, I saw inputs with:
-        # value={newMissedClass.date} (type=date)
-        # value={newMissedClass.time} (type=time)
-        # value={newMissedClass.hours} (type=number, placeholder="Hrs")
-        # value={newMissedClass.reason} (placeholder="Motivo")
+        # Let's use get_by_label logic approximation (looking for nearby text)
+        # Or simpler: The modal has inputs.
+        # Planned is likely the first number input. Given is the second.
+        # Missed hours is the third.
 
-        # There are multiple date inputs in the modal (Week Start, and New Missed Class Date).
-        # We need the one associated with the missed class.
-        # It's inside the grid.
+        number_inputs = modal.locator("input[type='number']")
+        print(f"Found {number_inputs.count()} number inputs.")
 
-        # Let's be specific.
-        # The modal has a section "Gestão de Horas". inside that a grid for new missed class.
+        # Input 0: Planned
+        # Input 1: Given
+        # Input 2: Missed Hours (in the add section)
 
-        # Let's try filling the last date input, usually the new record one if others are above.
-        # But wait, Week Start is above.
-        # So we want the SECOND date input?
+        print("Setting Planned: 40")
+        number_inputs.nth(0).fill("40")
 
+        print("Setting Given: 40")
+        number_inputs.nth(1).fill("40")
+
+        # 4. Add Missed Class (2 hours)
+        print("Adding Missed Class (2 hours)...")
+
+        # Date
         date_inputs = modal.locator("input[type='date']")
-        print(f"Found {date_inputs.count()} date inputs.")
-
-        # The second one should be the missed class date
         missed_date = "2024-02-07"
         date_inputs.nth(1).fill(missed_date)
 
@@ -86,39 +87,37 @@ def run(playwright):
         missed_time = "14:30"
         time_input.fill(missed_time)
 
-        hours_input = modal.locator("input[type='number'][placeholder='Hrs']")
+        # Hours to miss
+        # This is the 3rd number input (index 2)
+        hours_input = number_inputs.nth(2)
         hours_input.fill("2")
 
         reason_input = modal.get_by_placeholder("Motivo")
-        reason_input.fill("Doctor Appointment")
+        reason_input.fill("Swap Verification")
 
-        # Click the + button to add
-        # The button is next to the reason input.
-        # Using the icon selector or locating button in the same container.
-        # We can find the button with the Plus icon inside the grid.
+        # Click Add
         add_btn = modal.locator("div.grid button").last
         add_btn.click()
 
-        # Verify it appears in the list inside the modal
-        if modal.get_by_text("Doctor Appointment").is_visible():
-            print("Success: Missed class added to list in modal.")
+        # Verify calculation in "Given" input?
+        # The logic updates the `given` state. The input value should reflect that.
+        # Let's check the Given input value (index 1).
+        given_val = number_inputs.nth(1).input_value()
+        print(f"Given Input Value after deduction: {given_val}")
+        if given_val == "38":
+            print("SUCCESS: Given hours automatically deducted to 38.")
         else:
-            print("FAIL: Missed class missing in modal list.")
+            print(f"FAIL: Given hours not deducted correctly. Value: {given_val}")
 
         # 5. Save
         print("Saving record...")
         modal.get_by_role("button", name="Salvar").click()
 
         # Wait for modal to close
-        try:
-            page.locator("text=Novo Registro Pedagógico").wait_for(state="hidden", timeout=5000)
-            print("Modal closed.")
-        except:
-             print("Modal didn't close, maybe validation error?")
-             page.screenshot(path="verification/pedagogical_modal_stuck.png")
+        page.locator("text=Novo Registro Pedagógico").wait_for(state="hidden", timeout=5000)
 
         # 6. Verify Table Display
-        print("Verifying table display...")
+        print("Verifying table display order...")
 
         # Look for the row
         page.wait_for_timeout(1000) # Wait for re-render
@@ -127,20 +126,12 @@ def run(playwright):
         if row.count() > 0:
             print(f"Found row for {teacher_name}")
 
-            # Check for "1 falta(s)" badge
-            if row.get_by_text("1 falta(s)").is_visible():
-                print("Badge '1 falta(s)' is visible.")
-            else:
-                print("FAIL: Badge not visible.")
+            # Check for "40 / 38"
+            # Since "Planned / Given" is the header.
+            expected_text = "40 / 38"
 
-            # Check for Date and Time display
-            # Format: 07/02/2024 14:30
-            # Note: 2024-02-07 in UTC is 07/02/2024.
-            expected_text = "07/02/2024 14:30"
-
-            # Since I put it in a specific span structure, searching by text should work if it's visible.
             if row.get_by_text(expected_text).is_visible():
-                print(f"SUCCESS: Found expected date/time text: '{expected_text}'")
+                print(f"SUCCESS: Found expected text order: '{expected_text}'")
             else:
                 print(f"FAIL: Could not find text '{expected_text}' in row.")
                 print(f"Row text content: {row.inner_text()}")
@@ -148,11 +139,11 @@ def run(playwright):
         else:
             print("FAIL: Row not found.")
 
-        page.screenshot(path="verification/pedagogical_display_result.png")
+        page.screenshot(path="verification/pedagogical_swap_result.png")
 
     except Exception as e:
         print(f"Test failed with exception: {e}")
-        page.screenshot(path="verification/pedagogical_display_error.png")
+        page.screenshot(path="verification/pedagogical_swap_error.png")
     finally:
         browser.close()
 

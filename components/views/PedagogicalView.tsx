@@ -226,7 +226,7 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex flex-col items-center">
                                         <span className={record.classHours.given < record.classHours.planned ? "text-red-500 font-bold" : "text-green-600 font-bold"}>
-                                            {record.classHours.given} / {record.classHours.planned}
+                                            {record.classHours.planned} / {record.classHours.given}
                                         </span>
                                         {(record.missedClasses?.length || 0) > 0 && (
                                             <div className="flex flex-col items-center gap-1 mt-1">
