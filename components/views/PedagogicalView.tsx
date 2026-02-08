@@ -229,9 +229,18 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                             {record.classHours.given} / {record.classHours.planned}
                                         </span>
                                         {(record.missedClasses?.length || 0) > 0 && (
-                                            <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded mt-1">
-                                                {record.missedClasses?.length} falta(s)
-                                            </span>
+                                            <div className="flex flex-col items-center gap-1 mt-1">
+                                                <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded font-bold">
+                                                    {record.missedClasses?.length} falta(s)
+                                                </span>
+                                                <div className="flex flex-col gap-0.5 items-center">
+                                                    {(record.missedClasses || []).map((missed, idx) => (
+                                                        <span key={idx} className="text-[10px] text-slate-500 whitespace-nowrap bg-slate-100 dark:bg-slate-700 px-1 rounded border border-slate-200 dark:border-slate-600">
+                                                            {new Date(missed.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} {missed.time}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </td>
