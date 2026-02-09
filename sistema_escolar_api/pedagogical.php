@@ -2,17 +2,38 @@
 require 'cors.php';
 require 'conexao.php';
 
+// Helper to check and create table if not exists
+function ensurePedagogicalTable($pdo) {
+    try {
+        $check = $pdo->query("SHOW TABLES LIKE 'pedagogical_records'");
+        if ($check->rowCount() == 0) {
+            $sql = "CREATE TABLE IF NOT EXISTS pedagogical_records (
+                id VARCHAR(50) PRIMARY KEY,
+                teacherName VARCHAR(255) NOT NULL,
+                weekStart VARCHAR(20) NOT NULL,
+                checklist TEXT,
+                classHours TEXT,
+                observation TEXT,
+                missed_classes TEXT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+            $pdo->exec($sql);
+        } else {
+             // Check for column migration (missed_classes)
+            $colCheck = $pdo->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
+            if ($colCheck->rowCount() == 0) {
+                $pdo->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
+            }
+        }
+    } catch (PDOException $e) {
+        // Log error or handle silently? Best to let it fail later if critical.
+    }
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method == 'GET') {
     try {
-        // Ensure table exists (basic migration check)
-        // In production, this should be in a separate migration script, but for XAMPP drag-drop ease:
-        $check = $pdo->query("SHOW TABLES LIKE 'pedagogical_records'");
-        if ($check->rowCount() == 0) {
-            echo json_encode([]);
-            exit();
-        }
+        ensurePedagogicalTable($pdo);
 
         $stmt = $pdo->prepare("SELECT * FROM pedagogical_records");
         $stmt->execute();
@@ -43,11 +64,7 @@ if ($method == 'POST') {
     }
 
     try {
-        // Check for column migration
-        $colCheck = $pdo->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
-        if ($colCheck->rowCount() == 0) {
-            $pdo->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
-        }
+        ensurePedagogicalTable($pdo);
 
         $sql = "INSERT INTO pedagogical_records (id, teacherName, weekStart, checklist, classHours, observation, missed_classes)
                 VALUES (:id, :teacherName, :weekStart, :checklist, :classHours, :observation, :missed_classes)
@@ -82,6 +99,8 @@ if ($method == 'DELETE') {
     }
 
     try {
+        ensurePedagogicalTable($pdo);
+
         $stmt = $pdo->prepare("DELETE FROM pedagogical_records WHERE id = :id");
         $stmt->execute([':id' => $id]);
         echo json_encode(["success" => true]);
