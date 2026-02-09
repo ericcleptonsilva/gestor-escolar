@@ -3,15 +3,19 @@
 
 // Configurações do Banco
 $host = 'localhost';
-$port = '3306'; // <--- Adicione a porta aqui (verifique no seu XAMPP)
-$dbname = 'escola360';
+$port = '3306';
+$dbname = 'sistema_escolar'; // Alterado para o banco correto do XAMPP
 $username = 'root';
 $password = '';
 
 try {
-    // Note que adicionamos ";port=$port" dentro da string de conexão
-    $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8";
+    // Usando 127.0.0.1 em vez de localhost as vezes ajuda com problemas de socket no Windows
+    // Mas vamos manter localhost por enquanto.
+    $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8";
     
+    // Adicionar porta se necessário (mas padrão 3306 geralmente funciona sem especificar)
+    // $dsn .= ";port=$port";
+
     $pdo = new PDO($dsn, $username, $password);
     
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
