@@ -260,6 +260,8 @@ export default function App() {
   }, [currentUser]);
 
   // --- POLLING / AUTO-SYNC ---
+  // Desativado a pedido do usuário para evitar conflitos de edição
+  /*
   useEffect(() => {
     // Only poll if logged in and not editing (to avoid overwriting work)
     if (!currentUser || isEditingStudent || isEditingUser || isImporting) return;
@@ -284,6 +286,7 @@ export default function App() {
 
     return () => clearInterval(intervalId);
   }, [currentUser, isEditingStudent, isEditingUser, isImporting]);
+  */
 
   // --- COMPUTED VALUES ---
   const getVisibleStudents = useMemo(() => {
