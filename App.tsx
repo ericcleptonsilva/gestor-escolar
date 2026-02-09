@@ -649,9 +649,15 @@ export default function App() {
 
   // Pedagogical Actions
   const handleSavePedagogical = async (record: any) => {
-    await api.savePedagogicalRecord(record);
-    const refreshed = await api.loadAllData();
-    setState(refreshed); // Sync full state to get updated list
+    const savedRecord = await api.savePedagogicalRecord(record);
+    setState(prev => {
+        const exists = (prev.pedagogicalRecords || []).find(r => r.id === savedRecord.id);
+        if (exists) {
+            return { ...prev, pedagogicalRecords: (prev.pedagogicalRecords || []).map(r => r.id === savedRecord.id ? savedRecord : r) };
+        } else {
+            return { ...prev, pedagogicalRecords: [...(prev.pedagogicalRecords || []), savedRecord] };
+        }
+    });
   };
 
   const handleDeletePedagogical = async (id: string) => {
