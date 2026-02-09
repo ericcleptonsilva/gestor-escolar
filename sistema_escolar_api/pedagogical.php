@@ -1,24 +1,20 @@
 <?php
-include 'db.php';
+require 'cors.php';
+require 'conexao.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-
-if ($method == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
 
 if ($method == 'GET') {
     try {
         // Ensure table exists (basic migration check)
         // In production, this should be in a separate migration script, but for XAMPP drag-drop ease:
-        $check = $conn->query("SHOW TABLES LIKE 'pedagogical_records'");
+        $check = $pdo->query("SHOW TABLES LIKE 'pedagogical_records'");
         if ($check->rowCount() == 0) {
             echo json_encode([]);
             exit();
         }
 
-        $stmt = $conn->prepare("SELECT * FROM pedagogical_records");
+        $stmt = $pdo->prepare("SELECT * FROM pedagogical_records");
         $stmt->execute();
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -38,7 +34,7 @@ if ($method == 'GET') {
 }
 
 if ($method == 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
+    $data = getBody();
 
     if (!isset($data['id'])) {
         http_response_code(400);
@@ -48,9 +44,9 @@ if ($method == 'POST') {
 
     try {
         // Check for column migration
-        $colCheck = $conn->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
+        $colCheck = $pdo->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
         if ($colCheck->rowCount() == 0) {
-            $conn->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
+            $pdo->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
         }
 
         $sql = "INSERT INTO pedagogical_records (id, teacherName, weekStart, checklist, classHours, observation, missed_classes)
@@ -58,7 +54,7 @@ if ($method == 'POST') {
                 ON DUPLICATE KEY UPDATE
                 teacherName=:teacherName, weekStart=:weekStart, checklist=:checklist, classHours=:classHours, observation=:observation, missed_classes=:missed_classes";
 
-        $stmt = $conn->prepare($sql);
+        $stmt = $pdo->prepare($sql);
 
         $stmt->execute([
             ':id' => $data['id'],
@@ -86,7 +82,7 @@ if ($method == 'DELETE') {
     }
 
     try {
-        $stmt = $conn->prepare("DELETE FROM pedagogical_records WHERE id = :id");
+        $stmt = $pdo->prepare("DELETE FROM pedagogical_records WHERE id = :id");
         $stmt->execute([':id' => $id]);
         echo json_encode(["success" => true]);
     } catch (PDOException $e) {
