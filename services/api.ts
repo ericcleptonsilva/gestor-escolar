@@ -274,8 +274,8 @@ class SqliteApi implements ApiService {
             this.db.run("INSERT INTO subjects VALUES (?)", [sub]);
         }
         for (const p of data.pedagogicalRecords) {
-            this.db.run("INSERT INTO pedagogical_records VALUES (?, ?, ?, ?, ?, ?)",
-            [p.id, p.teacherName, p.weekStart, JSON.stringify(p.checklist), JSON.stringify(p.classHours), p.observation || '']);
+            this.db.run("INSERT INTO pedagogical_records VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [p.id, p.teacherName, p.weekStart, JSON.stringify(p.checklist), JSON.stringify(p.classHours), p.observation || '', JSON.stringify(p.missedClasses || [])]);
         }
         this.persist();
     } catch (e) { console.error("Error replacing data in SQLite:", e); }
