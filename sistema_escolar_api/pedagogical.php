@@ -1,4 +1,25 @@
 <?php
+// Ensure errors are reported as JSON
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Disable HTML errors, we handle manually
+ini_set('log_errors', 1);
+
+// Custom Error Handler to return JSON on fatal errors
+function exception_handler($e) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(["error" => $e->getMessage(), "file" => $e->getFile(), "line" => $e->getLine()]);
+    exit;
+}
+set_exception_handler('exception_handler');
+
+// Ensure PDO extension is loaded
+if (!extension_loaded('pdo_mysql')) {
+    http_response_code(500);
+    echo json_encode(["error" => "Extensão PHP 'pdo_mysql' não carregada. Verifique seu php.ini."]);
+    exit;
+}
+
 require 'cors.php';
 require 'conexao.php';
 
@@ -26,6 +47,7 @@ function ensurePedagogicalTable($pdo) {
         }
     } catch (PDOException $e) {
         // Log error or handle silently? Best to let it fail later if critical.
+        error_log("Table check failed: " . $e->getMessage());
     }
 }
 
