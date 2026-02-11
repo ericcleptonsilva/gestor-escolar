@@ -7,9 +7,13 @@ import {
   Trash2,
   Edit,
   Save,
-  X
+  X,
+  FileSpreadsheet,
+  LayoutList,
+  CalendarDays,
+  FolderOpen
 } from 'lucide-react';
-import { AppState, PedagogicalRecord } from '@/types';
+import { AppState, PedagogicalRecord, DeliveryRecord, AcademicPeriod, Shift } from '@/types';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
@@ -19,7 +23,11 @@ interface PedagogicalViewProps {
   onDeleteRecord: (id: string) => Promise<void>;
 }
 
+const TAB_General = 'Geral';
+const TAB_Coordination = 'Coordenação';
+
 export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: PedagogicalViewProps) {
+  const [activeTab, setActiveTab] = useState(TAB_General);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterWeek, setFilterWeek] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,11 +41,25 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
       checklist: { 'Agenda Atualizada': false, 'Provas Entregues': false, 'Diários em Dia': false },
       classHours: { planned: 0, given: 0 },
       missedClasses: [],
+      coordination: [],
       observation: ''
   });
 
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [newMissedClass, setNewMissedClass] = useState<{date: string, time: string, hours: number, reason: string}>({ date: '', time: '', hours: 1, reason: '' });
+
+  // Coordination Form State
+  const [newDelivery, setNewDelivery] = useState<DeliveryRecord>({
+      id: '',
+      type: 'Prova',
+      deadline: '',
+      deliveredDate: '',
+      status: 'Pendente',
+      academicPeriod: '1ª Bi',
+      week: '',
+      class: '',
+      shift: 'Manhã'
+  });
 
   const filteredRecords = useMemo(() => {
     return (state.pedagogicalRecords || []).filter(record => {
@@ -57,7 +79,12 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
           checklist['Provas Entregues'] = false;
           checklist['Diários em Dia'] = false;
       }
-      setFormData({ ...record, checklist, missedClasses: record.missedClasses || [] });
+      setFormData({
+          ...record,
+          checklist,
+          missedClasses: record.missedClasses || [],
+          coordination: record.coordination || []
+      });
     } else {
       setEditingRecord(null);
       setFormData({
@@ -67,10 +94,53 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
         checklist: { 'Agenda Atualizada': false, 'Provas Entregues': false, 'Diários em Dia': false },
         classHours: { planned: 0, given: 0 },
         missedClasses: [],
+        coordination: [],
         observation: ''
       });
     }
     setIsModalOpen(true);
+  };
+
+  const handleAddDelivery = () => {
+      // Auto-calc status based on dates if both present
+      let calculatedStatus = newDelivery.status;
+      if (newDelivery.deadline && newDelivery.deliveredDate) {
+          if (newDelivery.deliveredDate <= newDelivery.deadline) {
+              // Check if significantly early (e.g. 2 days)
+              const diff = new Date(newDelivery.deadline).getTime() - new Date(newDelivery.deliveredDate).getTime();
+              const daysDiff = diff / (1000 * 3600 * 24);
+              calculatedStatus = daysDiff >= 2 ? 'Antecipado' : 'No Prazo';
+          } else {
+              calculatedStatus = 'Fora do Prazo';
+          }
+      }
+
+      const item: DeliveryRecord = {
+          ...newDelivery,
+          id: Math.random().toString(36).substr(2, 9),
+          status: calculatedStatus
+      };
+
+      setFormData(prev => ({
+          ...prev,
+          coordination: [...(prev.coordination || []), item]
+      }));
+
+      // Reset mostly, keep some context like type
+      setNewDelivery(prev => ({
+          ...prev,
+          id: '',
+          deadline: '',
+          deliveredDate: '',
+          status: 'Pendente'
+      }));
+  };
+
+  const handleRemoveDelivery = (id: string) => {
+      setFormData(prev => ({
+          ...prev,
+          coordination: (prev.coordination || []).filter(c => c.id !== id)
+      }));
   };
 
   const handleSave = async () => {
@@ -146,6 +216,23 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
         </Button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
+          {[TAB_General, TAB_Coordination].map(tab => (
+              <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      activeTab === tab
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+              >
+                  {tab}
+              </button>
+          ))}
+      </div>
+
       {/* Filters */}
       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4">
         <div className="flex-1">
@@ -170,16 +257,26 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
         </div>
       </div>
 
-      {/* Table */}
+      {/* Content */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-medium border-b border-slate-200 dark:border-slate-700">
                     <tr>
                         <th className="px-6 py-4">Professor</th>
-                        <th className="px-6 py-4">Semana (Início)</th>
-                        <th className="px-6 py-4 text-center">Checklist</th>
-                        <th className="px-6 py-4 text-center">Horas (Plan/Dada)</th>
+                        <th className="px-6 py-4">Semana</th>
+
+                        {activeTab === TAB_General && (
+                            <>
+                                <th className="px-6 py-4 text-center">Checklist</th>
+                                <th className="px-6 py-4 text-center">Horas (Plan/Dada)</th>
+                            </>
+                        )}
+
+                        {activeTab === TAB_Coordination && (
+                            <th className="px-6 py-4">Entregas & Drives</th>
+                        )}
+
                         <th className="px-6 py-4">Observação</th>
                         <th className="px-6 py-4 text-right">Ações</th>
                     </tr>
@@ -198,52 +295,82 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                                 <td className="px-6 py-4 text-slate-500">
                                     {new Date(record.weekStart).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                 </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-wrap gap-2 justify-center">
-                                        <div className="flex items-center gap-1 text-xs" title="Agenda Atualizada">
-                                            <span className="text-slate-500">Agenda:</span>
-                                            <StatusIcon checked={!!record.checklist['Agenda Atualizada'] || !!record.checklist['agenda']} />
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs" title="Provas Entregues">
-                                            <span className="text-slate-500">Provas:</span>
-                                            <StatusIcon checked={!!record.checklist['Provas Entregues'] || !!record.checklist['exams']} />
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs" title="Diários em Dia">
-                                            <span className="text-slate-500">Diários:</span>
-                                            <StatusIcon checked={!!record.checklist['Diários em Dia'] || !!record.checklist['diaries']} />
-                                        </div>
-                                        {Object.entries(record.checklist)
-                                            .filter(([k]) => !['Agenda Atualizada', 'Provas Entregues', 'Diários em Dia', 'agenda', 'exams', 'diaries'].includes(k))
-                                            .map(([k, v]) => (
-                                                <div key={k} className="flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
-                                                    <span className="text-indigo-600 dark:text-indigo-300 font-medium">{k}</span>
-                                                    {v ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-300" />}
+
+                                {activeTab === TAB_General && (
+                                    <>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                <div className="flex items-center gap-1 text-xs" title="Agenda Atualizada">
+                                                    <span className="text-slate-500">Agenda:</span>
+                                                    <StatusIcon checked={!!record.checklist['Agenda Atualizada'] || !!record.checklist['agenda']} />
                                                 </div>
-                                            ))
-                                        }
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <div className="flex flex-col items-center">
-                                        <span className={record.classHours.given < record.classHours.planned ? "text-red-500 font-bold" : "text-green-600 font-bold"}>
-                                            {record.classHours.planned} / {record.classHours.given}
-                                        </span>
-                                        {(record.missedClasses?.length || 0) > 0 && (
-                                            <div className="flex flex-col items-center gap-1 mt-1">
-                                                <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded font-bold">
-                                                    {record.missedClasses?.length} falta(s)
-                                                </span>
-                                                <div className="flex flex-col gap-0.5 items-center">
-                                                    {(record.missedClasses || []).map((missed, idx) => (
-                                                        <span key={idx} className="text-[10px] text-slate-500 whitespace-nowrap bg-slate-100 dark:bg-slate-700 px-1 rounded border border-slate-200 dark:border-slate-600">
-                                                            {new Date(missed.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} {missed.time}
-                                                        </span>
-                                                    ))}
+                                                <div className="flex items-center gap-1 text-xs" title="Provas Entregues">
+                                                    <span className="text-slate-500">Provas:</span>
+                                                    <StatusIcon checked={!!record.checklist['Provas Entregues'] || !!record.checklist['exams']} />
                                                 </div>
+                                                <div className="flex items-center gap-1 text-xs" title="Diários em Dia">
+                                                    <span className="text-slate-500">Diários:</span>
+                                                    <StatusIcon checked={!!record.checklist['Diários em Dia'] || !!record.checklist['diaries']} />
+                                                </div>
+                                                {Object.entries(record.checklist)
+                                                    .filter(([k]) => !['Agenda Atualizada', 'Provas Entregues', 'Diários em Dia', 'agenda', 'exams', 'diaries'].includes(k))
+                                                    .map(([k, v]) => (
+                                                        <div key={k} className="flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
+                                                            <span className="text-indigo-600 dark:text-indigo-300 font-medium">{k}</span>
+                                                            {v ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-300" />}
+                                                        </div>
+                                                    ))
+                                                }
                                             </div>
-                                        )}
-                                    </div>
-                                </td>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex flex-col items-center">
+                                                <span className={record.classHours.given < record.classHours.planned ? "text-red-500 font-bold" : "text-green-600 font-bold"}>
+                                                    {record.classHours.planned} / {record.classHours.given}
+                                                </span>
+                                                {(record.missedClasses?.length || 0) > 0 && (
+                                                    <div className="flex flex-col items-center gap-1 mt-1">
+                                                        <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded font-bold">
+                                                            {record.missedClasses?.length} falta(s)
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </>
+                                )}
+
+                                {activeTab === TAB_Coordination && (
+                                    <td className="px-6 py-4">
+                                        <div className="space-y-1">
+                                            {(record.coordination || []).map((item, idx) => (
+                                                <div key={idx} className="flex items-center gap-2 text-xs border border-slate-200 dark:border-slate-700 p-1.5 rounded bg-slate-50 dark:bg-slate-900/30">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                                                        item.type === 'Prova' ? 'bg-purple-100 text-purple-700' :
+                                                        item.type === 'Plano' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                                                    }`}>
+                                                        {item.type}
+                                                    </span>
+                                                    <span className={`font-medium ${
+                                                        item.status === 'Fora do Prazo' || item.status === 'Atrasado' ? 'text-red-500' :
+                                                        item.status === 'Antecipado' ? 'text-green-600' : 'text-slate-600 dark:text-slate-300'
+                                                    }`}>
+                                                        {item.status}
+                                                    </span>
+                                                    {item.deliveredDate && (
+                                                        <span className="text-slate-400 text-[10px]">
+                                                            (Ent: {new Date(item.deliveredDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {(!record.coordination || record.coordination.length === 0) && (
+                                                <span className="text-slate-400 text-xs italic">Sem registros de coordenação</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                )}
+
                                 <td className="px-6 py-4 text-slate-500 max-w-xs truncate" title={record.observation}>{record.observation || '-'}</td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-2">
@@ -295,8 +422,93 @@ export function PedagogicalView({ state, onSaveRecord, onDeleteRecord }: Pedagog
                         />
                     </div>
 
+                    {/* Coordination Section in Modal */}
+                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl space-y-3 border border-indigo-100 dark:border-indigo-900/50">
+                        <h4 className="text-sm font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                            <FolderOpen size={16} />
+                            Coordenação (Entregas & Drives)
+                        </h4>
+
+                        <div className="grid grid-cols-12 gap-2 bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="col-span-4">
+                                <label className="text-[10px] text-slate-500 font-bold block mb-1">Tipo</label>
+                                <select
+                                    className="w-full text-xs h-8 rounded border-slate-300 bg-slate-50 p-1"
+                                    value={newDelivery.type}
+                                    onChange={e => setNewDelivery({...newDelivery, type: e.target.value as any})}
+                                >
+                                    <option value="Prova">Prova</option>
+                                    <option value="Plano">Plano</option>
+                                    <option value="Drive">Drive</option>
+                                </select>
+                            </div>
+
+                            {newDelivery.type !== 'Drive' ? (
+                                <>
+                                    <div className="col-span-4">
+                                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Prazo</label>
+                                        <Input type="date" className="h-8 text-xs w-full" value={newDelivery.deadline} onChange={e => setNewDelivery({...newDelivery, deadline: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-4">
+                                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Entregue Em</label>
+                                        <Input type="date" className="h-8 text-xs w-full" value={newDelivery.deliveredDate} onChange={e => setNewDelivery({...newDelivery, deliveredDate: e.target.value})} />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="col-span-4">
+                                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Semana/Ref</label>
+                                        <Input className="h-8 text-xs w-full" placeholder="Ex: Sem 4" value={newDelivery.week} onChange={e => setNewDelivery({...newDelivery, week: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-4">
+                                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Status</label>
+                                        <select
+                                            className="w-full text-xs h-8 rounded border-slate-300 bg-slate-50 p-1"
+                                            value={newDelivery.status}
+                                            onChange={e => setNewDelivery({...newDelivery, status: e.target.value as any})}
+                                        >
+                                            <option value="Pendente">Pendente</option>
+                                            <option value="No Prazo">Ok / No Prazo</option>
+                                            <option value="Atrasado">Atrasado</option>
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="col-span-12 flex justify-end">
+                                <Button size="sm" onClick={handleAddDelivery} className="w-full mt-2">
+                                    <Plus size={14} className="mr-1" /> Adicionar Entrega
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {(formData.coordination || []).map((item) => (
+                                <div key={item.id} className="flex items-center justify-between bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700 text-xs">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-slate-700 dark:text-slate-200">{item.type}</span>
+                                        <span className="text-[10px] text-slate-500">
+                                            {item.type === 'Drive' ? item.week : `Prazo: ${item.deadline ? new Date(item.deadline).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : '?'}`}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                            item.status === 'No Prazo' || item.status === 'Antecipado' ? 'bg-green-100 text-green-700' :
+                                            item.status === 'Pendente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {item.status}
+                                        </span>
+                                        <button onClick={() => handleRemoveDelivery(item.id)} className="text-red-400 hover:text-red-600">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl space-y-3">
-                        <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Checklist de Entregas</h4>
+                        <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Checklist de Entregas (Geral)</h4>
 
                         {Object.entries(formData.checklist).map(([key, value]) => (
                             <div key={key} className="flex items-center justify-between group">
