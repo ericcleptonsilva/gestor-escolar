@@ -35,14 +35,19 @@ function ensurePedagogicalTable($pdo) {
                 checklist TEXT,
                 classHours TEXT,
                 observation TEXT,
-                missed_classes TEXT
+                missed_classes TEXT,
+                coordination TEXT
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
             $pdo->exec($sql);
         } else {
-             // Check for column migration (missed_classes)
-            $colCheck = $pdo->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
-            if ($colCheck->rowCount() == 0) {
+             // Check for column migration (missed_classes and coordination)
+            $cols = $pdo->query("SHOW COLUMNS FROM pedagogical_records")->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!in_array('missed_classes', $cols)) {
                 $pdo->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
+            }
+            if (!in_array('coordination', $cols)) {
+                $pdo->exec("ALTER TABLE pedagogical_records ADD COLUMN coordination TEXT");
             }
         }
     } catch (PDOException $e) {
@@ -66,6 +71,8 @@ if ($method == 'GET') {
             $row['checklist'] = json_decode($row['checklist']);
             $row['classHours'] = json_decode($row['classHours']);
             $row['missedClasses'] = isset($row['missed_classes']) ? json_decode($row['missed_classes']) : [];
+            $row['coordination'] = isset($row['coordination']) ? json_decode($row['coordination']) : [];
+
             unset($row['missed_classes']); // Map back to camelCase for JS
         }
 
@@ -88,10 +95,10 @@ if ($method == 'POST') {
     try {
         ensurePedagogicalTable($pdo);
 
-        $sql = "INSERT INTO pedagogical_records (id, teacherName, weekStart, checklist, classHours, observation, missed_classes)
-                VALUES (:id, :teacherName, :weekStart, :checklist, :classHours, :observation, :missed_classes)
+        $sql = "INSERT INTO pedagogical_records (id, teacherName, weekStart, checklist, classHours, observation, missed_classes, coordination)
+                VALUES (:id, :teacherName, :weekStart, :checklist, :classHours, :observation, :missed_classes, :coordination)
                 ON DUPLICATE KEY UPDATE
-                teacherName=:teacherName, weekStart=:weekStart, checklist=:checklist, classHours=:classHours, observation=:observation, missed_classes=:missed_classes";
+                teacherName=:teacherName, weekStart=:weekStart, checklist=:checklist, classHours=:classHours, observation=:observation, missed_classes=:missed_classes, coordination=:coordination";
 
         $stmt = $pdo->prepare($sql);
 
@@ -102,7 +109,8 @@ if ($method == 'POST') {
             ':checklist' => json_encode($data['checklist']),
             ':classHours' => json_encode($data['classHours']),
             ':observation' => $data['observation'] ?? '',
-            ':missed_classes' => json_encode($data['missedClasses'] ?? [])
+            ':missed_classes' => json_encode($data['missedClasses'] ?? []),
+            ':coordination' => json_encode($data['coordination'] ?? [])
         ]);
 
         echo json_encode($data);

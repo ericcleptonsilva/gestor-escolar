@@ -90,6 +90,18 @@ export interface MissedClass {
   reason?: string;
 }
 
+export interface DeliveryRecord {
+  id: string;
+  type: 'Prova' | 'Plano' | 'Drive';
+  deadline?: string; // Prazo
+  deliveredDate?: string; // Data da Entrega
+  status: 'No Prazo' | 'Antecipado' | 'Fora do Prazo' | 'Pendente';
+  academicPeriod?: AcademicPeriod; // Bimestre/Etapa
+  week?: string; // Para Drives
+  class?: string; // Turma
+  shift?: Shift; // Turno
+}
+
 export interface PedagogicalRecord {
   id: string;
   teacherName: string;
@@ -100,6 +112,7 @@ export interface PedagogicalRecord {
     given: number;
   };
   missedClasses?: MissedClass[]; // New field for missed hours
+  coordination?: DeliveryRecord[]; // New field for complex coordination data
   observation?: string;
 }
 
