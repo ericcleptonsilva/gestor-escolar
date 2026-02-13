@@ -42,9 +42,10 @@ const STATUS_OPTIONS_BY_TYPE: Record<DeliveryType, DeliveryStatus[]> = {
 interface CoordinationViewProps {
   state: AppState;
   currentUser: User;
+  onUpdateState: React.Dispatch<React.SetStateAction<AppState>>;
 }
 
-export function CoordinationView({ state, currentUser }: CoordinationViewProps) {
+export function CoordinationView({ state, currentUser, onUpdateState }: CoordinationViewProps) {
   // --- ACCORDION STATE ---
   const [openSection, setOpenSection] = useState<'teachers' | 'drives' | 'catalogs' | null>('drives');
   const [activeDriveTab, setActiveDriveTab] = useState<DeliveryType>('Exam');
@@ -114,15 +115,25 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
           alert("Nome e Email são obrigatórios.");
           return;
       }
-      await api.saveUser(teacherForm);
+      const savedUser = await api.saveUser(teacherForm);
+      onUpdateState(prev => {
+          const exists = prev.users.find(u => u.id === savedUser.id);
+          if (exists) {
+              return { ...prev, users: prev.users.map(u => u.id === savedUser.id ? savedUser : u) };
+          } else {
+              return { ...prev, users: [...prev.users, savedUser] };
+          }
+      });
       setIsTeacherModalOpen(false);
-      window.location.reload();
   };
 
   const handleDeleteTeacher = async (id: string) => {
       if (confirm("Tem certeza que deseja excluir este professor?")) {
           await api.deleteUser(id);
-          window.location.reload();
+          onUpdateState(prev => ({
+              ...prev,
+              users: prev.users.filter(u => u.id !== id)
+          }));
       }
   };
 
@@ -153,8 +164,8 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       if (newCatalogSubject && !state.subjects.includes(newCatalogSubject)) {
           const newSubjects = [...state.subjects, newCatalogSubject];
           await api.updateSubjects(newSubjects);
+          onUpdateState(prev => ({ ...prev, subjects: newSubjects }));
           setNewCatalogSubject('');
-          window.location.reload();
       }
   };
 
@@ -162,7 +173,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       if (confirm(`Remover disciplina "${subject}"?`)) {
           const newSubjects = state.subjects.filter(s => s !== subject);
           await api.updateSubjects(newSubjects);
-          window.location.reload();
+          onUpdateState(prev => ({ ...prev, subjects: newSubjects }));
       }
   };
 
@@ -170,8 +181,8 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       if (newCatalogGrade && !state.grades.includes(newCatalogGrade)) {
           const newGrades = [...state.grades, newCatalogGrade];
           await api.updateGrades(newGrades);
+          onUpdateState(prev => ({ ...prev, grades: newGrades }));
           setNewCatalogGrade('');
-          window.location.reload();
       }
   };
 
@@ -179,7 +190,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       if (confirm(`Remover série "${grade}"?`)) {
           const newGrades = state.grades.filter(g => g !== grade);
           await api.updateGrades(newGrades);
-          window.location.reload();
+          onUpdateState(prev => ({ ...prev, grades: newGrades }));
       }
   };
 
@@ -217,15 +228,25 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       const teacher = teachers.find(t => t.id === deliveryForm.teacherId);
       if (teacher) deliveryForm.teacherName = teacher.name;
 
-      await api.saveCoordinationDelivery(deliveryForm);
+      const savedDelivery = await api.saveCoordinationDelivery(deliveryForm);
+      onUpdateState(prev => {
+          const exists = (prev.coordinationDeliveries || []).find(d => d.id === savedDelivery.id);
+          if (exists) {
+              return { ...prev, coordinationDeliveries: prev.coordinationDeliveries.map(d => d.id === savedDelivery.id ? savedDelivery : d) };
+          } else {
+              return { ...prev, coordinationDeliveries: [...(prev.coordinationDeliveries || []), savedDelivery] };
+          }
+      });
       setIsDeliveryModalOpen(false);
-      window.location.reload();
   };
 
   const handleDeleteDelivery = async (id: string) => {
       if (confirm("Excluir este registro?")) {
           await api.deleteCoordinationDelivery(id);
-          window.location.reload();
+          onUpdateState(prev => ({
+              ...prev,
+              coordinationDeliveries: (prev.coordinationDeliveries || []).filter(d => d.id !== id)
+          }));
       }
   };
 
@@ -741,34 +762,76 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
 
                           {activeDriveTab === 'Drive' && (
                               <div>
-                                  <label className="text-xs text-slate-400 block mb-2">Dias da Semana</label>
-                                  <div className="grid grid-cols-2 gap-2">
+                                  <label className="text-xs text-slate-400 block mb-2">Dias da Semana e Datas</label>
+                                  <div className="space-y-2">
                                     {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'].map((day) => {
-                                        const currentDays = deliveryForm.metadata.week ? deliveryForm.metadata.week.split(', ') : [];
-                                        const isChecked = currentDays.includes(day);
+                                        // Parse current metadata.week string to find if day is selected and its date
+                                        // Format expected: "Segunda (2023-10-23), Terça (2023-10-24)"
+                                        const parseWeek = (weekStr: string | undefined) => {
+                                            const map: Record<string, string> = {};
+                                            if (!weekStr) return map;
+                                            weekStr.split(',').forEach(part => {
+                                                const match = part.trim().match(/^(.+?)(?:\s\((.+)\))?$/);
+                                                if (match) {
+                                                    const d = match[1];
+                                                    const date = match[2] || '';
+                                                    if (['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'].includes(d)) {
+                                                        map[d] = date;
+                                                    }
+                                                }
+                                            });
+                                            return map;
+                                        };
+
+                                        const weekMap = parseWeek(deliveryForm.metadata.week);
+                                        const isChecked = weekMap.hasOwnProperty(day);
+                                        const dateValue = weekMap[day] || '';
+
+                                        const updateWeekMetadata = (newMap: Record<string, string>) => {
+                                            const order = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+                                            const parts = order
+                                                .filter(d => newMap.hasOwnProperty(d))
+                                                .map(d => newMap[d] ? `${d} (${newMap[d]})` : d);
+
+                                            setDeliveryForm({
+                                                ...deliveryForm,
+                                                metadata: { ...deliveryForm.metadata, week: parts.join(', ') }
+                                            });
+                                        };
+
                                         return (
-                                            <label key={day} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    onChange={() => {
-                                                        const newDays = isChecked
-                                                            ? currentDays.filter(d => d !== day)
-                                                            : [...currentDays, day];
+                                            <div key={day} className="flex items-center gap-2">
+                                                <label className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded w-24">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => {
+                                                            const newMap = { ...weekMap };
+                                                            if (isChecked) {
+                                                                delete newMap[day];
+                                                            } else {
+                                                                newMap[day] = '';
+                                                            }
+                                                            updateWeekMetadata(newMap);
+                                                        }}
+                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span>{day}</span>
+                                                </label>
 
-                                                        // Sort days based on standard week order
-                                                        const order = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
-                                                        newDays.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-
-                                                        setDeliveryForm({
-                                                            ...deliveryForm,
-                                                            metadata: { ...deliveryForm.metadata, week: newDays.join(', ') }
-                                                        });
-                                                    }}
-                                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                                />
-                                                <span>{day}</span>
-                                            </label>
+                                                {isChecked && (
+                                                    <Input
+                                                        type="date"
+                                                        className="h-8 w-40 text-xs"
+                                                        value={dateValue}
+                                                        onChange={(e) => {
+                                                            const newMap = { ...weekMap };
+                                                            newMap[day] = e.target.value;
+                                                            updateWeekMetadata(newMap);
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                         );
                                     })}
                                   </div>
