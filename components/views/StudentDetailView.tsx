@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Edit3, Trash2, MessageCircle, CalendarCheck, FileText, ClipboardList, Activity, BookOpen, CreditCard } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, MessageCircle, CalendarCheck, FileText, ClipboardList, Activity, BookOpen, CreditCard, ShieldAlert } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -33,6 +33,7 @@ export const StudentDetailView = ({
 
     const studentDocs = state.documents.filter(d => d.studentId === student.id);
     const studentExams = state.exams.filter(e => e.studentId === student.id);
+    const studentOccurrences = state.occurrences ? state.occurrences.filter(o => o.studentId === student.id).sort((a, b) => b.date.localeCompare(a.date)) : [];
 
     const formatWhatsAppLink = (phone: string) => {
         if (!phone) return '#';
@@ -177,6 +178,33 @@ export const StudentDetailView = ({
                                 </div>
                             )}
                         </Card>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-lg text-slate-800 dark:text-white mb-3 flex items-center">
+                            <ShieldAlert className="mr-2 text-red-500" size={20}/>
+                            Histórico de Ocorrências
+                        </h4>
+                        {studentOccurrences.length > 0 ? (
+                            <div className="space-y-2">
+                                {studentOccurrences.map(o => (
+                                    <div key={o.id} className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold text-slate-800 dark:text-white">{o.type === 'ConsecutiveAbsence' ? 'Faltas Consecutivas' : o.type}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">Data: {new Date(o.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p>
+                                            </div>
+                                            {o.contactedParents && (
+                                                <Badge color="green">Contato Realizado</Badge>
+                                            )}
+                                        </div>
+                                        {o.description && <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">"{o.description}"</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-400 italic">Nenhuma ocorrência registrada.</p>
+                        )}
                     </div>
 
                     <div>
