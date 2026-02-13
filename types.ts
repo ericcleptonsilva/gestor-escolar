@@ -17,7 +17,6 @@ export interface User {
   role: UserRole;
   photoUrl?: string;
   allowedGrades?: string[]; // Array of grades this user can access
-  subjects?: string[]; // Disciplinas que o professor leciona
 }
 
 export interface Guardian {
@@ -104,28 +103,6 @@ export interface PedagogicalRecord {
   observation?: string;
 }
 
-export type DeliveryType = 'Exam' | 'Plan' | 'Report' | 'Drive';
-export type DeliveryStatus = 'No Prazo' | 'Antecipado' | 'Fora do prazo' | 'Em Dias' | 'Atrasado';
-
-export interface CoordinationDelivery {
-  id: string;
-  teacherId: string;
-  teacherName: string;
-  type: DeliveryType;
-  deadline?: string;
-  deliveryDate?: string;
-  status: DeliveryStatus;
-  fileUrl?: string;
-  observation?: string;
-  metadata: {
-    grade?: string;
-    shift?: string;
-    subject?: string;
-    period?: string;
-    week?: string;
-  };
-}
-
 export interface AppState {
   users: User[];
   students: Student[];
@@ -134,7 +111,6 @@ export interface AppState {
   exams: MakeUpExam[];
   subjects: string[];
   pedagogicalRecords: PedagogicalRecord[];
-  coordinationDeliveries: CoordinationDelivery[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';

@@ -17,8 +17,7 @@ import {
   AlertTriangle,
   X,
   Settings,
-  GraduationCap,
-  Briefcase
+  GraduationCap
 } from 'lucide-react';
 
 import { 
@@ -65,7 +64,6 @@ import { HealthView } from '@/components/views/HealthView';
 import { ExamView } from '@/components/views/ExamView';
 import { ReportView } from '@/components/views/ReportView';
 import { PedagogicalView } from '@/components/views/PedagogicalView';
-import { CoordinationView } from '@/components/views/CoordinationView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
 
@@ -1602,10 +1600,7 @@ export default function App() {
               <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
               
               {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
-                  <>
-                    <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
-                    <SidebarItem icon={Briefcase} label="Coordenação" active={view === 'coordination'} onClick={() => { setView('coordination'); setIsSidebarOpen(false); }} />
-                  </>
+                  <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
               )}
 
               {currentUser.role === 'Admin' && (
@@ -1853,17 +1848,6 @@ export default function App() {
                         state={state}
                         onSaveRecord={handleSavePedagogical}
                         onDeleteRecord={handleDeletePedagogical}
-                     />
-                 ) : (
-                     <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
-                 )
-             )}
-
-             {view === 'coordination' && (
-                 (currentUser.role === 'Admin' || currentUser.role === 'Coordinator') ? (
-                     <CoordinationView
-                        state={state}
-                        currentUser={currentUser}
                      />
                  ) : (
                      <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
