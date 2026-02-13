@@ -14,22 +14,9 @@ function ensureUsersTable($pdo) {
                 password VARCHAR(255) NOT NULL,
                 role VARCHAR(50) NOT NULL,
                 photoUrl TEXT,
-                allowedGrades TEXT,
-                subjects TEXT,
-                registration VARCHAR(20)
+                allowedGrades TEXT
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
             $pdo->exec($sql);
-        } else {
-            // Migration: Add registration column if missing
-            $cols = $pdo->query("SHOW COLUMNS FROM users LIKE 'registration'");
-            if ($cols->rowCount() == 0) {
-                $pdo->exec("ALTER TABLE users ADD COLUMN registration VARCHAR(20)");
-            }
-            // Migration: Add subjects column if missing (already in logic but good to ensure)
-            $colsSub = $pdo->query("SHOW COLUMNS FROM users LIKE 'subjects'");
-            if ($colsSub->rowCount() == 0) {
-                $pdo->exec("ALTER TABLE users ADD COLUMN subjects TEXT");
-            }
         }
     } catch (PDOException $e) {
         error_log("Users table check failed: " . $e->getMessage());
@@ -57,8 +44,8 @@ if ($method === 'GET') {
         exit;
     }
 
-    $sql = "REPLACE INTO users (id, name, email, password, role, photoUrl, allowedGrades, subjects, registration)
-            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades, :subjects, :registration)";
+    $sql = "REPLACE INTO users (id, name, email, password, role, photoUrl, allowedGrades) 
+            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades)";
     
     try {
         $stmt = $pdo->prepare($sql);
@@ -69,9 +56,7 @@ if ($method === 'GET') {
             ':password' => $data['password'],
             ':role' => $data['role'],
             ':photoUrl' => $data['photoUrl'],
-            ':allowedGrades' => json_encode($data['allowedGrades'] ?? []),
-            ':subjects' => json_encode($data['subjects'] ?? []),
-            ':registration' => $data['registration'] ?? ''
+            ':allowedGrades' => json_encode($data['allowedGrades'] ?? [])
         ]);
         echo json_encode($data);
     } catch (PDOException $e) {

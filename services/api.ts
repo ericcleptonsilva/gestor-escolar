@@ -6,8 +6,7 @@ import {
   MakeUpExam, 
   HealthDocument,
   PedagogicalRecord,
-  CoordinationDelivery,
-  TeacherAttendanceRecord
+  CoordinationDelivery
 } from "../types";
 
 import { GRADES_LIST } from "../constants";
@@ -72,8 +71,7 @@ const DEFAULT_STATE: AppState = {
   ],
   grades: GRADES_LIST,
   pedagogicalRecords: [],
-  coordinationDeliveries: [],
-  teacherAttendance: []
+  coordinationDeliveries: []
 };
 
 // --- INTERFACES ---
@@ -113,10 +111,6 @@ interface ApiService {
   // Coordination
   saveCoordinationDelivery(record: CoordinationDelivery): Promise<CoordinationDelivery>;
   deleteCoordinationDelivery(id: string): Promise<void>;
-
-  // Teacher Attendance
-  saveTeacherAttendance(record: TeacherAttendanceRecord): Promise<TeacherAttendanceRecord>;
-  deleteTeacherAttendance(id: string): Promise<void>;
 
   // System
   resetSystem(): Promise<void>;
@@ -210,9 +204,6 @@ class SqliteApi implements ApiService {
       CREATE TABLE IF NOT EXISTS coordination_deliveries (
         id TEXT PRIMARY KEY, teacherId TEXT, teacherName TEXT, type TEXT, deadline TEXT, deliveryDate TEXT, status TEXT, fileUrl TEXT, observation TEXT, metadata TEXT
       );
-      CREATE TABLE IF NOT EXISTS teacher_attendance (
-        id TEXT PRIMARY KEY, teacherId TEXT, date TEXT, status TEXT, time TEXT, observation TEXT
-      );
     `);
     // Migration: Add missed_classes column if it doesn't exist
     try {
@@ -234,10 +225,6 @@ class SqliteApi implements ApiService {
           if (!columnNames.includes('subjects')) {
               console.log("Migrating: Adding subjects column to users...");
               this.db.run("ALTER TABLE users ADD COLUMN subjects TEXT;");
-          }
-          if (!columnNames.includes('registration')) {
-              console.log("Migrating: Adding registration column to users...");
-              this.db.run("ALTER TABLE users ADD COLUMN registration TEXT;");
           }
       }
     } catch (e) { console.error("Migration Error (Users):", e); }
@@ -306,7 +293,7 @@ class SqliteApi implements ApiService {
         this.db.run("DELETE FROM users; DELETE FROM students; DELETE FROM attendance; DELETE FROM documents; DELETE FROM exams; DELETE FROM subjects; DELETE FROM grades; DELETE FROM pedagogical_records; DELETE FROM coordination_deliveries;");
 
         for (const u of data.users) {
-            this.db.run("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [u.id, u.name, u.email, u.password, u.role, u.photoUrl, JSON.stringify(u.allowedGrades), JSON.stringify(u.subjects || []), u.registration || '']);
+            this.db.run("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [u.id, u.name, u.email, u.password, u.role, u.photoUrl, JSON.stringify(u.allowedGrades), JSON.stringify(u.subjects || [])]);
         }
         for (const s of data.students) {
             this.db.run("INSERT INTO students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
@@ -335,10 +322,6 @@ class SqliteApi implements ApiService {
         for (const c of data.coordinationDeliveries) {
             this.db.run("INSERT INTO coordination_deliveries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [c.id, c.teacherId, c.teacherName, c.type, c.deadline || '', c.deliveryDate || '', c.status, c.fileUrl || '', c.observation || '', JSON.stringify(c.metadata || {})]);
-        }
-        for (const t of data.teacherAttendance || []) {
-            this.db.run("INSERT INTO teacher_attendance VALUES (?, ?, ?, ?, ?, ?)",
-            [t.id, t.teacherId, t.date, t.status, t.time || '', t.observation || '']);
         }
         this.persist();
     } catch (e) { console.error("Error replacing data in SQLite:", e); }
@@ -385,7 +368,6 @@ class SqliteApi implements ApiService {
         ...c,
         metadata: JSON.parse(c.metadata || '{}')
     }));
-    const teacherAttendance = await this.query("SELECT * FROM teacher_attendance");
 
     return {
       users: users as User[],
@@ -396,8 +378,7 @@ class SqliteApi implements ApiService {
       subjects,
       grades,
       pedagogicalRecords: pedagogicalRecords as PedagogicalRecord[],
-      coordinationDeliveries: coordinationDeliveries as CoordinationDelivery[],
-      teacherAttendance: teacherAttendance as TeacherAttendanceRecord[]
+      coordinationDeliveries: coordinationDeliveries as CoordinationDelivery[]
     };
   }
 
@@ -406,8 +387,7 @@ class SqliteApi implements ApiService {
     if (res.length > 0) return {
         ...res[0],
         allowedGrades: JSON.parse(res[0].allowedGrades),
-        subjects: res[0].subjects ? JSON.parse(res[0].subjects) : [],
-        registration: res[0].registration || ''
+        subjects: res[0].subjects ? JSON.parse(res[0].subjects) : []
     } as User;
     return null;
   }
@@ -420,8 +400,8 @@ class SqliteApi implements ApiService {
   }
   async deleteStudent(id: string): Promise<void> { await this.execute("DELETE FROM students WHERE id = ?", [id]); }
   async saveUser(user: User): Promise<User> {
-    await this.execute(`INSERT OR REPLACE INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [user.id, user.name, user.email, user.password, user.role, user.photoUrl, JSON.stringify(user.allowedGrades), JSON.stringify(user.subjects || []), user.registration || '']);
+    await this.execute(`INSERT OR REPLACE INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [user.id, user.name, user.email, user.password, user.role, user.photoUrl, JSON.stringify(user.allowedGrades), JSON.stringify(user.subjects || [])]);
     return user;
   }
   async deleteUser(id: string): Promise<void> { await this.execute("DELETE FROM users WHERE id = ?", [id]); }
@@ -471,13 +451,6 @@ class SqliteApi implements ApiService {
   }
   async deleteCoordinationDelivery(id: string): Promise<void> { await this.execute("DELETE FROM coordination_deliveries WHERE id = ?", [id]); }
 
-  async saveTeacherAttendance(record: TeacherAttendanceRecord): Promise<TeacherAttendanceRecord> {
-    await this.execute(`INSERT OR REPLACE INTO teacher_attendance (id, teacherId, date, status, time, observation) VALUES (?, ?, ?, ?, ?, ?)`,
-    [record.id, record.teacherId, record.date, record.status, record.time || '', record.observation || '']);
-    return record;
-  }
-  async deleteTeacherAttendance(id: string): Promise<void> { await this.execute("DELETE FROM teacher_attendance WHERE id = ?", [id]); }
-
   async resetSystem(): Promise<void> {
     localStorage.removeItem(this.STORAGE_KEY_DB);
     this.db = null;
@@ -517,15 +490,14 @@ class HttpApi implements ApiService {
       return response.url;
   }
   async loadAllData(): Promise<AppState> {
-    const [students, users, attendance, documents, exams, subjects, grades, pedagogicalRecords, coordinationDeliveries, teacherAttendance] = await Promise.all([
+    const [students, users, attendance, documents, exams, subjects, grades, pedagogicalRecords, coordinationDeliveries] = await Promise.all([
         this.request('/students.php'), this.request('/users.php'), this.request('/attendance.php'),
         this.request('/documents.php'), this.request('/exams.php'), this.request('/subjects.php'),
         this.request('/grades.php').catch(() => GRADES_LIST),
         this.request('/pedagogical.php').catch(() => []),
-        this.request('/coordination.php').catch(() => []),
-        this.request('/teacher_attendance.php').catch(() => [])
+        this.request('/coordination.php').catch(() => [])
     ]);
-    return { students, users, attendance, documents, exams, subjects, grades, pedagogicalRecords, coordinationDeliveries, teacherAttendance };
+    return { students, users, attendance, documents, exams, subjects, grades, pedagogicalRecords, coordinationDeliveries };
   }
   async login(email: string, password: string): Promise<User | null> {
     try { return await this.request('/login.php', 'POST', { email, password }); } catch { return null; }
@@ -546,8 +518,6 @@ class HttpApi implements ApiService {
   async deletePedagogicalRecord(id: string): Promise<void> { return this.request(`/pedagogical.php?id=${id}`, 'DELETE'); }
   async saveCoordinationDelivery(record: CoordinationDelivery): Promise<CoordinationDelivery> { return this.request('/coordination.php', 'POST', record); }
   async deleteCoordinationDelivery(id: string): Promise<void> { return this.request(`/coordination.php?id=${id}`, 'DELETE'); }
-  async saveTeacherAttendance(record: TeacherAttendanceRecord): Promise<TeacherAttendanceRecord> { return this.request('/teacher_attendance.php', 'POST', record); }
-  async deleteTeacherAttendance(id: string): Promise<void> { return this.request(`/teacher_attendance.php?id=${id}`, 'DELETE'); }
   async resetSystem(): Promise<void> { return this.request('/reset.php', 'POST'); }
 }
 
@@ -683,15 +653,6 @@ class HybridApi implements ApiService {
   async deleteCoordinationDelivery(id: string): Promise<void> {
       await this.sqlite.deleteCoordinationDelivery(id);
       this.http.deleteCoordinationDelivery(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
-  }
-  async saveTeacherAttendance(record: TeacherAttendanceRecord): Promise<TeacherAttendanceRecord> {
-      const local = await this.sqlite.saveTeacherAttendance(record);
-      this.http.saveTeacherAttendance(record).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
-      return local;
-  }
-  async deleteTeacherAttendance(id: string): Promise<void> {
-      await this.sqlite.deleteTeacherAttendance(id);
-      this.http.deleteTeacherAttendance(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
   }
   async resetSystem(): Promise<void> {
     await this.sqlite.resetSystem();

@@ -41,7 +41,6 @@ import {
 
 import { generateSmartReport } from '@/services/geminiService';
 import { api, setApiBaseUrl } from '@/services/api';
-import { parseTopData } from '@/utils/parsing';
 import {
     GRADE_GROUPS,
     GRADES_LIST,
@@ -981,7 +980,7 @@ export default function App() {
     reader.onload = async (evt) => {
       try {
         const text = evt.target?.result as string;
-        const records = parseTopData(text);
+        const lines = text.split('\n');
         
         let successCount = 0;
         let notFoundCount = 0;
@@ -996,12 +995,20 @@ export default function App() {
                          String(today.getDate()).padStart(2, '0');
 
         // Create a normalized map for matching students
+        // ENFORCE UNIQUE MATRICULA: Priority given to exact matches, then normalized.
+        // If duplicates exist, the map will store the last processed student.
         const studentMap = new Map<string, Student>();
         
         state.students.forEach(s => {
+             // 1. Normalize registration (remove leading zeros)
              const regInt = parseInt(s.registration, 10);
              const normalizedReg = !isNaN(regInt) ? regInt.toString() : s.registration.trim();
+             
+             // 2. Store normalized key. 
+             // This effectively makes the Matricula the unique ID for lookup purposes.
              studentMap.set(normalizedReg, s);
+             
+             // 3. Also store exact string just in case normalization fails or differs
              if (s.registration !== normalizedReg) {
                  studentMap.set(s.registration, s);
              }
@@ -1011,11 +1018,27 @@ export default function App() {
         const presentStudentsByDate = new Map<string, Set<string>>(); // Date -> Set<StudentId>
         const shiftsProcessedByDate = new Map<string, { morning: boolean, afternoon: boolean }>(); // Date -> Flags
 
-        for (const rec of records) {
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            
+            const cols = trimmed.split(';');
+            if (cols.length < 6) continue;
+            
+            // Format: ID;Matrícula;Code;Date;Time;Turnstile
+            // Example: 03549;00001018;111;29012026;1042;01
+            const matriculaRaw = cols[1].trim();
+            const code = cols[2].trim();
+            const dateRaw = cols[3].trim(); 
+            const timeRaw = cols[4].trim(); 
+            
             // Find Student with Robust Matching
-            let student = studentMap.get(rec.matricula);
+            // 1. Try exact match
+            let student = studentMap.get(matriculaRaw);
+            
+            // 2. If not found, try stripping leading zeros from the file input
             if (!student) {
-                const matriculaInt = parseInt(rec.matricula, 10);
+                const matriculaInt = parseInt(matriculaRaw, 10);
                 if (!isNaN(matriculaInt)) {
                    student = studentMap.get(matriculaInt.toString());
                 }
@@ -1023,51 +1046,78 @@ export default function App() {
             
             if (!student) {
                 // Debug log for developer matching issues
-                console.log(`Student not found for matricula: ${rec.matricula}`);
+                console.log(`Student not found for matricula: ${matriculaRaw}`);
                 notFoundCount++;
                 continue;
             }
             
+            // Parse Date
+            // Handle both DDMMYYYY and DD/MM/YYYY
+            let dateISO = '';
+            if (dateRaw.includes('/')) {
+                const parts = dateRaw.split('/');
+                if (parts.length === 3) {
+                   dateISO = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            } else if (dateRaw.length === 8) {
+                const day = dateRaw.substring(0, 2);
+                const month = dateRaw.substring(2, 4);
+                const year = dateRaw.substring(4, 8);
+                dateISO = `${year}-${month}-${day}`;
+            }
+
+            if (!dateISO) continue; // Invalid date format
+            
             // STRICT DATE FILTER: Only process records for TODAY
-            if (rec.date !== todayISO) {
+            if (dateISO !== todayISO) {
                 skippedDateCount++;
                 continue;
             }
             
             // Track presence
-            if (!presentStudentsByDate.has(rec.date)) {
-                presentStudentsByDate.set(rec.date, new Set());
-                shiftsProcessedByDate.set(rec.date, { morning: false, afternoon: false });
+            if (!presentStudentsByDate.has(dateISO)) {
+                presentStudentsByDate.set(dateISO, new Set());
+                shiftsProcessedByDate.set(dateISO, { morning: false, afternoon: false });
             }
-            presentStudentsByDate.get(rec.date)?.add(student.id);
+            presentStudentsByDate.get(dateISO)?.add(student.id);
 
-            // Shift Logic
-            const timeInt = rec.rawTime;
-            if (timeInt > 0) {
-                const flags = shiftsProcessedByDate.get(rec.date)!;
+            // Parse Time & Detect Shift Activity
+            // Handle HHMM (1042) or HH:MM (10:42)
+            const cleanTime = timeRaw.replace(':', '');
+            const timeInt = parseInt(cleanTime, 10);
+            
+            if (!isNaN(timeInt)) {
+                const flags = shiftsProcessedByDate.get(dateISO)!;
+                // Morning: 06:00 (600) to 12:40 (1240)
                 if (timeInt <= 1240) flags.morning = true;
+                // Afternoon: 12:41 (1241) to 18:40 (1840)
                 if (timeInt > 1240) flags.afternoon = true;
             }
 
-            const key = `${student.id}_${rec.date}`;
+            let timeFormatted = timeRaw;
+            if (timeRaw.length === 4 && !timeRaw.includes(':')) {
+                timeFormatted = `${timeRaw.substring(0, 2)}:${timeRaw.substring(2, 4)}`;
+            }
+            
+            const key = `${student.id}_${dateISO}`;
             
             let record = pendingUpdates.get(key);
             if (!record) {
-                const existing = state.attendance.find(a => a.studentId === student!.id && a.date === rec.date);
+                const existing = state.attendance.find(a => a.studentId === student!.id && a.date === dateISO);
                 if (existing) {
                     record = { ...existing };
                 } else {
                     record = {
                         id: Math.random().toString(36).substr(2, 9),
                         studentId: student.id,
-                        date: rec.date,
+                        date: dateISO,
                         status: 'Present',
                         observation: ''
                     };
                 }
             }
             
-            const newObs = `Catraca (${rec.code}) ${rec.time}`;
+            const newObs = `Catraca (${code}) ${timeFormatted}`;
             
             if (record.observation) {
                 if (!record.observation.includes(newObs)) {
