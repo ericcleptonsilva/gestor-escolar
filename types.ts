@@ -17,6 +17,17 @@ export interface User {
   role: UserRole;
   photoUrl?: string;
   allowedGrades?: string[]; // Array of grades this user can access
+  subjects?: string[]; // Disciplinas que o professor leciona
+  registration?: string; // Matrícula (para professores)
+}
+
+export interface TeacherAttendanceRecord {
+  id: string;
+  teacherId: string;
+  date: string; // YYYY-MM-DD
+  status: 'Present' | 'Absent';
+  time?: string; // HH:MM
+  observation?: string;
 }
 
 export interface Guardian {
@@ -103,6 +114,28 @@ export interface PedagogicalRecord {
   observation?: string;
 }
 
+export type DeliveryType = 'Exam' | 'Plan' | 'Report' | 'Drive';
+export type DeliveryStatus = 'No Prazo' | 'Antecipado' | 'Fora do prazo' | 'Em Dias' | 'Atrasado';
+
+export interface CoordinationDelivery {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  type: DeliveryType;
+  deadline?: string;
+  deliveryDate?: string;
+  status: DeliveryStatus;
+  fileUrl?: string;
+  observation?: string;
+  metadata: {
+    grade?: string;
+    shift?: string;
+    subject?: string;
+    period?: string;
+    week?: string;
+  };
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
@@ -110,7 +143,10 @@ export interface AppState {
   documents: HealthDocument[];
   exams: MakeUpExam[];
   subjects: string[];
+  grades: string[];
   pedagogicalRecords: PedagogicalRecord[];
+  coordinationDeliveries: CoordinationDelivery[];
+  teacherAttendance: TeacherAttendanceRecord[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';
