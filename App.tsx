@@ -1713,6 +1713,7 @@ export default function App() {
                     visibleStudents={getVisibleStudents}
                     handlePrint={handlePrint}
                     setView={setView}
+                    onSelectStudent={setSelectedStudent}
                 />
              )}
 
@@ -1789,6 +1790,8 @@ export default function App() {
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
                     isImportingTurnstile={isImportingTurnstile}
+                    onSelectStudent={setSelectedStudent}
+                    setView={setView}
                  />
              )}
 
