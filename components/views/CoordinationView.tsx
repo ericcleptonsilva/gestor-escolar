@@ -574,6 +574,9 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
                                 className="hidden"
                             />
                         </label>
+                        <span className="text-[10px] text-slate-400 block mt-1 text-center sm:text-right" title="ID;Matrícula;Code;Data;Hora;Catraca">
+                            Formato: ID;Matrícula;Code;Data;Hora;Catraca
+                        </span>
                     </div>
                 </div>
 
