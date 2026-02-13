@@ -133,6 +133,7 @@ export interface AppState {
   documents: HealthDocument[];
   exams: MakeUpExam[];
   subjects: string[];
+  grades: string[];
   pedagogicalRecords: PedagogicalRecord[];
   coordinationDeliveries: CoordinationDelivery[];
 }
