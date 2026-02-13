@@ -1864,7 +1864,6 @@ export default function App() {
                      <CoordinationView
                         state={state}
                         currentUser={currentUser}
-                        onUpdateState={setState}
                      />
                  ) : (
                      <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
