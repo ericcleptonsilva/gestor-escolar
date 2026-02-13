@@ -18,6 +18,16 @@ export interface User {
   photoUrl?: string;
   allowedGrades?: string[]; // Array of grades this user can access
   subjects?: string[]; // Disciplinas que o professor leciona
+  registration?: string; // Matrícula (para professores)
+}
+
+export interface TeacherAttendanceRecord {
+  id: string;
+  teacherId: string;
+  date: string; // YYYY-MM-DD
+  status: 'Present' | 'Absent';
+  time?: string; // HH:MM
+  observation?: string;
 }
 
 export interface Guardian {
@@ -136,6 +146,7 @@ export interface AppState {
   grades: string[];
   pedagogicalRecords: PedagogicalRecord[];
   coordinationDeliveries: CoordinationDelivery[];
+  teacherAttendance: TeacherAttendanceRecord[];
 }
 
 export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';
