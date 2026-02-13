@@ -14,8 +14,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  Clock,
-  List
+  Clock
 } from 'lucide-react';
 
 import { AppState, User, CoordinationDelivery, DeliveryType, DeliveryStatus } from '@/types';
@@ -31,13 +30,7 @@ const DELIVERY_TYPES: Record<DeliveryType, string> = {
     'Drive': 'Atualização do Driver'
 };
 
-// Define status options by delivery type
-const STATUS_OPTIONS_BY_TYPE: Record<DeliveryType, DeliveryStatus[]> = {
-    'Exam': ['No Prazo', 'Antecipado', 'Fora do prazo'],
-    'Plan': ['No Prazo', 'Antecipado', 'Fora do prazo'],
-    'Report': ['Em Dias', 'Atrasado'],
-    'Drive': ['Em Dias', 'Atrasado']
-};
+const STATUS_OPTIONS: DeliveryStatus[] = ['No Prazo', 'Antecipado', 'Fora do prazo', 'Em Dias', 'Atrasado'];
 
 interface CoordinationViewProps {
   state: AppState;
@@ -46,7 +39,7 @@ interface CoordinationViewProps {
 
 export function CoordinationView({ state, currentUser }: CoordinationViewProps) {
   // --- ACCORDION STATE ---
-  const [openSection, setOpenSection] = useState<'teachers' | 'drives' | 'catalogs' | null>('drives');
+  const [openSection, setOpenSection] = useState<'teachers' | 'drives' | null>('drives');
   const [activeDriveTab, setActiveDriveTab] = useState<DeliveryType>('Exam');
 
   // --- TEACHER MANAGEMENT STATE ---
@@ -57,8 +50,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
   const [teacherForm, setTeacherForm] = useState<User>({
       id: '', name: '', email: '', password: '', role: 'Teacher', allowedGrades: [], subjects: []
   });
-  const [newSubjectSelection, setNewSubjectSelection] = useState<string[]>([]);
-  const [newGradeSelection, setNewGradeSelection] = useState<string[]>([]);
+  const [newSubject, setNewSubject] = useState('');
 
   // --- DELIVERY MANAGEMENT STATE ---
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
@@ -74,10 +66,6 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       metadata: {}
   });
   const [isUploading, setIsUploading] = useState(false);
-
-  // --- CATALOG MANAGEMENT STATE ---
-  const [newCatalogSubject, setNewCatalogSubject] = useState('');
-  const [newCatalogGrade, setNewCatalogGrade] = useState('');
 
   // --- COMPUTED DATA ---
   const teachers = useMemo(() => {
@@ -96,7 +84,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
   const handleOpenTeacherModal = (user?: User) => {
       if (user) {
           setEditingTeacher(user);
-          setTeacherForm({ ...user, subjects: user.subjects || [], allowedGrades: user.allowedGrades || [] });
+          setTeacherForm({ ...user, subjects: user.subjects || [] });
       } else {
           setEditingTeacher(null);
           setTeacherForm({
@@ -116,6 +104,12 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       }
       await api.saveUser(teacherForm);
       setIsTeacherModalOpen(false);
+      // Force reload or state update handled by parent via listener/refresh but here we rely on local mutation if parent re-renders
+      // Ideally parent re-fetches. For now we assume optimistic update isn't needed as we don't have setUsers prop.
+      // We will trigger a reload via window or assume App handles sync.
+      // ACTUALLY: App.tsx doesn't pass setUsers. We need to rely on auto-refresh or manual sync?
+      // Wait, api.saveUser returns the user. But we can't update state here.
+      // We should probably trigger a refresh.
       window.location.reload();
   };
 
@@ -126,68 +120,19 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       }
   };
 
-  const toggleSubject = (subject: string) => {
-      setTeacherForm(prev => {
-          const subjects = prev.subjects || [];
-          if (subjects.includes(subject)) {
-              return { ...prev, subjects: subjects.filter(s => s !== subject) };
-          } else {
-              return { ...prev, subjects: [...subjects, subject] };
-          }
-      });
-  };
-
-  const toggleGrade = (grade: string) => {
-      setTeacherForm(prev => {
-          const grades = prev.allowedGrades || [];
-          if (grades.includes(grade)) {
-              return { ...prev, allowedGrades: grades.filter(g => g !== grade) };
-          } else {
-              return { ...prev, allowedGrades: [...grades, grade] };
-          }
-      });
-  };
-
-  // --- CATALOG ACTIONS ---
-  const handleAddCatalogSubject = async () => {
-      if (newCatalogSubject && !state.subjects.includes(newCatalogSubject)) {
-          const newSubjects = [...state.subjects, newCatalogSubject];
-          await api.updateSubjects(newSubjects);
-          setNewCatalogSubject('');
-          window.location.reload();
+  const handleAddSubject = () => {
+      if (newSubject && !teacherForm.subjects?.includes(newSubject)) {
+          setTeacherForm(prev => ({ ...prev, subjects: [...(prev.subjects || []), newSubject] }));
+          setNewSubject('');
       }
   };
 
-  const handleRemoveCatalogSubject = async (subject: string) => {
-      if (confirm(`Remover disciplina "${subject}"?`)) {
-          const newSubjects = state.subjects.filter(s => s !== subject);
-          await api.updateSubjects(newSubjects);
-          window.location.reload();
-      }
-  };
-
-  const handleAddCatalogGrade = async () => {
-      if (newCatalogGrade && !state.grades.includes(newCatalogGrade)) {
-          const newGrades = [...state.grades, newCatalogGrade];
-          await api.updateGrades(newGrades);
-          setNewCatalogGrade('');
-          window.location.reload();
-      }
-  };
-
-  const handleRemoveCatalogGrade = async (grade: string) => {
-      if (confirm(`Remover série "${grade}"?`)) {
-          const newGrades = state.grades.filter(g => g !== grade);
-          await api.updateGrades(newGrades);
-          window.location.reload();
-      }
+  const handleRemoveSubject = (sub: string) => {
+      setTeacherForm(prev => ({ ...prev, subjects: (prev.subjects || []).filter(s => s !== sub) }));
   };
 
   // --- DELIVERY ACTIONS ---
   const handleOpenDeliveryModal = (record?: CoordinationDelivery) => {
-      const allowedStatus = STATUS_OPTIONS_BY_TYPE[activeDriveTab];
-      const defaultStatus = allowedStatus[0];
-
       if (record) {
           setEditingDelivery(record);
           setDeliveryForm({ ...record });
@@ -198,7 +143,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
               teacherId: '',
               teacherName: '',
               type: activeDriveTab,
-              status: defaultStatus,
+              status: 'No Prazo',
               metadata: {},
               deadline: '',
               deliveryDate: ''
@@ -262,8 +207,6 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       );
   };
 
-  const allowedStatusOptions = STATUS_OPTIONS_BY_TYPE[activeDriveTab] || [];
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
@@ -310,7 +253,6 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                                 <th className="px-4 py-3">Nome</th>
                                 <th className="px-4 py-3">Email</th>
                                 <th className="px-4 py-3">Disciplinas</th>
-                                <th className="px-4 py-3">Séries</th>
                                 <th className="px-4 py-3 text-right">Ações</th>
                             </tr>
                         </thead>
@@ -324,15 +266,6 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                                             {(teacher.subjects || []).map(sub => (
                                                 <span key={sub} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[10px] border border-indigo-100">
                                                     {sub}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex flex-wrap gap-1">
-                                            {(teacher.allowedGrades || []).map(grade => (
-                                                <span key={grade} className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] border border-green-100">
-                                                    {grade}
                                                 </span>
                                             ))}
                                         </div>
@@ -356,79 +289,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
         )}
       </div>
 
-      {/* SECTION 2: CADASTROS AUXILIARES */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <button
-            onClick={() => setOpenSection(openSection === 'catalogs' ? null : 'catalogs')}
-            className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
-        >
-            <div className="flex items-center gap-3">
-                <List className="text-purple-500" size={20} />
-                <span className="font-bold text-slate-700 dark:text-slate-200">Cadastros Auxiliares</span>
-            </div>
-            {openSection === 'catalogs' ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        </button>
-
-        {openSection === 'catalogs' && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                {/* Subjects Catalog */}
-                <div>
-                    <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Disciplinas</h4>
-                    <div className="flex gap-2 mb-3">
-                        <Input
-                            placeholder="Nova disciplina..."
-                            value={newCatalogSubject}
-                            onChange={e => setNewCatalogSubject(e.target.value)}
-                            className="h-9"
-                        />
-                        <Button size="sm" onClick={handleAddCatalogSubject} disabled={!newCatalogSubject}><Plus size={16} /></Button>
-                    </div>
-                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-y-auto">
-                        <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {state.subjects.map(sub => (
-                                <li key={sub} className="flex justify-between items-center p-2 text-sm">
-                                    <span>{sub}</span>
-                                    <button onClick={() => handleRemoveCatalogSubject(sub)} className="text-red-400 hover:text-red-600 p-1">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Grades Catalog */}
-                <div>
-                    <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Séries</h4>
-                    <div className="flex gap-2 mb-3">
-                        <Input
-                            placeholder="Nova série..."
-                            value={newCatalogGrade}
-                            onChange={e => setNewCatalogGrade(e.target.value)}
-                            className="h-9"
-                        />
-                        <Button size="sm" onClick={handleAddCatalogGrade} disabled={!newCatalogGrade}><Plus size={16} /></Button>
-                    </div>
-                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-y-auto">
-                        <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {state.grades.map(grade => (
-                                <li key={grade} className="flex justify-between items-center p-2 text-sm">
-                                    <span>{grade}</span>
-                                    <button onClick={() => handleRemoveCatalogGrade(grade)} className="text-red-400 hover:text-red-600 p-1">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-            </div>
-        )}
-      </div>
-
-      {/* SECTION 3: ATUALIZAÇÃO DOS DRIVES */}
+      {/* SECTION 2: ATUALIZAÇÃO DOS DRIVES */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <button
             onClick={() => setOpenSection(openSection === 'drives' ? null : 'drives')}
@@ -505,7 +366,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                                         )}
                                         {activeDriveTab === 'Drive' && (
                                             <td className="px-4 py-3 text-slate-500">
-                                                {item.metadata.week || '-'}
+                                                {item.metadata.week ? new Date(item.metadata.week).toLocaleDateString() : '-'}
                                             </td>
                                         )}
                                         {activeDriveTab === 'Report' && (
@@ -562,7 +423,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
       {/* TEACHER MODAL */}
       {isTeacherModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-6">
                   <h3 className="text-lg font-bold mb-4">{editingTeacher ? 'Editar Professor' : 'Novo Professor'}</h3>
                   <div className="space-y-4">
                       <div>
@@ -580,42 +441,26 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                           </div>
                       )}
 
-                      {/* Subjects Selection */}
-                      <div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
                           <label className="text-xs font-bold text-slate-500 mb-2 block">Disciplinas</label>
-                          <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 max-h-40 overflow-y-auto grid grid-cols-2 gap-2">
-                              {state.subjects.map(sub => (
-                                  <label key={sub} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded">
-                                      <input
-                                          type="checkbox"
-                                          checked={teacherForm.subjects?.includes(sub)}
-                                          onChange={() => toggleSubject(sub)}
-                                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                      />
-                                      <span>{sub}</span>
-                                  </label>
+                          <div className="flex gap-2 mb-2">
+                              <Input
+                                  placeholder="Ex: Matemática"
+                                  value={newSubject}
+                                  onChange={e => setNewSubject(e.target.value)}
+                                  className="h-8 text-xs"
+                              />
+                              <Button size="sm" onClick={handleAddSubject} disabled={!newSubject}><Plus size={14} /></Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                              {(teacherForm.subjects || []).map(sub => (
+                                  <span key={sub} className="px-2 py-1 bg-white border border-slate-200 rounded text-xs flex items-center gap-1">
+                                      {sub}
+                                      <button onClick={() => handleRemoveSubject(sub)} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                                  </span>
                               ))}
                           </div>
                       </div>
-
-                      {/* Grades Selection */}
-                      <div>
-                          <label className="text-xs font-bold text-slate-500 mb-2 block">Séries</label>
-                          <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 max-h-40 overflow-y-auto grid grid-cols-2 gap-2">
-                              {state.grades.map(grade => (
-                                  <label key={grade} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded">
-                                      <input
-                                          type="checkbox"
-                                          checked={teacherForm.allowedGrades?.includes(grade)}
-                                          onChange={() => toggleGrade(grade)}
-                                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                      />
-                                      <span>{grade}</span>
-                                  </label>
-                              ))}
-                          </div>
-                      </div>
-
                   </div>
                   <div className="mt-6 flex justify-end gap-3">
                       <Button variant="outline" onClick={() => setIsTeacherModalOpen(false)}>Cancelar</Button>
@@ -668,7 +513,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                               value={deliveryForm.status}
                               onChange={e => setDeliveryForm({...deliveryForm, status: e.target.value as DeliveryStatus})}
                           >
-                              {allowedStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                       </div>
 
@@ -680,16 +525,11 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                               <div className="grid grid-cols-2 gap-3">
                                   <div>
                                       <label className="text-xs text-slate-400">Série</label>
-                                      <select
-                                        className="w-full p-2 h-10 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                                      <Input
                                         value={deliveryForm.metadata.grade || ''}
                                         onChange={e => setDeliveryForm({...deliveryForm, metadata: {...deliveryForm.metadata, grade: e.target.value}})}
-                                      >
-                                          <option value="">Selecione...</option>
-                                          {state.grades.map(g => (
-                                              <option key={g} value={g}>{g}</option>
-                                          ))}
-                                      </select>
+                                        placeholder="Ex: 9º Ano"
+                                      />
                                   </div>
                                   <div>
                                       <label className="text-xs text-slate-400">Turno</label>
@@ -709,16 +549,10 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                           {(activeDriveTab === 'Exam') && (
                               <div>
                                   <label className="text-xs text-slate-400">Disciplina</label>
-                                  <select
-                                    className="w-full p-2 h-10 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                                  <Input
                                     value={deliveryForm.metadata.subject || ''}
                                     onChange={e => setDeliveryForm({...deliveryForm, metadata: {...deliveryForm.metadata, subject: e.target.value}})}
-                                  >
-                                      <option value="">Selecione...</option>
-                                      {state.subjects.map(s => (
-                                          <option key={s} value={s}>{s}</option>
-                                      ))}
-                                  </select>
+                                  />
                               </div>
                           )}
 
@@ -741,37 +575,12 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
 
                           {activeDriveTab === 'Drive' && (
                               <div>
-                                  <label className="text-xs text-slate-400 block mb-2">Dias da Semana</label>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'].map((day) => {
-                                        const currentDays = deliveryForm.metadata.week ? deliveryForm.metadata.week.split(', ') : [];
-                                        const isChecked = currentDays.includes(day);
-                                        return (
-                                            <label key={day} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    onChange={() => {
-                                                        const newDays = isChecked
-                                                            ? currentDays.filter(d => d !== day)
-                                                            : [...currentDays, day];
-
-                                                        // Sort days based on standard week order
-                                                        const order = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
-                                                        newDays.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-
-                                                        setDeliveryForm({
-                                                            ...deliveryForm,
-                                                            metadata: { ...deliveryForm.metadata, week: newDays.join(', ') }
-                                                        });
-                                                    }}
-                                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                                />
-                                                <span>{day}</span>
-                                            </label>
-                                        );
-                                    })}
-                                  </div>
+                                  <label className="text-xs text-slate-400">Semana</label>
+                                  <Input
+                                    type="date"
+                                    value={deliveryForm.metadata.week || ''}
+                                    onChange={e => setDeliveryForm({...deliveryForm, metadata: {...deliveryForm.metadata, week: e.target.value}})}
+                                  />
                               </div>
                           )}
                       </div>
