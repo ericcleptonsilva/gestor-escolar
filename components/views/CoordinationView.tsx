@@ -18,7 +18,7 @@ import {
   List
 } from 'lucide-react';
 
-import { AppState, User, CoordinationDelivery, DeliveryType, DeliveryStatus, TeacherAttendanceRecord } from '@/types';
+import { AppState, User, CoordinationDelivery, DeliveryType, DeliveryStatus } from '@/types';
 import { api } from '@/services/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -47,12 +47,8 @@ interface CoordinationViewProps {
 
 export function CoordinationView({ state, currentUser, onUpdateState }: CoordinationViewProps) {
   // --- ACCORDION STATE ---
-  const [openSection, setOpenSection] = useState<'teachers' | 'drives' | 'catalogs' | 'attendance' | null>('drives');
+  const [openSection, setOpenSection] = useState<'teachers' | 'drives' | 'catalogs' | null>('drives');
   const [activeDriveTab, setActiveDriveTab] = useState<DeliveryType>('Exam');
-
-  // --- TEACHER ATTENDANCE STATE ---
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isImportingAttendance, setIsImportingAttendance] = useState(false);
 
   // --- TEACHER MANAGEMENT STATE ---
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
@@ -96,141 +92,6 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
              .filter(d => d.teacherName.toLowerCase().includes(deliverySearch.toLowerCase()) ||
                           (d.metadata.subject && d.metadata.subject.toLowerCase().includes(deliverySearch.toLowerCase())));
   }, [state.coordinationDeliveries, activeDriveTab, deliverySearch]);
-
-  const teacherAttendance = useMemo(() => {
-      return (state.teacherAttendance || []).filter(a => a.date === attendanceDate);
-  }, [state.teacherAttendance, attendanceDate]);
-
-  // --- ATTENDANCE ACTIONS ---
-  const handleImportTeacherTurnstile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      setIsImportingAttendance(true);
-      const reader = new FileReader();
-
-      reader.onload = async (evt) => {
-          try {
-              const text = evt.target?.result as string;
-              const records = parseTopData(text);
-
-              const teacherMap = new Map<string, User>();
-              (state.users || []).filter(u => u.role === 'Teacher').forEach(t => {
-                  if (t.registration) {
-                      teacherMap.set(t.registration, t);
-                      // Handle leading zeros matching
-                      const regInt = parseInt(t.registration, 10);
-                      if (!isNaN(regInt)) {
-                          teacherMap.set(regInt.toString(), t);
-                      }
-                  }
-              });
-
-              let processedCount = 0;
-              let notFoundCount = 0;
-              const pendingUpdates: TeacherAttendanceRecord[] = [];
-              const presentTeacherIds = new Set<string>();
-
-              // Filter records for selected date
-              // Wait, usually imports are for "Today" or we scan the file.
-              // For Teachers, let's process ALL dates found in file, or just selected?
-              // The user requirement "gerar sua falta automaticamente" implies we should look at the file's date.
-              // Let's filter records that match the currently selected date in UI to avoid confusion, or process all.
-              // Let's process records matching the file dates, but since we view by date, maybe we should auto-switch date?
-              // Standard approach: Process file for its dates.
-
-              // Group by date
-              const recordsByDate = new Map<string, typeof records>();
-              records.forEach(r => {
-                  if (!recordsByDate.has(r.date)) recordsByDate.set(r.date, []);
-                  recordsByDate.get(r.date)?.push(r);
-              });
-
-              for (const [date, dateRecords] of recordsByDate.entries()) {
-                  const dayPresentIds = new Set<string>();
-
-                  for (const rec of dateRecords) {
-                      let teacher = teacherMap.get(rec.matricula);
-                      if (!teacher) {
-                          const intVal = parseInt(rec.matricula, 10);
-                          if (!isNaN(intVal)) teacher = teacherMap.get(intVal.toString());
-                      }
-
-                      if (teacher) {
-                          dayPresentIds.add(teacher.id);
-                          const record: TeacherAttendanceRecord = {
-                              id: Math.random().toString(36).substr(2, 9),
-                              teacherId: teacher.id,
-                              date: rec.date,
-                              status: 'Present',
-                              time: rec.time,
-                              observation: `Catraca (${rec.code})`
-                          };
-                          pendingUpdates.push(record);
-                          processedCount++;
-                      } else {
-                          notFoundCount++;
-                      }
-                  }
-
-                  // Generate Absences for this date
-                  // Identify teachers who are NOT in dayPresentIds
-                  const allTeachers = (state.users || []).filter(u => u.role === 'Teacher');
-                  for (const t of allTeachers) {
-                      if (!dayPresentIds.has(t.id)) {
-                          // Only create absence if no record exists
-                          // We can't easily check 'state' here if we are iterating multiple dates.
-                          // But we can check pendingUpdates + existing state.
-                          // Simplification: We add an "Absent" record to pending.
-                          // Backend/State update should handle upsert.
-                          // Note: If teacher clocked in, they are in dayPresentIds.
-                          pendingUpdates.push({
-                              id: Math.random().toString(36).substr(2, 9),
-                              teacherId: t.id,
-                              date: date,
-                              status: 'Absent',
-                              observation: 'Ausência automática (Catraca)'
-                          });
-                      }
-                  }
-              }
-
-              // Apply updates
-              for (const update of pendingUpdates) {
-                  await api.saveTeacherAttendance(update);
-              }
-
-              onUpdateState(prev => {
-                  const newAttendance = [...(prev.teacherAttendance || [])];
-                  pendingUpdates.forEach(u => {
-                      const idx = newAttendance.findIndex(a => a.teacherId === u.teacherId && a.date === u.date);
-                      if (idx >= 0) {
-                          // Prefer Present over Absent if multiple updates (though logic above handles it)
-                          // If current is Present and new is Absent, ignore.
-                          // If current is Absent and new is Present, overwrite.
-                          if (u.status === 'Present') newAttendance[idx] = u;
-                          else if (newAttendance[idx].status !== 'Present') newAttendance[idx] = u;
-                      } else {
-                          newAttendance.push(u);
-                      }
-                  });
-                  return { ...prev, teacherAttendance: newAttendance };
-              });
-
-              alert(`Importação concluída.\nRegistros processados: ${processedCount}\nNão encontrados: ${notFoundCount}`);
-              if (recordsByDate.size > 0) {
-                  setAttendanceDate(recordsByDate.keys().next().value); // Jump to first date found
-              }
-
-          } catch (err: any) {
-              alert("Erro ao importar: " + err.message);
-          } finally {
-              setIsImportingAttendance(false);
-              e.target.value = '';
-          }
-      };
-      reader.readAsText(file);
-  };
 
   // --- TEACHER ACTIONS ---
   const handleOpenTeacherModal = (user?: User) => {
@@ -468,7 +329,6 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
                         <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500">
                             <tr>
                                 <th className="px-4 py-3">Nome</th>
-                                <th className="px-4 py-3">Matrícula</th>
                                 <th className="px-4 py-3">Email</th>
                                 <th className="px-4 py-3">Disciplinas</th>
                                 <th className="px-4 py-3">Séries</th>
@@ -478,11 +338,7 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                             {teachers.map(teacher => (
                                 <tr key={teacher.id}>
-                                    <td className="px-4 py-3 font-medium flex items-center gap-2">
-                                        <img src={teacher.photoUrl || `https://ui-avatars.com/api/?name=${teacher.name}`} alt="" className="w-8 h-8 rounded-full" />
-                                        {teacher.name}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-500">{teacher.registration || '-'}</td>
+                                    <td className="px-4 py-3 font-medium">{teacher.name}</td>
                                     <td className="px-4 py-3 text-slate-500">{teacher.email}</td>
                                     <td className="px-4 py-3">
                                         <div className="flex flex-wrap gap-1">
@@ -514,84 +370,6 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
                                     </td>
                                 </tr>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        )}
-      </div>
-
-      {/* SECTION 1.5: FREQUÊNCIA (PROFESSORES) */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <button
-            onClick={() => setOpenSection(openSection === 'attendance' ? null : 'attendance')}
-            className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
-        >
-            <div className="flex items-center gap-3">
-                <Clock className="text-teal-500" size={20} />
-                <span className="font-bold text-slate-700 dark:text-slate-200">Frequência (Professores)</span>
-            </div>
-            {openSection === 'attendance' ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        </button>
-
-        {openSection === 'attendance' && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-bold text-slate-500">Data:</label>
-                        <Input
-                            type="date"
-                            className="w-40 h-9 text-sm"
-                            value={attendanceDate}
-                            onChange={e => setAttendanceDate(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg cursor-pointer transition-colors shadow-sm">
-                            {isImportingAttendance ? <Clock className="animate-spin" size={16} /> : <Upload size={16} />}
-                            Importar TopData.txt
-                            <input
-                                type="file"
-                                accept=".txt"
-                                onChange={handleImportTeacherTurnstile}
-                                disabled={isImportingAttendance}
-                                className="hidden"
-                            />
-                        </label>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500">
-                            <tr>
-                                <th className="px-4 py-3">Professor</th>
-                                <th className="px-4 py-3">Status</th>
-                                <th className="px-4 py-3">Horário</th>
-                                <th className="px-4 py-3">Observação</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {teachers.map(t => {
-                                const record = teacherAttendance.find(a => a.teacherId === t.id);
-                                const isPresent = record?.status === 'Present';
-                                return (
-                                    <tr key={t.id}>
-                                        <td className="px-4 py-3 font-medium">{t.name}</td>
-                                        <td className="px-4 py-3">
-                                            {record ? (
-                                                <span className={`px-2 py-1 rounded text-xs font-bold border ${isPresent ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
-                                                    {isPresent ? 'Presente' : 'Falta'}
-                                                </span>
-                                            ) : (
-                                                <span className="text-slate-400 italic">Não Registrado</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{record?.time || '-'}</td>
-                                        <td className="px-4 py-3 text-slate-500 text-xs">{record?.observation || '-'}</td>
-                                    </tr>
-                                );
-                            })}
                         </tbody>
                     </table>
                 </div>
@@ -808,40 +586,13 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
                   <h3 className="text-lg font-bold mb-4">{editingTeacher ? 'Editar Professor' : 'Novo Professor'}</h3>
                   <div className="space-y-4">
-                      <div className="flex flex-col items-center mb-4">
-                          <div className="w-24 h-24 rounded-full bg-slate-100 overflow-hidden mb-2 border">
-                              <img src={teacherForm.photoUrl || `https://ui-avatars.com/api/?name=${teacherForm.name || 'User'}`} alt="Foto" className="w-full h-full object-cover" />
-                          </div>
-                          <label className="cursor-pointer text-xs text-indigo-600 hover:text-indigo-800 font-bold">
-                              Alterar Foto
-                              <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
-                                  if (e.target.files?.[0]) {
-                                      const url = await api.uploadPhoto(e.target.files[0], 'user', teacherForm.id || 'temp');
-                                      setTeacherForm({...teacherForm, photoUrl: url});
-                                  }
-                              }} />
-                          </label>
-                      </div>
                       <div>
                           <label className="text-xs font-bold text-slate-500">Nome</label>
                           <Input value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-slate-500">Email</label>
-                            <Input value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500">Matrícula (5 Dígitos)</label>
-                            <Input
-                                value={teacherForm.registration || ''}
-                                onChange={e => {
-                                    const val = e.target.value.replace(/\D/g, '').slice(0, 5);
-                                    setTeacherForm({...teacherForm, registration: val});
-                                }}
-                                placeholder="00000"
-                            />
-                        </div>
+                      <div>
+                          <label className="text-xs font-bold text-slate-500">Email</label>
+                          <Input value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})} />
                       </div>
                       {!editingTeacher && (
                           <div>
