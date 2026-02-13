@@ -22,6 +22,7 @@ import { AppState, User, CoordinationDelivery, DeliveryType, DeliveryStatus, Tea
 import { api } from '@/services/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { parseTopData } from '@/utils/parsing';
 
 // --- Constants ---
 const DELIVERY_TYPES: Record<DeliveryType, string> = {
@@ -115,7 +116,9 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
               const records = parseTopData(text);
 
               const teacherMap = new Map<string, User>();
-              (state.users || []).filter(u => u.role === 'Teacher').forEach(t => {
+              const teachersList = (state.users || []).filter(u => u.role === 'Teacher');
+
+              teachersList.forEach(t => {
                   if (t.registration) {
                       teacherMap.set(t.registration, t);
                       // Handle leading zeros matching
@@ -148,6 +151,11 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
 
               for (const [date, dateRecords] of recordsByDate.entries()) {
                   const dayPresentIds = new Set<string>();
+                  const processedTeacherIds = new Set<string>();
+
+                  // Group punches by Teacher for this Date
+                  // TeacherID -> List of Records
+                  const punchesByTeacher = new Map<string, typeof dateRecords>();
 
                   for (const rec of dateRecords) {
                       let teacher = teacherMap.get(rec.matricula);
@@ -157,33 +165,41 @@ export function CoordinationView({ state, currentUser, onUpdateState }: Coordina
                       }
 
                       if (teacher) {
-                          dayPresentIds.add(teacher.id);
-                          const record: TeacherAttendanceRecord = {
-                              id: Math.random().toString(36).substr(2, 9),
-                              teacherId: teacher.id,
-                              date: rec.date,
-                              status: 'Present',
-                              time: rec.time,
-                              observation: `Catraca (${rec.code})`
-                          };
-                          pendingUpdates.push(record);
-                          processedCount++;
+                          if (!punchesByTeacher.has(teacher.id)) {
+                              punchesByTeacher.set(teacher.id, []);
+                          }
+                          punchesByTeacher.get(teacher.id)?.push(rec);
                       } else {
-                          notFoundCount++;
+                          notFoundCount++; // Count unfound lines
                       }
                   }
 
+                  // Process Present Teachers (Aggregate Punches)
+                  for (const [teacherId, punches] of punchesByTeacher.entries()) {
+                      // Sort by time
+                      punches.sort((a, b) => a.time.localeCompare(b.time));
+
+                      const timeStr = punches.map(p => p.time).join(' | ');
+                      const codes = [...new Set(punches.map(p => p.code))].join(',');
+
+                      const record: TeacherAttendanceRecord = {
+                          id: Math.random().toString(36).substr(2, 9),
+                          teacherId: teacherId,
+                          date: date,
+                          status: 'Present',
+                          time: timeStr,
+                          observation: `Catraca (${codes})`
+                      };
+
+                      pendingUpdates.push(record);
+                      dayPresentIds.add(teacherId);
+                      processedCount += punches.length;
+                  }
+
                   // Generate Absences for this date
-                  // Identify teachers who are NOT in dayPresentIds
                   const allTeachers = (state.users || []).filter(u => u.role === 'Teacher');
                   for (const t of allTeachers) {
                       if (!dayPresentIds.has(t.id)) {
-                          // Only create absence if no record exists
-                          // We can't easily check 'state' here if we are iterating multiple dates.
-                          // But we can check pendingUpdates + existing state.
-                          // Simplification: We add an "Absent" record to pending.
-                          // Backend/State update should handle upsert.
-                          // Note: If teacher clocked in, they are in dayPresentIds.
                           pendingUpdates.push({
                               id: Math.random().toString(36).substr(2, 9),
                               teacherId: t.id,
