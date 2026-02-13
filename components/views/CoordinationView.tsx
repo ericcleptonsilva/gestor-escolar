@@ -505,7 +505,7 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
                                         )}
                                         {activeDriveTab === 'Drive' && (
                                             <td className="px-4 py-3 text-slate-500">
-                                                {item.metadata.week ? new Date(item.metadata.week).toLocaleDateString() : '-'}
+                                                {item.metadata.week || '-'}
                                             </td>
                                         )}
                                         {activeDriveTab === 'Report' && (
@@ -741,12 +741,37 @@ export function CoordinationView({ state, currentUser }: CoordinationViewProps) 
 
                           {activeDriveTab === 'Drive' && (
                               <div>
-                                  <label className="text-xs text-slate-400">Semana</label>
-                                  <Input
-                                    type="date"
-                                    value={deliveryForm.metadata.week || ''}
-                                    onChange={e => setDeliveryForm({...deliveryForm, metadata: {...deliveryForm.metadata, week: e.target.value}})}
-                                  />
+                                  <label className="text-xs text-slate-400 block mb-2">Dias da Semana</label>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'].map((day) => {
+                                        const currentDays = deliveryForm.metadata.week ? deliveryForm.metadata.week.split(', ') : [];
+                                        const isChecked = currentDays.includes(day);
+                                        return (
+                                            <label key={day} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isChecked}
+                                                    onChange={() => {
+                                                        const newDays = isChecked
+                                                            ? currentDays.filter(d => d !== day)
+                                                            : [...currentDays, day];
+
+                                                        // Sort days based on standard week order
+                                                        const order = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+                                                        newDays.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+                                                        setDeliveryForm({
+                                                            ...deliveryForm,
+                                                            metadata: { ...deliveryForm.metadata, week: newDays.join(', ') }
+                                                        });
+                                                    }}
+                                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span>{day}</span>
+                                            </label>
+                                        );
+                                    })}
+                                  </div>
                               </div>
                           )}
                       </div>
