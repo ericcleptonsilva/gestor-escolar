@@ -26,7 +26,7 @@ const DATA_SOURCE = 'sync' as 'sqlite' | 'http' | 'sync';
 
 // Default URL for XAMPP Localhost
 // User can override this in "Settings" modal
-let apiBaseUrl = "http://localhost/sistema_escolar_api";
+let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api";
 
 try {
   const saved = localStorage.getItem('escola360_api_url');
