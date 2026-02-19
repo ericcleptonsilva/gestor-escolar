@@ -588,14 +588,7 @@ export default function App() {
     }
     const docToSave = { ...newDoc, id: newDoc.id || Math.random().toString(36).substr(2, 9) };
     await api.saveDocument(docToSave);
-    setState(prev => {
-        const exists = prev.documents.find(d => d.id === docToSave.id);
-        if (exists) {
-            return { ...prev, documents: prev.documents.map(d => d.id === docToSave.id ? docToSave : d) };
-        } else {
-            return { ...prev, documents: [...prev.documents, docToSave] };
-        }
-    });
+    setState(prev => ({...prev, documents: [...prev.documents, docToSave]}));
     setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
   };
 
@@ -1796,8 +1789,6 @@ export default function App() {
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
                     isImportingTurnstile={isImportingTurnstile}
-                    onSelectStudent={setSelectedStudent}
-                    setView={setView}
                  />
              )}
 
