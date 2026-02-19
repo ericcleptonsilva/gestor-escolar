@@ -1,75 +1,42 @@
 <?php
-// Reutiliza o arquivo de CORS que você já criou para permitir o acesso do App
-require 'cors.php'; 
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Content-Type: application/json; charset=UTF-8");
 
-// Verifica se o método é POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(["error" => "Método não permitido. Use POST."]);
-    exit;
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
 
-// Verifica se o arquivo foi enviado
-if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
-    http_response_code(400);
-    echo json_encode(["error" => "Nenhum arquivo enviado ou erro no upload."]);
-    exit;
-}
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_FILES['photo'])) {
+        $target_dir = "photos/";
+        if (!file_exists($target_dir)) {
+            mkdir($target_dir, 0777, true);
+        }
 
-// Recebe os dados extras (ID e Tipo) para nomear o arquivo corretamente
-$id = $_POST['id'] ?? 'unknown';
-$type = $_POST['type'] ?? 'general'; // 'student' ou 'user'
+        $original_name = basename($_FILES["photo"]["name"]);
+        $imageFileType = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
 
-// --- CONFIGURAÇÃO DE SEGURANÇA ---
+        // Generate unique name
+        $id = $_POST['id'] ?? uniqid();
+        $target_file = $target_dir . $id . "." . $imageFileType;
 
-// 1. Defina a pasta de destino (cria se não existir)
-$targetDir = __DIR__ . "/photos/";
-if (!is_dir($targetDir)) {
-    mkdir($targetDir, 0777, true);
-}
+        if (move_uploaded_file($_FILES["photo"]["tmp_name"], $target_file)) {
+            // Return full URL
+            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+            $host = $_SERVER['HTTP_HOST'];
+            $path = dirname($_SERVER['REQUEST_URI']);
+            $url = "$protocol://$host$path/$target_file";
 
-// 2. Valida a extensão do arquivo (apenas imagens)
-$fileInfo = pathinfo($_FILES['photo']['name']);
-$extension = strtolower($fileInfo['extension']);
-$allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp','bmp'];
-
-if (!in_array($extension, $allowedExtensions)) {
-    http_response_code(400);
-    echo json_encode(["error" => "Formato de arquivo inválido. Apenas BMP, JPG, PNG, GIF e WEBP."]);
-    exit;
-}
-
-// 3. Gera um nome único e seguro para o arquivo
-// Exemplo de nome gerado: student_550e8400-e29b.jpg
-$newFileName = $type . "_" . $id . "." . $extension;
-$targetFilePath = $targetDir . $newFileName;
-
-// --- SALVANDO O ARQUIVO ---
-
-if (move_uploaded_file($_FILES['photo']['tmp_name'], $targetFilePath)) {
-    
-    // Constrói a URL pública para retornar ao App
-    // O App vai salvar essa URL no banco de dados
-    
-    // Detecta o protocolo (http ou https)
-    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-    
-    // Monta a URL base automaticamente
-    // Se sua API está em localhost/escola360/api, isso retorna essa base
-    $serverName = $_SERVER['SERVER_NAME']; // localhost ou IP
-    $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // /escola360/api
-    
-    // URL Final: http://192.168.x.x/escola360/api/photos/student_123.jpg
-    $finalUrl = $protocol . $serverName.":8787" . $scriptPath . "/photos/" . $newFileName;
-
-    // Retorna JSON conforme esperado pelo seu TypeScript
-    echo json_encode([
-        "success" => true,
-        "url" => $finalUrl
-    ]);
-
-} else {
-    http_response_code(500);
-    echo json_encode(["error" => "Falha ao mover o arquivo para a pasta de destino."]);
+            echo json_encode(["url" => $url]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Failed to move uploaded file."]);
+        }
+    } else {
+        http_response_code(400);
+        echo json_encode(["error" => "No file uploaded."]);
+    }
 }
 ?>

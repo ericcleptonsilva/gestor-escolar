@@ -1,22 +1,26 @@
 <?php
-require 'cors.php';
-require 'conexao.php';
+include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method === 'GET') {
-    // Lista todos os documents
-    $stmt = $pdo->query("SELECT * FROM documents");
-    echo json_encode($stmt->fetchAll());
+if ($method == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
-} elseif ($method === 'POST') {
-    $data = getBody();
-    
-    // Note que aqui usamos os campos CORRETOS da tabela DOCUMENTS
-    $sql = "REPLACE INTO documents (id, studentId, type, description, dateIssued) 
-        VALUES (:id, :studentId, :type, :description, :dateIssued)";
+if ($method == 'GET') {
+    $stmt = $conn->prepare("SELECT * FROM documents");
+    $stmt->execute();
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
 
-    $stmt = $pdo->prepare($sql);
+if ($method == 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    $sql = "INSERT INTO documents (id, studentId, type, description, dateIssued)
+            VALUES (:id, :studentId, :type, :description, :dateIssued)
+            ON DUPLICATE KEY UPDATE
+            type=:type, description=:description, dateIssued=:dateIssued";
+    $stmt = $conn->prepare($sql);
     $stmt->execute([
         ':id' => $data['id'],
         ':studentId' => $data['studentId'],
@@ -24,14 +28,14 @@ if ($method === 'GET') {
         ':description' => $data['description'] ?? '',
         ':dateIssued' => $data['dateIssued']
     ]);
-    
     echo json_encode($data);
+}
 
-} elseif ($method === 'DELETE') {
+if ($method == 'DELETE') {
     $id = $_GET['id'] ?? null;
     if ($id) {
-        $stmt = $pdo->prepare("DELETE FROM documents WHERE id = ?");
-        $stmt->execute([$id]);
+        $stmt = $conn->prepare("DELETE FROM documents WHERE id = :id");
+        $stmt->execute([':id' => $id]);
         echo json_encode(["success" => true]);
     }
 }

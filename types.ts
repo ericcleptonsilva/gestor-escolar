@@ -103,15 +103,6 @@ export interface PedagogicalRecord {
   observation?: string;
 }
 
-export interface StudentOccurrence {
-  id: string;
-  studentId: string;
-  date: string;
-  type: 'ConsecutiveAbsence' | 'Behavior' | 'Other';
-  description: string;
-  contactedParents: boolean;
-}
-
 export interface AppState {
   users: User[];
   students: Student[];
@@ -120,7 +111,6 @@ export interface AppState {
   exams: MakeUpExam[];
   subjects: string[];
   pedagogicalRecords: PedagogicalRecord[];
-  occurrences: StudentOccurrence[];
 }
 
 export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';

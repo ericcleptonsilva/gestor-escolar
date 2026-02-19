@@ -5,8 +5,7 @@ import {
   AttendanceRecord, 
   MakeUpExam, 
   HealthDocument,
-  PedagogicalRecord,
-  StudentOccurrence
+  PedagogicalRecord
 } from "../types";
 
 // --- CONFIGURATION ---
@@ -21,10 +20,7 @@ const getEnv = (key: string) => {
 
 const DATA_SOURCE = 'sync' as 'sqlite' | 'http' | 'sync';
 
-// Default URL for XAMPP Localhost
-// User can override this in "Settings" modal
-let apiBaseUrl = "http://localhost/sistema_escolar_api";
-
+let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api";
 try {
   const saved = localStorage.getItem('escola360_api_url');
   if (saved) apiBaseUrl = saved;
@@ -67,8 +63,7 @@ const DEFAULT_STATE: AppState = {
     "Física", "Química", "Biologia", "Inglês", "Espanhol", "Artes", 
     "Educação Física", "Filosofia", "Sociologia", "Redação", "Ensino Religioso"
   ],
-  pedagogicalRecords: [],
-  occurrences: []
+  pedagogicalRecords: []
 };
 
 // --- INTERFACES ---
@@ -102,10 +97,6 @@ interface ApiService {
   // Pedagogical
   savePedagogicalRecord(record: PedagogicalRecord): Promise<PedagogicalRecord>;
   deletePedagogicalRecord(id: string): Promise<void>;
-
-  // Occurrences
-  saveOccurrence(occurrence: StudentOccurrence): Promise<StudentOccurrence>;
-  deleteOccurrence(id: string): Promise<void>;
 
   // System
   resetSystem(): Promise<void>;
@@ -144,7 +135,7 @@ class SqliteApi implements ApiService {
     }
     try {
         const SQL = await window.initSqlJs({
-          locateFile: (file: string) => `./${file}`
+          locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
         });
 
         const savedDb = localStorage.getItem(this.STORAGE_KEY_DB);
@@ -192,9 +183,6 @@ class SqliteApi implements ApiService {
       );
       CREATE TABLE IF NOT EXISTS pedagogical_records (
         id TEXT PRIMARY KEY, teacherName TEXT, weekStart TEXT, checklist TEXT, classHours TEXT, observation TEXT, missed_classes TEXT
-      );
-      CREATE TABLE IF NOT EXISTS occurrences (
-        id TEXT PRIMARY KEY, studentId TEXT, date TEXT, type TEXT, description TEXT, contactedParents INTEGER
       );
     `);
     // Migration: Add missed_classes column if it doesn't exist
@@ -263,7 +251,7 @@ class SqliteApi implements ApiService {
     await this.initPromise;
     if (!this.db) return;
     try {
-        this.db.run("DELETE FROM users; DELETE FROM students; DELETE FROM attendance; DELETE FROM documents; DELETE FROM exams; DELETE FROM subjects; DELETE FROM pedagogical_records; DELETE FROM occurrences;");
+        this.db.run("DELETE FROM users; DELETE FROM students; DELETE FROM attendance; DELETE FROM documents; DELETE FROM exams; DELETE FROM subjects; DELETE FROM pedagogical_records;");
 
         for (const u of data.users) {
             this.db.run("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)", [u.id, u.name, u.email, u.password, u.role, u.photoUrl, JSON.stringify(u.allowedGrades)]);
@@ -288,10 +276,6 @@ class SqliteApi implements ApiService {
         for (const p of data.pedagogicalRecords) {
             this.db.run("INSERT INTO pedagogical_records VALUES (?, ?, ?, ?, ?, ?, ?)",
             [p.id, p.teacherName, p.weekStart, JSON.stringify(p.checklist), JSON.stringify(p.classHours), p.observation || '', JSON.stringify(p.missedClasses || [])]);
-        }
-        for (const o of data.occurrences) {
-            this.db.run("INSERT INTO occurrences VALUES (?, ?, ?, ?, ?, ?)",
-            [o.id, o.studentId, o.date, o.type, o.description, o.contactedParents ? 1 : 0]);
         }
         this.persist();
     } catch (e) { console.error("Error replacing data in SQLite:", e); }
@@ -324,10 +308,6 @@ class SqliteApi implements ApiService {
         classHours: JSON.parse(p.classHours || '{}'),
         missedClasses: p.missed_classes ? JSON.parse(p.missed_classes) : []
     }));
-    const occurrences = (await this.query("SELECT * FROM occurrences")).map((o: any) => ({
-        ...o,
-        contactedParents: o.contactedParents === 1
-    }));
 
     return {
       users: users as User[],
@@ -336,8 +316,7 @@ class SqliteApi implements ApiService {
       documents: documents as HealthDocument[],
       exams: exams as MakeUpExam[],
       subjects,
-      pedagogicalRecords: pedagogicalRecords as PedagogicalRecord[],
-      occurrences: occurrences as StudentOccurrence[]
+      pedagogicalRecords: pedagogicalRecords as PedagogicalRecord[]
     };
   }
 
@@ -393,13 +372,6 @@ class SqliteApi implements ApiService {
   }
   async deletePedagogicalRecord(id: string): Promise<void> { await this.execute("DELETE FROM pedagogical_records WHERE id = ?", [id]); }
 
-  async saveOccurrence(occurrence: StudentOccurrence): Promise<StudentOccurrence> {
-     await this.execute(`INSERT OR REPLACE INTO occurrences VALUES (?, ?, ?, ?, ?, ?)`,
-     [occurrence.id, occurrence.studentId, occurrence.date, occurrence.type, occurrence.description, occurrence.contactedParents ? 1 : 0]);
-     return occurrence;
-  }
-  async deleteOccurrence(id: string): Promise<void> { await this.execute("DELETE FROM occurrences WHERE id = ?", [id]); }
-
   async resetSystem(): Promise<void> {
     localStorage.removeItem(this.STORAGE_KEY_DB);
     this.db = null;
@@ -435,13 +407,12 @@ class HttpApi implements ApiService {
       return response.url;
   }
   async loadAllData(): Promise<AppState> {
-    const [students, users, attendance, documents, exams, subjects, pedagogicalRecords, occurrences] = await Promise.all([
+    const [students, users, attendance, documents, exams, subjects, pedagogicalRecords] = await Promise.all([
         this.request('/students.php'), this.request('/users.php'), this.request('/attendance.php'),
         this.request('/documents.php'), this.request('/exams.php'), this.request('/subjects.php'),
-        this.request('/pedagogical.php').catch(() => []),
-        this.request('/occurrences.php').catch(() => [])
+        this.request('/pedagogical.php').catch(() => []) // Fallback for new endpoint
     ]);
-    return { students, users, attendance, documents, exams, subjects, pedagogicalRecords, occurrences };
+    return { students, users, attendance, documents, exams, subjects, pedagogicalRecords };
   }
   async login(email: string, password: string): Promise<User | null> {
     try { return await this.request('/login.php', 'POST', { email, password }); } catch { return null; }
@@ -459,10 +430,6 @@ class HttpApi implements ApiService {
   async deleteDocument(id: string): Promise<void> { return this.request(`/documents.php?id=${id}`, 'DELETE'); }
   async savePedagogicalRecord(record: PedagogicalRecord): Promise<PedagogicalRecord> { return this.request('/pedagogical.php', 'POST', record); }
   async deletePedagogicalRecord(id: string): Promise<void> { return this.request(`/pedagogical.php?id=${id}`, 'DELETE'); }
-
-  async saveOccurrence(occurrence: StudentOccurrence): Promise<StudentOccurrence> { return this.request('/occurrences.php', 'POST', occurrence); }
-  async deleteOccurrence(id: string): Promise<void> { return this.request(`/occurrences.php?id=${id}`, 'DELETE'); }
-
   async resetSystem(): Promise<void> { return this.request('/reset.php', 'POST'); }
 }
 
@@ -579,17 +546,6 @@ class HybridApi implements ApiService {
       await this.sqlite.deletePedagogicalRecord(id);
       this.http.deletePedagogicalRecord(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
   }
-
-  async saveOccurrence(occurrence: StudentOccurrence): Promise<StudentOccurrence> {
-      const local = await this.sqlite.saveOccurrence(occurrence);
-      this.http.saveOccurrence(occurrence).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
-      return local;
-  }
-  async deleteOccurrence(id: string): Promise<void> {
-      await this.sqlite.deleteOccurrence(id);
-      this.http.deleteOccurrence(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
-  }
-
   async resetSystem(): Promise<void> {
     await this.sqlite.resetSystem();
     this.http.resetSystem().catch(e => console.warn("Sync Fail", e));
