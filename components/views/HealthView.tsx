@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Plus, Filter, Trash2 } from 'lucide-react';
+import { FileText, Plus, Filter, Trash2, Edit } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -67,7 +67,19 @@ export const HealthView = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">
                 <Card className="p-6">
-                    <h3 className="font-bold text-slate-800 dark:text-white mb-4">Novo Documento</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-slate-800 dark:text-white">
+                            {newDoc.id ? 'Editar Documento' : 'Novo Documento'}
+                        </h3>
+                        {newDoc.id && (
+                            <button
+                                onClick={() => setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' })}
+                                className="text-xs text-red-500 hover:text-red-700 underline"
+                            >
+                                Cancelar
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aluno</label>
@@ -105,7 +117,7 @@ export const HealthView = ({
                              ></textarea>
                         </div>
                         <Button className="w-full" onClick={onSaveDocument}>
-                            <Plus size={18} /> Cadastrar Documento
+                            {newDoc.id ? <><Edit size={18} className="mr-2"/> Salvar Alterações</> : <><Plus size={18} className="mr-2"/> Cadastrar Documento</>}
                         </Button>
                     </div>
                 </Card>
@@ -156,13 +168,22 @@ export const HealthView = ({
 
                                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
                                     <span className="text-xs text-slate-400">Emissão: {new Date(doc.dateIssued).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</span>
-                                    <button
-                                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                        onClick={() => onDeleteDocument(doc.id)}
-                                        title="Excluir Documento"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                            onClick={() => setNewDoc(doc)}
+                                            title="Editar Documento"
+                                        >
+                                            <Edit size={16} />
+                                        </button>
+                                        <button
+                                            className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            onClick={() => onDeleteDocument(doc.id)}
+                                            title="Excluir Documento"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             </Card>
                         );
