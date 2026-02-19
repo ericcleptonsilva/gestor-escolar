@@ -1,9 +1,9 @@
 import React from 'react';
-import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, Eye } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { PrintButton } from '@/components/features/PrintButton';
-import { AppState, Student, AttendanceStatus, User, ViewState } from '@/types';
+import { AppState, Student, AttendanceStatus, User } from '@/types';
 import { SHIFTS_LIST } from '@/constants';
 
 interface AttendanceViewProps {
@@ -24,8 +24,6 @@ interface AttendanceViewProps {
     onImportTurnstile: (e: React.ChangeEvent<HTMLInputElement>) => void;
     isImportingTurnstile: boolean;
     currentUser: User | null;
-    onSelectStudent?: (student: Student) => void;
-    setView?: (view: ViewState) => void;
 }
 
 export const AttendanceView = ({
@@ -41,9 +39,7 @@ export const AttendanceView = ({
     onUpdateObservation,
     onImportTurnstile,
     isImportingTurnstile,
-    currentUser,
-    onSelectStudent,
-    setView
+    currentUser
 }: AttendanceViewProps) => {
 
     const filteredStudents = (students || [])
@@ -141,22 +137,10 @@ export const AttendanceView = ({
                                 alt={student.name}
                                 className="w-12 h-12 rounded-full object-cover bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
                             />
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0">
                                 <div className="font-bold text-slate-800 dark:text-white truncate" title={student.name}>{student.name}</div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400">{student.grade} • {student.shift}</div>
                             </div>
-                            {onSelectStudent && setView && (
-                                <button
-                                    onClick={() => {
-                                        onSelectStudent(student);
-                                        setView('students');
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                                    title="Ver Detalhes"
-                                >
-                                    <Eye size={20} />
-                                </button>
-                            )}
                         </div>
 
                         <div className="flex justify-around items-center bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2 mb-3">
