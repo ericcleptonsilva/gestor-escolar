@@ -361,7 +361,7 @@ export default function App() {
           alert("Sincronização com o servidor concluída com sucesso!");
       } catch (e: any) {
           console.error(e);
-          alert("Erro na sincronização: " + (e.message || "Verifique sua conexão."));
+          alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
       } finally {
           setIsSyncing(false);
       }

@@ -395,7 +395,8 @@ class HttpApi implements ApiService {
         return await response.json();
     } catch (networkError: any) {
         clearTimeout(timeoutId);
-        throw new Error("Falha ao conectar ao servidor.");
+        const url = `${getApiBaseUrl()}${endpoint}`;
+        throw new Error(`Falha ao conectar ao servidor (${url}). Verifique se o endereço está correto.`);
     }
   }
 
