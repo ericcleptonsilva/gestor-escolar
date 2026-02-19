@@ -1,0 +1,42 @@
+<?php
+include 'db.php';
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+if ($method == 'GET') {
+    $stmt = $conn->prepare("SELECT * FROM documents");
+    $stmt->execute();
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+if ($method == 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    $sql = "INSERT INTO documents (id, studentId, type, description, dateIssued)
+            VALUES (:id, :studentId, :type, :description, :dateIssued)
+            ON DUPLICATE KEY UPDATE
+            type=:type, description=:description, dateIssued=:dateIssued";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':id' => $data['id'],
+        ':studentId' => $data['studentId'],
+        ':type' => $data['type'],
+        ':description' => $data['description'] ?? '',
+        ':dateIssued' => $data['dateIssued']
+    ]);
+    echo json_encode($data);
+}
+
+if ($method == 'DELETE') {
+    $id = $_GET['id'] ?? null;
+    if ($id) {
+        $stmt = $conn->prepare("DELETE FROM documents WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        echo json_encode(["success" => true]);
+    }
+}
+?>
