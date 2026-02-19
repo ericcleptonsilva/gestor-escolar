@@ -1,63 +1,24 @@
 <?php
-// Ensure errors are reported as JSON
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // Disable HTML errors, we handle manually
-ini_set('log_errors', 1);
-
-// Custom Error Handler to return JSON on fatal errors
-function exception_handler($e) {
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(["error" => $e->getMessage(), "file" => $e->getFile(), "line" => $e->getLine()]);
-    exit;
-}
-set_exception_handler('exception_handler');
-
-// Ensure PDO extension is loaded
-if (!extension_loaded('pdo_mysql')) {
-    http_response_code(500);
-    echo json_encode(["error" => "Extensão PHP 'pdo_mysql' não carregada. Verifique seu php.ini."]);
-    exit;
-}
-
-require 'cors.php';
-require 'conexao.php';
-
-// Helper to check and create table if not exists
-function ensurePedagogicalTable($pdo) {
-    try {
-        $check = $pdo->query("SHOW TABLES LIKE 'pedagogical_records'");
-        if ($check->rowCount() == 0) {
-            $sql = "CREATE TABLE IF NOT EXISTS pedagogical_records (
-                id VARCHAR(50) PRIMARY KEY,
-                teacherName VARCHAR(255) NOT NULL,
-                weekStart VARCHAR(20) NOT NULL,
-                checklist TEXT,
-                classHours TEXT,
-                observation TEXT,
-                missed_classes TEXT
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-            $pdo->exec($sql);
-        } else {
-             // Check for column migration (missed_classes)
-            $colCheck = $pdo->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
-            if ($colCheck->rowCount() == 0) {
-                $pdo->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
-            }
-        }
-    } catch (PDOException $e) {
-        // Log error or handle silently? Best to let it fail later if critical.
-        error_log("Table check failed: " . $e->getMessage());
-    }
-}
+include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+if ($method == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 if ($method == 'GET') {
     try {
-        ensurePedagogicalTable($pdo);
+        // Ensure table exists (basic migration check)
+        // In production, this should be in a separate migration script, but for XAMPP drag-drop ease:
+        $check = $conn->query("SHOW TABLES LIKE 'pedagogical_records'");
+        if ($check->rowCount() == 0) {
+            echo json_encode([]);
+            exit();
+        }
 
-        $stmt = $pdo->prepare("SELECT * FROM pedagogical_records");
+        $stmt = $conn->prepare("SELECT * FROM pedagogical_records");
         $stmt->execute();
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -77,7 +38,7 @@ if ($method == 'GET') {
 }
 
 if ($method == 'POST') {
-    $data = getBody();
+    $data = json_decode(file_get_contents("php://input"), true);
 
     if (!isset($data['id'])) {
         http_response_code(400);
@@ -86,14 +47,18 @@ if ($method == 'POST') {
     }
 
     try {
-        ensurePedagogicalTable($pdo);
+        // Check for column migration
+        $colCheck = $conn->query("SHOW COLUMNS FROM pedagogical_records LIKE 'missed_classes'");
+        if ($colCheck->rowCount() == 0) {
+            $conn->exec("ALTER TABLE pedagogical_records ADD COLUMN missed_classes TEXT");
+        }
 
         $sql = "INSERT INTO pedagogical_records (id, teacherName, weekStart, checklist, classHours, observation, missed_classes)
                 VALUES (:id, :teacherName, :weekStart, :checklist, :classHours, :observation, :missed_classes)
                 ON DUPLICATE KEY UPDATE
                 teacherName=:teacherName, weekStart=:weekStart, checklist=:checklist, classHours=:classHours, observation=:observation, missed_classes=:missed_classes";
 
-        $stmt = $pdo->prepare($sql);
+        $stmt = $conn->prepare($sql);
 
         $stmt->execute([
             ':id' => $data['id'],
@@ -121,9 +86,7 @@ if ($method == 'DELETE') {
     }
 
     try {
-        ensurePedagogicalTable($pdo);
-
-        $stmt = $pdo->prepare("DELETE FROM pedagogical_records WHERE id = :id");
+        $stmt = $conn->prepare("DELETE FROM pedagogical_records WHERE id = :id");
         $stmt->execute([':id' => $id]);
         echo json_encode(["success" => true]);
     } catch (PDOException $e) {

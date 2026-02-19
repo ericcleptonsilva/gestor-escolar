@@ -260,8 +260,6 @@ export default function App() {
   }, [currentUser]);
 
   // --- POLLING / AUTO-SYNC ---
-  // Desativado a pedido do usuário para evitar conflitos de edição
-  /*
   useEffect(() => {
     // Only poll if logged in and not editing (to avoid overwriting work)
     if (!currentUser || isEditingStudent || isEditingUser || isImporting) return;
@@ -286,7 +284,6 @@ export default function App() {
 
     return () => clearInterval(intervalId);
   }, [currentUser, isEditingStudent, isEditingUser, isImporting]);
-  */
 
   // --- COMPUTED VALUES ---
   const getVisibleStudents = useMemo(() => {
@@ -364,7 +361,7 @@ export default function App() {
           alert("Sincronização com o servidor concluída com sucesso!");
       } catch (e: any) {
           console.error(e);
-          alert("Erro na sincronização: " + (e.message || "Verifique sua conexão."));
+          alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
       } finally {
           setIsSyncing(false);
       }
@@ -1142,8 +1139,10 @@ export default function App() {
             state.students.forEach(student => {
                 // Determine if we should process this student's absence
                 let shouldProcess = false;
-                if (student.shift === 'Manhã' && shiftFlags?.morning) shouldProcess = true;
-                if (student.shift === 'Tarde' && shiftFlags?.afternoon) shouldProcess = true;
+                const studentShift = (student.shift || '').trim().toLowerCase();
+
+                if ((studentShift === 'manhã' || studentShift === 'manha') && shiftFlags?.morning) shouldProcess = true;
+                if ((studentShift === 'tarde' || studentShift === 'vespertino') && shiftFlags?.afternoon) shouldProcess = true;
 
                 if (shouldProcess && !presentSet.has(student.id)) {
                     // Student was NOT in the turnstile file for this date AND we have data for their shift
