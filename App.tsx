@@ -1789,6 +1789,8 @@ export default function App() {
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
                     isImportingTurnstile={isImportingTurnstile}
+                    onSelectStudent={setSelectedStudent}
+                    setView={setView}
                  />
              )}
 
