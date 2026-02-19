@@ -152,7 +152,10 @@ export const StudentDetailView = ({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                    {studentAttendance.slice(-5).reverse().map(a => (
+                                    {[...studentAttendance]
+                                        .sort((a, b) => b.date.localeCompare(a.date))
+                                        .slice(0, 5)
+                                        .map(a => (
                                         <tr key={a.id}>
                                             <td className="p-3 text-slate-700 dark:text-slate-300">{new Date(a.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
                                             <td className="p-3">

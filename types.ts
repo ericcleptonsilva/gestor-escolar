@@ -83,13 +83,34 @@ export interface MakeUpExam {
   period?: AcademicPeriod; // Novo campo para a tag editável
 }
 
+export interface MissedClass {
+  date: string;
+  time: string;
+  hours?: number; // Added to track hours missed
+  reason?: string;
+}
+
+export interface PedagogicalRecord {
+  id: string;
+  teacherName: string;
+  weekStart: string; // YYYY-MM-DD of Monday
+  checklist: Record<string, boolean>; // Dynamic Checklist
+  classHours: {
+    planned: number;
+    given: number;
+  };
+  missedClasses?: MissedClass[]; // New field for missed hours
+  observation?: string;
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
   attendance: AttendanceRecord[];
   documents: HealthDocument[];
   exams: MakeUpExam[];
-  subjects: string[]; // Lista dinâmica de matérias
+  subjects: string[];
+  pedagogicalRecords: PedagogicalRecord[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';

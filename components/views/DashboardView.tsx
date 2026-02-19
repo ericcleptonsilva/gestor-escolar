@@ -6,7 +6,8 @@ import {
   ClipboardList,
   BarChart3,
   ShieldAlert,
-  Phone
+  Phone,
+  Eye
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { PrintButton } from '@/components/features/PrintButton';
@@ -19,9 +20,10 @@ interface DashboardViewProps {
   visibleStudents: Student[];
   handlePrint: () => void;
   setView: (view: ViewState) => void;
+  onSelectStudent: (student: Student) => void;
 }
 
-export const DashboardView = ({ state, visibleStudents, handlePrint, setView }: DashboardViewProps) => {
+export const DashboardView = ({ state, visibleStudents, handlePrint, setView, onSelectStudent }: DashboardViewProps) => {
     const [showAbsenceModal, setShowAbsenceModal] = useState(false);
     const [absenceThreshold, setAbsenceThreshold] = useState(3);
 
@@ -78,6 +80,17 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView }: 
                                         </div>
                                      )}
                                 </div>
+                                <button
+                                    onClick={() => {
+                                        onSelectStudent(student);
+                                        setView('students');
+                                        setShowAbsenceModal(false);
+                                    }}
+                                    className="ml-3 p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"
+                                    title="Ver Detalhes do Aluno"
+                                >
+                                    <Eye size={20} />
+                                </button>
                             </div>
                         ))}
                     </div>
