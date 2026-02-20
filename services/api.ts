@@ -133,11 +133,67 @@ function fromBinString(b64Encoded: string) {
   return bytes;
 }
 
+// --- INDEXEDDB HELPER ---
+const IDB_NAME = 'escola360_db';
+const IDB_STORE = 'sqlite_store';
+const IDB_KEY = 'sqlite_binary';
+
+const openIDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+      const request = indexedDB.open(IDB_NAME, 1);
+      request.onupgradeneeded = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+              db.createObjectStore(IDB_STORE);
+          }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+  });
+};
+
+const saveToIDB = async (data: Uint8Array): Promise<void> => {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        // Store directly as Uint8Array (Blob supported in modern browsers)
+        const request = store.put(data, IDB_KEY);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const loadFromIDB = async (): Promise<Uint8Array | null> => {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.get(IDB_KEY);
+        request.onsuccess = () => {
+            if (request.result) resolve(request.result as Uint8Array);
+            else resolve(null);
+        };
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const clearIDB = async (): Promise<void> => {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.delete(IDB_KEY);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
 // --- SQLITE IMPLEMENTATION ---
 class SqliteApi implements ApiService {
   private db: any = null;
   private initPromise: Promise<void> | null = null;
-  private STORAGE_KEY_DB = 'escola360_sqlite_db';
+  private persistTimeout: any = null;
 
   constructor() {
     this.initPromise = this.init();
@@ -154,20 +210,43 @@ class SqliteApi implements ApiService {
           locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
         });
 
-        const savedDb = localStorage.getItem(this.STORAGE_KEY_DB);
-        if (savedDb) {
-          try {
-            const binary = fromBinString(savedDb);
-            this.db = new SQL.Database(binary);
-          } catch (e) {
-            this.db = new SQL.Database();
-            this.createTables();
-            this.seedData();
-          }
+        // Try load from IndexedDB first
+        let binary: Uint8Array | null = null;
+        try {
+            binary = await loadFromIDB();
+        } catch (e) { console.error("IDB load failed", e); }
+
+        if (binary) {
+            try {
+                this.db = new SQL.Database(binary);
+            } catch (e) {
+                console.error("Corrupt DB in IDB, resetting", e);
+                this.db = new SQL.Database();
+                this.createTables();
+                this.seedData();
+            }
         } else {
-          this.db = new SQL.Database();
-          this.createTables();
-          this.seedData();
+            // Fallback: Check localStorage (Migration path)
+            const savedDb = localStorage.getItem('escola360_sqlite_db');
+            if (savedDb) {
+                try {
+                    console.log("Migrating from LocalStorage to IndexedDB...");
+                    const bin = fromBinString(savedDb);
+                    this.db = new SQL.Database(bin);
+                    // Persist immediately to IDB
+                    this.persist(true); // Force persist
+                    // Clear legacy
+                    localStorage.removeItem('escola360_sqlite_db');
+                } catch (e) {
+                    this.db = new SQL.Database();
+                    this.createTables();
+                    this.seedData();
+                }
+            } else {
+                this.db = new SQL.Database();
+                this.createTables();
+                this.seedData();
+            }
         }
     } catch (e) {
         console.error("Failed to initialize SQL.js", e);
@@ -232,13 +311,30 @@ class SqliteApi implements ApiService {
     this.persist();
   }
 
-  private persist() {
+  // Debounced Persist
+  private persist(force = false) {
     if (!this.db) return;
-    try {
-        const binary = this.db.export();
-        const str = toBinString(binary);
-        localStorage.setItem(this.STORAGE_KEY_DB, str);
-    } catch(e) { }
+
+    // Clear pending timeout
+    if (this.persistTimeout) clearTimeout(this.persistTimeout);
+
+    const doSave = async () => {
+        try {
+            const binary = this.db.export();
+            await saveToIDB(binary);
+            // console.log("DB Persisted to IndexedDB");
+        } catch(e) {
+            console.error("DB Persist Failed", e);
+        }
+    };
+
+    if (force) {
+        doSave();
+    } else {
+        // Debounce: Wait 2 seconds of inactivity before saving to disk
+        // This prevents freezing during rapid updates (e.g. attendance call)
+        this.persistTimeout = setTimeout(doSave, 2000);
+    }
   }
 
   private async query(sql: string, params: any[] = []) {
@@ -259,6 +355,9 @@ class SqliteApi implements ApiService {
     if (!this.db) return;
     try {
         this.db.run(sql, params);
+        // We trigger debounce persist here.
+        // SQL.js DB is in-memory, so immediate queries will see the change.
+        // The persistence is only for next page reload.
         this.persist();
     } catch(e) { console.error("SQLite Execute Error:", e, sql); }
   }
@@ -293,7 +392,7 @@ class SqliteApi implements ApiService {
             this.db.run("INSERT INTO pedagogical_records VALUES (?, ?, ?, ?, ?, ?, ?)",
             [p.id, p.teacherName, p.weekStart, JSON.stringify(p.checklist), JSON.stringify(p.classHours), p.observation || '', JSON.stringify(p.missedClasses || [])]);
         }
-        this.persist();
+        this.persist(true); // Force persist after full sync
     } catch (e) { console.error("Error replacing data in SQLite:", e); }
   }
 
@@ -389,7 +488,8 @@ class SqliteApi implements ApiService {
   async deletePedagogicalRecord(id: string): Promise<void> { await this.execute("DELETE FROM pedagogical_records WHERE id = ?", [id]); }
 
   async resetSystem(): Promise<void> {
-    localStorage.removeItem(this.STORAGE_KEY_DB);
+    await clearIDB();
+    localStorage.removeItem(this.STORAGE_KEY_DB); // Also clear legacy
     this.db = null;
     await this.init();
   }
