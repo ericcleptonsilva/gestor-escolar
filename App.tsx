@@ -368,10 +368,13 @@ export default function App() {
           await api.sync();
           const refreshedData = await api.loadAllData();
           setState(refreshedData);
-          alert("Sincronização com o servidor concluída com sucesso!");
+          // Only alert on success or critical user-initiated failure, but less obtrusive
+          // alert("Sincronização com o servidor concluída com sucesso!");
       } catch (e: any) {
-          console.error(e);
-          alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
+          console.error("Sync error:", e);
+          // Removed alert to prevent interrupting workflow.
+          // The sync status badge in the UI will indicate error state.
+          // alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
       } finally {
           setIsSyncing(false);
       }
@@ -588,11 +591,15 @@ export default function App() {
            observation
        };
     }
-    await api.saveAttendance(record);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) newAttendance[existingIndex] = record;
-    else newAttendance.push(record);
-    setState(prev => ({...prev, attendance: newAttendance}));
+    try {
+        await api.saveAttendance(record);
+        let newAttendance = [...state.attendance];
+        if (existingIndex >= 0) newAttendance[existingIndex] = record;
+        else newAttendance.push(record);
+        setState(prev => ({...prev, attendance: newAttendance}));
+    } catch (e) {
+        console.error("Failed to save observation locally", e);
+    }
   };
 
   // Health Docs
