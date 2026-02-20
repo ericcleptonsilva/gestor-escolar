@@ -30,7 +30,9 @@ export const Breadcrumbs = ({
         health: 'Documentos',
         exams: 'Segunda Chamada',
         reports: 'Relatórios IA',
-        users: 'Usuários'
+        users: 'Usuários',
+        pedagogical: 'Pedagógico',
+        network: 'Diagnóstico de Rede'
     };
 
     return (

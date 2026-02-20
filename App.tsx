@@ -17,7 +17,8 @@ import {
   AlertTriangle,
   X,
   Settings,
-  GraduationCap
+  GraduationCap,
+  Activity
 } from 'lucide-react';
 
 import { 
@@ -66,6 +67,7 @@ import { ReportView } from '@/components/views/ReportView';
 import { PedagogicalView } from '@/components/views/PedagogicalView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
+import { NetworkDiagnosticsView } from '@/components/views/NetworkDiagnosticsView';
 
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -1602,6 +1604,11 @@ export default function App() {
                   <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
               )}
 
+              <div className="pt-4 pb-2">
+                  <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Ferramentas</p>
+              </div>
+              <SidebarItem icon={Activity} label="Diagnóstico de Rede" active={view === 'network'} onClick={() => { setView('network'); setIsSidebarOpen(false); }} />
+
               {currentUser.role === 'Admin' && (
                   <>
                     <div className="pt-4 pb-2">
@@ -1852,6 +1859,10 @@ export default function App() {
                  ) : (
                      <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
                  )
+             )}
+
+             {view === 'network' && (
+                 <NetworkDiagnosticsView />
              )}
 
              {view === 'users' && (
