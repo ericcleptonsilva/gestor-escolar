@@ -261,6 +261,10 @@ export default function App() {
 
   // --- POLLING / AUTO-SYNC ---
   useEffect(() => {
+    // Auto-sync disabled by user request to prevent data loss on connection errors.
+    // Uncomment the code below to re-enable.
+
+    /*
     // Only poll if logged in and not editing (to avoid overwriting work)
     if (!currentUser || isEditingStudent || isEditingUser || isImporting) return;
 
@@ -283,6 +287,7 @@ export default function App() {
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(intervalId);
+    */
   }, [currentUser, isEditingStudent, isEditingUser, isImporting]);
 
   // --- COMPUTED VALUES ---
