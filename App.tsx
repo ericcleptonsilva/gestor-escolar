@@ -38,6 +38,7 @@ import {
   AcademicPeriod
 } from '@/types';
 
+import { NetworkDiagnosticsView } from '@/components/views/NetworkDiagnosticsView';
 import { generateSmartReport } from '@/services/geminiService';
 import { api, setApiBaseUrl } from '@/services/api';
 import {
@@ -533,14 +534,19 @@ export default function App() {
             status
         };
     }
-    api.saveAttendance(recordToSave);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) {
-       newAttendance[existingIndex] = recordToSave;
-    } else {
-       newAttendance.push(recordToSave);
+    try {
+        await api.saveAttendance(recordToSave);
+        let newAttendance = [...state.attendance];
+        if (existingIndex >= 0) {
+           newAttendance[existingIndex] = recordToSave;
+        } else {
+           newAttendance.push(recordToSave);
+        }
+        setState(prev => ({ ...prev, attendance: newAttendance }));
+    } catch (e) {
+        console.error("Failed to save attendance locally", e);
+        // Do not alert, just log. QueueApi shouldn't fail.
     }
-    setState(prev => ({ ...prev, attendance: newAttendance }));
   };
 
   const handleRemoveAttendanceRecord = (studentId: string) => {
@@ -1611,6 +1617,11 @@ export default function App() {
                   <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
               )}
 
+              <div className="pt-4 pb-2">
+                  <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Sistema</p>
+              </div>
+              <SidebarItem icon={Wifi} label="Diagnóstico de Rede" active={view === 'diagnostics'} onClick={() => { setView('diagnostics'); setIsSidebarOpen(false); }} />
+
               {currentUser.role === 'Admin' && (
                   <>
                     <div className="pt-4 pb-2">
@@ -1866,6 +1877,10 @@ export default function App() {
                  ) : (
                      <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
                  )
+             )}
+
+             {view === 'diagnostics' && (
+                 <NetworkDiagnosticsView />
              )}
 
              {view === 'users' && (
