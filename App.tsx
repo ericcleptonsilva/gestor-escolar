@@ -138,6 +138,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'error'>('online');
+  const [pendingChanges, setPendingChanges] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingPhotos, setIsImportingPhotos] = useState(false);
   const [isImportingPhones, setIsImportingPhones] = useState(false);
@@ -231,6 +232,9 @@ export default function App() {
   useEffect(() => {
     const handleSyncStatus = (e: any) => {
         setSyncStatus(e.detail.status);
+        if (e.detail.pending !== undefined) {
+            setPendingChanges(e.detail.pending);
+        }
     };
     window.addEventListener('api-sync-status', handleSyncStatus);
 
@@ -1660,6 +1664,11 @@ export default function App() {
                       <span className="hidden sm:inline">
                           {syncStatus === 'online' ? 'Online' : syncStatus === 'offline' ? 'Offline' : 'Erro de Sync'}
                       </span>
+                      {pendingChanges > 0 && (
+                          <span className="ml-2 bg-yellow-100 text-yellow-800 border border-yellow-200 text-[10px] font-bold px-2 py-0.5 rounded-full dark:bg-yellow-900/40 dark:text-yellow-200 dark:border-yellow-800">
+                              {pendingChanges} pendente{pendingChanges > 1 ? 's' : ''}
+                          </span>
+                      )}
                   </div>
 
                   <button 
