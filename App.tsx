@@ -1465,10 +1465,20 @@ export default function App() {
   };
 
   const handleExportStudents = () => {
-    const headers = "Nome,Matrícula,Série,Turno,Email,Pai,Telefone Pai,Mãe,Telefone Mãe\n";
-    const rows = filteredStudents.map(s =>
-        `"${s.name}","${s.registration}","${s.grade}","${s.shift}","${s.email}","${s.fatherName}","${s.fatherPhone}","${s.motherName}","${s.motherPhone}"`
-    ).join("\n");
+    const headers = "Nome,Matrícula,Série,Turno,Data de Nascimento,Email,Pai,Telefone Pai,Mãe,Telefone Mãe\n";
+    const rows = filteredStudents.map(s => {
+        let birthDateFormatted = s.birthDate;
+        try {
+            if (s.birthDate) {
+                const dateObj = new Date(s.birthDate);
+                if (!isNaN(dateObj.getTime())) {
+                    birthDateFormatted = dateObj.toLocaleDateString('pt-BR'); // Format as DD/MM/YYYY
+                }
+            }
+        } catch (e) { /* keep original on error */ }
+
+        return `"${s.name}","${s.registration}","${s.grade}","${s.shift}","${birthDateFormatted}","${s.email}","${s.fatherName}","${s.fatherPhone}","${s.motherName}","${s.motherPhone}"`;
+    }).join("\n");
     const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
