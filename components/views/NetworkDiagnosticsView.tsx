@@ -13,18 +13,20 @@ export const NetworkDiagnosticsView: React.FC = () => {
     serverMessage: string | null; // Added for error detail
     serverLatency: number | null;
     publicIp: string | null;
+    debugData: any | null; // For debug.php output
   }>({
     localNetwork: null,
     internet: null,
     server: null,
     serverMessage: null,
     serverLatency: null,
-    publicIp: null
+    publicIp: null,
+    debugData: null
   });
 
   const checkConnection = async () => {
     setIsChecking(true);
-    const newResults = { ...results };
+    const newResults = { ...results, debugData: null };
 
     // 1. Check Local Network / Internet (basic ping)
     try {
@@ -57,8 +59,8 @@ export const NetworkDiagnosticsView: React.FC = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        // We use subjects.php as it's lightweight
-        const res = await fetch(`${apiUrl}/subjects.php`, {
+        // We use debug.php for full diagnostics
+        const res = await fetch(`${apiUrl}/debug.php`, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
             signal: controller.signal
@@ -68,12 +70,21 @@ export const NetworkDiagnosticsView: React.FC = () => {
         const end = performance.now();
         newResults.server = res.ok;
         newResults.serverLatency = Math.round(end - start);
-        if (!res.ok) {
-            newResults.serverMessage = `Status: ${res.status} ${res.statusText}`;
+
+        if (res.ok) {
             try {
                 const json = await res.json();
-                if (json.error) newResults.serverMessage = json.error;
-            } catch {}
+                newResults.debugData = json;
+                // If DB connection failed in debug.php, mark server as warning/error
+                if (json.database_connection !== "OK") {
+                     newResults.server = false;
+                     newResults.serverMessage = json.database_connection;
+                }
+            } catch (e) {
+                newResults.serverMessage = "JSON inválido do debug.php";
+            }
+        } else {
+            newResults.serverMessage = `Status: ${res.status} ${res.statusText}`;
         }
     } catch (e: any) {
         console.error(e);
@@ -163,6 +174,45 @@ export const NetworkDiagnosticsView: React.FC = () => {
                               <li>Se estiver usando WiFi, verifique se está na mesma rede.</li>
                               <li>Tente acessar a URL acima no navegador.</li>
                           </ul>
+                      </div>
+                  )}
+
+                  {results.debugData && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                          <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Estado do Banco de Dados (Servidor)</h4>
+                          <div className="space-y-2 text-xs">
+                              <div className="flex justify-between">
+                                  <span>PHP: {results.debugData.php_version}</span>
+                                  <span>MySQL Driver: {results.debugData.mysql_extension}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                  <span>Conexão DB:</span>
+                                  <span className={results.debugData.database_connection === "OK" ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{results.debugData.database_connection}</span>
+                              </div>
+
+                              {results.debugData.tables && (
+                                  <div className="mt-2 bg-slate-100 dark:bg-slate-900 p-2 rounded max-h-40 overflow-y-auto">
+                                      <table className="w-full text-left">
+                                          <thead>
+                                              <tr className="text-slate-500 border-b border-slate-200">
+                                                  <th className="pb-1">Tabela</th>
+                                                  <th className="pb-1 text-right">Status / Registros</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody>
+                                              {Object.entries(results.debugData.tables).map(([table, status]: [string, any]) => (
+                                                  <tr key={table} className="border-b border-slate-200/50 last:border-0">
+                                                      <td className="py-1">{table}</td>
+                                                      <td className={`py-1 text-right ${String(status).includes("ERROR") || String(status).includes("MISSING") ? "text-red-500" : "text-slate-700 dark:text-slate-300"}`}>
+                                                          {status}
+                                                      </td>
+                                                  </tr>
+                                              ))}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                              )}
+                          </div>
                       </div>
                   )}
               </CardContent>

@@ -89,7 +89,7 @@ export const SettingsModal = ({
                 </p>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700">
+            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700 space-y-3">
                 <Button
                     variant="outline"
                     className="w-full text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
@@ -103,10 +103,26 @@ export const SettingsModal = ({
                     )}
                     {isUploading ? "Enviando..." : "Enviar Dados Locais para Servidor"}
                 </Button>
-                <div className="flex items-start mt-2 text-[10px] text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded">
+                <div className="flex items-start text-[10px] text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded">
                     <AlertCircle size={12} className="mr-1 flex-shrink-0 mt-0.5" />
-                    <p>Use isto apenas na primeira configuração ou se o servidor estiver vazio. Envia seus dados locais atuais para preencher o banco de dados.</p>
+                    <p>Use "Enviar" para preencher um servidor vazio com seus dados.</p>
                 </div>
+
+                <Button
+                    variant="outline"
+                    className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                    onClick={() => {
+                        if(confirm("ATENÇÃO: Isso irá substituir TODOS os seus dados locais pelos dados do servidor. Use apenas se você quiser restaurar o backup do servidor. Continuar?")) {
+                            api.sync().then(() => {
+                                alert("Dados baixados com sucesso!");
+                                window.location.reload();
+                            }).catch(e => alert("Erro ao baixar: " + e.message));
+                        }
+                    }}
+                >
+                    <UploadCloud size={18} className="mr-2 rotate-180" />
+                    Baixar Dados do Servidor (Restaurar)
+                </Button>
             </div>
         </div>
 

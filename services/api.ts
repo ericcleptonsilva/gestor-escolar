@@ -727,11 +727,30 @@ class HybridApi implements ApiService {
   }
 
   async loadAllData(): Promise<AppState> {
-    // ALWAYS load local data first for speed and offline-first capability.
-    // We do NOT pull from server automatically to prevent overwriting local changes.
-    // User must explicitly click "Sync".
+    const localData = await this.sqlite.loadAllData();
+
+    // Auto-Hydrate: If local DB is effectively empty (only default admin), try to fetch from server
+    // This helps new devices/installs get up to speed without manual sync
+    const isEmpty = localData.students.length === 0 && localData.users.length <= 1;
+
+    if (isEmpty && this.isOnline) {
+        try {
+            console.log("Local DB empty, attempting to auto-hydrate from server...");
+            const serverData = await this.http.loadAllData();
+            // Only replace if server actually has meaningful data
+            if (serverData.students.length > 0 || serverData.users.length > 1) {
+                await this.sqlite.replaceAllData(serverData);
+                this.notifyStatus('online');
+                return serverData;
+            }
+        } catch (e) {
+            console.warn("Auto-hydrate failed (likely offline or server empty)", e);
+            // Don't error out, just return local empty state so UI loads
+        }
+    }
+
     this.notifyStatus(this.isOnline ? 'online' : 'offline');
-    return await this.sqlite.loadAllData();
+    return localData;
   }
 
   async login(email: string, password: string): Promise<User | null> {
