@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Search, Plus, BookOpen, Activity, CreditCard, Phone, MessageCircle, XCircle, CheckSquare } from 'lucide-react';
+import { Users, Search, Plus, BookOpen, Activity, CreditCard, Phone, MessageCircle, XCircle, CheckSquare, Calendar } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
@@ -266,6 +266,17 @@ export const StudentListView = ({
                                         className="cursor-pointer hover:opacity-80 hover:scale-105 transition-transform"
                                     >
                                         {student.turnstileRegistered ? 'Sim' : 'Não'}
+                                    </Badge>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                     <span className="flex items-center text-slate-500 dark:text-slate-400 text-xs font-medium">
+                                        <Calendar size={14} className="mr-2 opacity-70" /> Agenda
+                                    </span>
+                                    <Badge
+                                        color={student.hasAgenda ? 'green' : 'slate'}
+                                        className="cursor-default"
+                                    >
+                                        {student.hasAgenda ? 'Sim' : 'Não'}
                                     </Badge>
                                 </div>
                                 {student.motherPhone && (
