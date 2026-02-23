@@ -160,6 +160,31 @@ export const StudentEditView = ({
                                 </label>
                             </div>
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tem Agenda?</label>
+                            <div className="flex items-center space-x-4 mt-2">
+                                <label className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="agenda"
+                                        checked={student.hasAgenda}
+                                        onChange={() => setStudent({...student, hasAgenda: true})}
+                                        className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-slate-700 dark:text-slate-300">Sim</span>
+                                </label>
+                                <label className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="agenda"
+                                        checked={!student.hasAgenda}
+                                        onChange={() => setStudent({...student, hasAgenda: false})}
+                                        className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-slate-700 dark:text-slate-300">Não</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex justify-end space-x-3 pt-6 border-t dark:border-slate-700">

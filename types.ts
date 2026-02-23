@@ -48,6 +48,7 @@ export interface Student {
   bookStatus: BookStatus;
   peStatus: PEStatus; // Status Atestado Educação Física
   turnstileRegistered: boolean; // Catraca
+  hasAgenda: boolean; // Tem Agenda?
 }
 
 export interface AttendanceRecord {

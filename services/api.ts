@@ -167,7 +167,7 @@ class SqliteApi implements ApiService {
       CREATE TABLE IF NOT EXISTS students (
         id TEXT PRIMARY KEY, name TEXT, registration TEXT, sequenceNumber TEXT, birthDate TEXT, grade TEXT, shift TEXT,
         email TEXT, photoUrl TEXT, fatherName TEXT, fatherPhone TEXT, motherName TEXT, motherPhone TEXT, guardians TEXT,
-        bookStatus TEXT, peStatus TEXT, turnstileRegistered INTEGER
+        bookStatus TEXT, peStatus TEXT, turnstileRegistered INTEGER, hasAgenda INTEGER
       );
       CREATE TABLE IF NOT EXISTS attendance (
         id TEXT PRIMARY KEY, studentId TEXT, date TEXT, status TEXT, observation TEXT
@@ -196,6 +196,18 @@ class SqliteApi implements ApiService {
             }
         }
     } catch (e) { console.error("Migration Error:", e); }
+
+    // Migration: Add hasAgenda column to students if it doesn't exist
+    try {
+        const columns = this.db.exec("PRAGMA table_info(students)");
+        if (columns.length > 0 && columns[0].values) {
+            const columnNames = columns[0].values.map((v: any) => v[1]);
+            if (!columnNames.includes('hasAgenda')) {
+                console.log("Migrating: Adding hasAgenda column to students...");
+                this.db.run("ALTER TABLE students ADD COLUMN hasAgenda INTEGER DEFAULT 0;");
+            }
+        }
+    } catch (e) { console.error("Migration Error (students):", e); }
     this.persist();
   }
 
@@ -257,9 +269,9 @@ class SqliteApi implements ApiService {
             this.db.run("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)", [u.id, u.name, u.email, u.password, u.role, u.photoUrl, JSON.stringify(u.allowedGrades)]);
         }
         for (const s of data.students) {
-            this.db.run("INSERT INTO students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+            this.db.run("INSERT INTO students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [s.id, s.name, s.registration, s.sequenceNumber, s.birthDate, s.grade, s.shift, s.email, s.photoUrl,
-            s.fatherName, s.fatherPhone, s.motherName, s.motherPhone, JSON.stringify(s.guardians), s.bookStatus, s.peStatus, s.turnstileRegistered ? 1 : 0]);
+            s.fatherName, s.fatherPhone, s.motherName, s.motherPhone, JSON.stringify(s.guardians), s.bookStatus, s.peStatus, s.turnstileRegistered ? 1 : 0, s.hasAgenda ? 1 : 0]);
         }
         for (const a of data.attendance) {
             this.db.run("INSERT INTO attendance VALUES (?, ?, ?, ?, ?)", [a.id, a.studentId, a.date, a.status, a.observation || '']);
@@ -297,7 +309,7 @@ class SqliteApi implements ApiService {
     if (!this.db) return DEFAULT_STATE;
 
     const users = (await this.query("SELECT * FROM users")).map((u: any) => ({ ...u, allowedGrades: JSON.parse(u.allowedGrades || '[]') }));
-    const students = (await this.query("SELECT * FROM students")).map((s: any) => ({ ...s, guardians: JSON.parse(s.guardians || '[]'), turnstileRegistered: s.turnstileRegistered === 1 }));
+    const students = (await this.query("SELECT * FROM students")).map((s: any) => ({ ...s, guardians: JSON.parse(s.guardians || '[]'), turnstileRegistered: s.turnstileRegistered === 1, hasAgenda: s.hasAgenda === 1 }));
     const attendance = await this.query("SELECT * FROM attendance");
     const documents = await this.query("SELECT * FROM documents");
     const exams = await this.query("SELECT * FROM exams");
@@ -327,9 +339,9 @@ class SqliteApi implements ApiService {
   }
 
   async saveStudent(student: Student): Promise<Student> {
-    await this.execute(`INSERT OR REPLACE INTO students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    await this.execute(`INSERT OR REPLACE INTO students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [student.id, student.name, student.registration, student.sequenceNumber, student.birthDate, student.grade, student.shift, student.email, student.photoUrl,
-    student.fatherName, student.fatherPhone, student.motherName, student.motherPhone, JSON.stringify(student.guardians), student.bookStatus, student.peStatus, student.turnstileRegistered ? 1 : 0]);
+    student.fatherName, student.fatherPhone, student.motherName, student.motherPhone, JSON.stringify(student.guardians), student.bookStatus, student.peStatus, student.turnstileRegistered ? 1 : 0, student.hasAgenda ? 1 : 0]);
     return student;
   }
   async deleteStudent(id: string): Promise<void> { await this.execute("DELETE FROM students WHERE id = ?", [id]); }

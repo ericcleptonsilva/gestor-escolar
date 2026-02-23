@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Edit3, Trash2, MessageCircle, CalendarCheck, FileText, ClipboardList, Activity, BookOpen, CreditCard } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, MessageCircle, CalendarCheck, FileText, ClipboardList, Activity, BookOpen, CreditCard, Calendar } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -118,7 +118,7 @@ export const StudentDetailView = ({
             </Card>
 
             <div className="lg:col-span-2 space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                      <Card className="p-4 flex flex-col items-center justify-center text-center bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/30 shadow-none">
                         <span className="text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400 mb-1">Frequência Global</span>
                         <span className="text-2xl font-bold text-slate-800 dark:text-white">{frequency}%</span>
@@ -133,6 +133,11 @@ export const StudentDetailView = ({
                      <Card className="p-4 flex flex-col items-center justify-center text-center bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 shadow-none">
                         <span className="text-xs font-bold uppercase text-amber-600 dark:text-amber-400 mb-1">Atestado Ed. Física</span>
                         <span className="text-lg font-bold text-slate-800 dark:text-white">{student.peStatus}</span>
+                     </Card>
+
+                     <Card className="p-4 flex flex-col items-center justify-center text-center bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 shadow-none">
+                        <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400 mb-1">Agenda</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-white">{student.hasAgenda ? 'Sim' : 'Não'}</span>
                      </Card>
                 </div>
 
