@@ -3,11 +3,6 @@ include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 if ($method == 'GET') {
     try {
         // Ensure table exists (basic migration check)

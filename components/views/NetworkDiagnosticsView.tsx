@@ -10,12 +10,14 @@ export const NetworkDiagnosticsView: React.FC = () => {
     localNetwork: boolean | null;
     internet: boolean | null;
     server: boolean | null;
+    serverMessage: string | null; // Added for error detail
     serverLatency: number | null;
     publicIp: string | null;
   }>({
     localNetwork: null,
     internet: null,
     server: null,
+    serverMessage: null,
     serverLatency: null,
     publicIp: null
   });
@@ -66,10 +68,18 @@ export const NetworkDiagnosticsView: React.FC = () => {
         const end = performance.now();
         newResults.server = res.ok;
         newResults.serverLatency = Math.round(end - start);
-    } catch (e) {
+        if (!res.ok) {
+            newResults.serverMessage = `Status: ${res.status} ${res.statusText}`;
+            try {
+                const json = await res.json();
+                if (json.error) newResults.serverMessage = json.error;
+            } catch {}
+        }
+    } catch (e: any) {
         console.error(e);
         newResults.server = false;
         newResults.serverLatency = null;
+        newResults.serverMessage = e.message || "Erro desconhecido";
     }
 
     setResults(newResults);
@@ -146,7 +156,7 @@ export const NetworkDiagnosticsView: React.FC = () => {
 
                   {!results.server && results.server !== null && (
                       <div className="p-3 bg-red-50 text-red-600 text-xs rounded border border-red-100">
-                          <strong>Erro de Conexão:</strong> O sistema não conseguiu contatar o servidor.
+                          <strong>Erro de Conexão:</strong> {results.serverMessage || "O sistema não conseguiu contatar o servidor."}
                           <ul className="list-disc ml-4 mt-2 space-y-1">
                               <li>Verifique se o XAMPP está rodando (Apache e MySQL).</li>
                               <li>Confirme se o IP nas Configurações está correto.</li>

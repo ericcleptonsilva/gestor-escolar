@@ -1,22 +1,13 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Content-Type: application/json; charset=UTF-8");
-
-// Handle preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+include_once 'cors.php';
 
 $host = 'localhost';
-$db_name = 'sistema_escolar';
+$db_name = 'escola360';
 $username = 'root';
 $password = '';
 
 try {
-    // 1. Connect WITHOUT selecting database
+    // 1. Connect WITHOUT selecting database to check/create it
     $conn = new PDO("mysql:host=$host;charset=utf8", $username, $password);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
