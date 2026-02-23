@@ -87,6 +87,7 @@ interface ApiService {
   loadAllData(): Promise<AppState>;
   login(email: string, password: string): Promise<User | null>;
   sync(): Promise<void>;
+  uploadLocalData(): Promise<void>; // New Method for Force Push
   uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string>;
 
   // Students
@@ -397,6 +398,7 @@ class SqliteApi implements ApiService {
   }
 
   async sync(): Promise<void> { return Promise.resolve(); }
+  async uploadLocalData(): Promise<void> { return Promise.resolve(); } // No-op for pure SQLite
 
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -517,6 +519,8 @@ class HttpApi implements ApiService {
   }
 
   async sync(): Promise<void> { return; }
+  async uploadLocalData(): Promise<void> { return; } // No-op
+
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
       const formData = new FormData(); formData.append('photo', file); formData.append('type', type); formData.append('id', id);
       const response = await this.request('/upload.php', 'POST', formData);
@@ -656,6 +660,51 @@ class HybridApi implements ApiService {
         this.notifyStatus('error');
         throw e;
     }
+  }
+
+  // --- NEW METHOD: Force Upload Local Data ---
+  async uploadLocalData(): Promise<void> {
+      if (!this.isOnline) throw new Error("Sem conexão com a internet.");
+
+      const localData = await this.sqlite.loadAllData();
+
+      // Upload Users
+      for (const u of localData.users) {
+          await this.http.saveUser(u);
+      }
+
+      // Upload Students
+      for (const s of localData.students) {
+          await this.http.saveStudent(s);
+      }
+
+      // Upload Attendance
+      // Batching might be better but sequential is safer for now
+      for (const a of localData.attendance) {
+          await this.http.saveAttendance(a);
+      }
+
+      // Upload Docs
+      for (const d of localData.documents) {
+          await this.http.saveDocument(d);
+      }
+
+      // Upload Exams
+      for (const e of localData.exams) {
+          await this.http.saveExam(e);
+      }
+
+      // Upload Subjects
+      if (localData.subjects.length > 0) {
+          await this.http.updateSubjects(localData.subjects);
+      }
+
+      // Upload Pedagogical
+      for (const p of localData.pedagogicalRecords) {
+          await this.http.savePedagogicalRecord(p);
+      }
+
+      console.log("Upload completed");
   }
 
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
