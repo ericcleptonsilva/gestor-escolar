@@ -38,6 +38,7 @@ import {
   AcademicPeriod
 } from '@/types';
 
+import { NetworkDiagnosticsView } from '@/components/views/NetworkDiagnosticsView';
 import { generateSmartReport } from '@/services/geminiService';
 import { api, setApiBaseUrl } from '@/services/api';
 import {
@@ -138,6 +139,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'error'>('online');
+  const [pendingChanges, setPendingChanges] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingPhotos, setIsImportingPhotos] = useState(false);
   const [isImportingPhones, setIsImportingPhones] = useState(false);
@@ -231,6 +233,9 @@ export default function App() {
   useEffect(() => {
     const handleSyncStatus = (e: any) => {
         setSyncStatus(e.detail.status);
+        if (e.detail.pending !== undefined) {
+            setPendingChanges(e.detail.pending);
+        }
     };
     window.addEventListener('api-sync-status', handleSyncStatus);
 
@@ -363,10 +368,13 @@ export default function App() {
           await api.sync();
           const refreshedData = await api.loadAllData();
           setState(refreshedData);
-          alert("Sincronização com o servidor concluída com sucesso!");
+          // Only alert on success or critical user-initiated failure, but less obtrusive
+          // alert("Sincronização com o servidor concluída com sucesso!");
       } catch (e: any) {
-          console.error(e);
-          alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
+          console.error("Sync error:", e);
+          // Removed alert to prevent interrupting workflow.
+          // The sync status badge in the UI will indicate error state.
+          // alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
       } finally {
           setIsSyncing(false);
       }
@@ -529,14 +537,19 @@ export default function App() {
             status
         };
     }
-    api.saveAttendance(recordToSave);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) {
-       newAttendance[existingIndex] = recordToSave;
-    } else {
-       newAttendance.push(recordToSave);
+    try {
+        await api.saveAttendance(recordToSave);
+        let newAttendance = [...state.attendance];
+        if (existingIndex >= 0) {
+           newAttendance[existingIndex] = recordToSave;
+        } else {
+           newAttendance.push(recordToSave);
+        }
+        setState(prev => ({ ...prev, attendance: newAttendance }));
+    } catch (e) {
+        console.error("Failed to save attendance locally", e);
+        // Do not alert, just log. QueueApi shouldn't fail.
     }
-    setState(prev => ({ ...prev, attendance: newAttendance }));
   };
 
   const handleRemoveAttendanceRecord = (studentId: string) => {
@@ -578,11 +591,15 @@ export default function App() {
            observation
        };
     }
-    await api.saveAttendance(record);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) newAttendance[existingIndex] = record;
-    else newAttendance.push(record);
-    setState(prev => ({...prev, attendance: newAttendance}));
+    try {
+        await api.saveAttendance(record);
+        let newAttendance = [...state.attendance];
+        if (existingIndex >= 0) newAttendance[existingIndex] = record;
+        else newAttendance.push(record);
+        setState(prev => ({...prev, attendance: newAttendance}));
+    } catch (e) {
+        console.error("Failed to save observation locally", e);
+    }
   };
 
   // Health Docs
@@ -1448,10 +1465,20 @@ export default function App() {
   };
 
   const handleExportStudents = () => {
-    const headers = "Nome,Matrícula,Série,Turno,Email,Pai,Telefone Pai,Mãe,Telefone Mãe\n";
-    const rows = filteredStudents.map(s =>
-        `"${s.name}","${s.registration}","${s.grade}","${s.shift}","${s.email}","${s.fatherName}","${s.fatherPhone}","${s.motherName}","${s.motherPhone}"`
-    ).join("\n");
+    const headers = "Nome,Matrícula,Série,Turno,Data de Nascimento,Email,Pai,Telefone Pai,Mãe,Telefone Mãe\n";
+    const rows = filteredStudents.map(s => {
+        let birthDateFormatted = s.birthDate;
+        try {
+            if (s.birthDate) {
+                const dateObj = new Date(s.birthDate);
+                if (!isNaN(dateObj.getTime())) {
+                    birthDateFormatted = dateObj.toLocaleDateString('pt-BR'); // Format as DD/MM/YYYY
+                }
+            }
+        } catch (e) { /* keep original on error */ }
+
+        return `"${s.name}","${s.registration}","${s.grade}","${s.shift}","${birthDateFormatted}","${s.email}","${s.fatherName}","${s.fatherPhone}","${s.motherName}","${s.motherPhone}"`;
+    }).join("\n");
     const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1607,6 +1634,11 @@ export default function App() {
                   <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
               )}
 
+              <div className="pt-4 pb-2">
+                  <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Sistema</p>
+              </div>
+              <SidebarItem icon={Wifi} label="Diagnóstico de Rede" active={view === 'diagnostics'} onClick={() => { setView('diagnostics'); setIsSidebarOpen(false); }} />
+
               {currentUser.role === 'Admin' && (
                   <>
                     <div className="pt-4 pb-2">
@@ -1660,6 +1692,11 @@ export default function App() {
                       <span className="hidden sm:inline">
                           {syncStatus === 'online' ? 'Online' : syncStatus === 'offline' ? 'Offline' : 'Erro de Sync'}
                       </span>
+                      {pendingChanges > 0 && (
+                          <span className="ml-2 bg-yellow-100 text-yellow-800 border border-yellow-200 text-[10px] font-bold px-2 py-0.5 rounded-full dark:bg-yellow-900/40 dark:text-yellow-200 dark:border-yellow-800">
+                              {pendingChanges} pendente{pendingChanges > 1 ? 's' : ''}
+                          </span>
+                      )}
                   </div>
 
                   <button 
@@ -1857,6 +1894,10 @@ export default function App() {
                  ) : (
                      <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
                  )
+             )}
+
+             {view === 'diagnostics' && (
+                 <NetworkDiagnosticsView />
              )}
 
              {view === 'users' && (

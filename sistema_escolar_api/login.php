@@ -3,11 +3,6 @@ include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 if ($method == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $email = $data['email'];
