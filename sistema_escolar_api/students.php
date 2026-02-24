@@ -28,7 +28,13 @@ if ($method == 'GET') {
             $row['turnstileRegistered'] = $row['turnstileRegistered'] == 1;
             $row['hasAgenda'] = isset($row['hasAgenda']) ? $row['hasAgenda'] == 1 : false;
         }
-        echo json_encode($results);
+        $json = json_encode($results);
+        if ($json === false) {
+            http_response_code(500);
+            echo json_encode(["error" => "JSON Encoding Error: " . json_last_error_msg()]);
+        } else {
+            echo $json;
+        }
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(["error" => $e->getMessage()]);
