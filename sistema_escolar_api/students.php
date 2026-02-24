@@ -1,4 +1,5 @@
 <?php
+error_reporting(E_ERROR | E_PARSE);
 include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -10,11 +11,12 @@ if ($method == 'OPTIONS') {
 
 // Migration: Add hasAgenda column if not exists
 try {
-    $check = $conn->query("SHOW COLUMNS FROM students LIKE 'hasAgenda'");
-    if ($check->rowCount() == 0) {
+    $conn->query("SELECT hasAgenda FROM students LIMIT 1");
+} catch (PDOException $e) {
+    try {
         $conn->exec("ALTER TABLE students ADD COLUMN hasAgenda TINYINT(1) DEFAULT 0");
-    }
-} catch (Exception $e) { }
+    } catch (Exception $ex) { }
+}
 
 if ($method == 'GET') {
     try {

@@ -114,4 +114,4 @@ export interface AppState {
   pedagogicalRecords: PedagogicalRecord[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'diagnostics';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';

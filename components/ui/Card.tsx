@@ -5,21 +5,3 @@ export const Card: React.FC<{ children?: React.ReactNode, className?: string, on
     {children}
   </div>
 );
-
-export const CardHeader: React.FC<{ children?: React.ReactNode, className?: string }> = ({ children, className = "" }) => (
-  <div className={`p-6 border-b border-slate-100 dark:border-slate-700 ${className}`}>
-    {children}
-  </div>
-);
-
-export const CardTitle: React.FC<{ children?: React.ReactNode, className?: string }> = ({ children, className = "" }) => (
-  <h3 className={`text-lg font-bold text-slate-800 dark:text-white ${className}`}>
-    {children}
-  </h3>
-);
-
-export const CardContent: React.FC<{ children?: React.ReactNode, className?: string }> = ({ children, className = "" }) => (
-  <div className={`p-6 ${className}`}>
-    {children}
-  </div>
-);
