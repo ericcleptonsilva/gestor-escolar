@@ -3,6 +3,19 @@ include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+if ($method == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Migration: Add hasAgenda column if not exists
+try {
+    $check = $conn->query("SHOW COLUMNS FROM students LIKE 'hasAgenda'");
+    if ($check->rowCount() == 0) {
+        $conn->exec("ALTER TABLE students ADD COLUMN hasAgenda TINYINT(1) DEFAULT 0");
+    }
+} catch (Exception $e) { }
+
 if ($method == 'GET') {
     try {
         $stmt = $conn->prepare("SELECT * FROM students");
@@ -11,7 +24,7 @@ if ($method == 'GET') {
         foreach ($results as &$row) {
             $row['guardians'] = json_decode($row['guardians']);
             $row['turnstileRegistered'] = $row['turnstileRegistered'] == 1;
-            $row['hasAgenda'] = $row['hasAgenda'] == 1;
+            $row['hasAgenda'] = isset($row['hasAgenda']) ? $row['hasAgenda'] == 1 : false;
         }
         echo json_encode($results);
     } catch (PDOException $e) {
@@ -22,14 +35,6 @@ if ($method == 'GET') {
 
 if ($method == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
-
-    // Migration: Add hasAgenda column if not exists
-    try {
-        $check = $conn->query("SHOW COLUMNS FROM students LIKE 'hasAgenda'");
-        if ($check->rowCount() == 0) {
-            $conn->exec("ALTER TABLE students ADD COLUMN hasAgenda TINYINT(1) DEFAULT 0");
-        }
-    } catch (Exception $e) { }
 
     try {
         $sql = "INSERT INTO students (id, name, registration, sequenceNumber, birthDate, grade, shift, email, photoUrl, fatherName, fatherPhone, motherName, motherPhone, guardians, bookStatus, peStatus, turnstileRegistered, hasAgenda)
