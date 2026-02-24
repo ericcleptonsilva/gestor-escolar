@@ -3,6 +3,11 @@ include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+if ($method == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 if ($method == 'POST') {
     try {
         $conn->exec("DELETE FROM students");
