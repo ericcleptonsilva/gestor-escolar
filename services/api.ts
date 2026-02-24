@@ -20,7 +20,7 @@ const getEnv = (key: string) => {
 
 const DATA_SOURCE = 'sync' as 'sqlite' | 'http' | 'sync';
 
-let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api";
+let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api_teste";
 try {
   const saved = localStorage.getItem('escola360_api_url');
   if (saved) apiBaseUrl = saved;
@@ -66,11 +66,28 @@ const DEFAULT_STATE: AppState = {
   pedagogicalRecords: []
 };
 
+// --- SYNC QUEUE TYPES ---
+type SyncOperation =
+  | { type: 'saveStudent'; data: Student }
+  | { type: 'deleteStudent'; id: string }
+  | { type: 'saveUser'; data: User }
+  | { type: 'deleteUser'; id: string }
+  | { type: 'saveAttendance'; data: AttendanceRecord }
+  | { type: 'deleteAttendance'; studentId: string; date: string }
+  | { type: 'saveExam'; data: MakeUpExam }
+  | { type: 'deleteExam'; id: string }
+  | { type: 'updateSubjects'; data: string[] }
+  | { type: 'saveDocument'; data: HealthDocument }
+  | { type: 'deleteDocument'; id: string }
+  | { type: 'savePedagogicalRecord'; data: PedagogicalRecord }
+  | { type: 'deletePedagogicalRecord'; id: string };
+
 // --- INTERFACES ---
 interface ApiService {
   loadAllData(): Promise<AppState>;
   login(email: string, password: string): Promise<User | null>;
   sync(): Promise<void>;
+  uploadLocalData(): Promise<void>; // New Method for Force Push
   uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string>;
 
   // Students
@@ -117,11 +134,67 @@ function fromBinString(b64Encoded: string) {
   return bytes;
 }
 
+// --- INDEXEDDB HELPER ---
+const IDB_NAME = 'escola360_db';
+const IDB_STORE = 'sqlite_store';
+const IDB_KEY = 'sqlite_binary';
+
+const openIDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+      const request = indexedDB.open(IDB_NAME, 1);
+      request.onupgradeneeded = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+              db.createObjectStore(IDB_STORE);
+          }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+  });
+};
+
+const saveToIDB = async (data: Uint8Array): Promise<void> => {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        // Store directly as Uint8Array (Blob supported in modern browsers)
+        const request = store.put(data, IDB_KEY);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const loadFromIDB = async (): Promise<Uint8Array | null> => {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.get(IDB_KEY);
+        request.onsuccess = () => {
+            if (request.result) resolve(request.result as Uint8Array);
+            else resolve(null);
+        };
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const clearIDB = async (): Promise<void> => {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.delete(IDB_KEY);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
 // --- SQLITE IMPLEMENTATION ---
 class SqliteApi implements ApiService {
   private db: any = null;
   private initPromise: Promise<void> | null = null;
-  private STORAGE_KEY_DB = 'escola360_sqlite_db';
+  private persistTimeout: any = null;
 
   constructor() {
     this.initPromise = this.init();
@@ -138,20 +211,43 @@ class SqliteApi implements ApiService {
           locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
         });
 
-        const savedDb = localStorage.getItem(this.STORAGE_KEY_DB);
-        if (savedDb) {
-          try {
-            const binary = fromBinString(savedDb);
-            this.db = new SQL.Database(binary);
-          } catch (e) {
-            this.db = new SQL.Database();
-            this.createTables();
-            this.seedData();
-          }
+        // Try load from IndexedDB first
+        let binary: Uint8Array | null = null;
+        try {
+            binary = await loadFromIDB();
+        } catch (e) { console.error("IDB load failed", e); }
+
+        if (binary) {
+            try {
+                this.db = new SQL.Database(binary);
+            } catch (e) {
+                console.error("Corrupt DB in IDB, resetting", e);
+                this.db = new SQL.Database();
+                this.createTables();
+                this.seedData();
+            }
         } else {
-          this.db = new SQL.Database();
-          this.createTables();
-          this.seedData();
+            // Fallback: Check localStorage (Migration path)
+            const savedDb = localStorage.getItem('escola360_sqlite_db');
+            if (savedDb) {
+                try {
+                    console.log("Migrating from LocalStorage to IndexedDB...");
+                    const bin = fromBinString(savedDb);
+                    this.db = new SQL.Database(bin);
+                    // Persist immediately to IDB
+                    this.persist(true); // Force persist
+                    // Clear legacy
+                    localStorage.removeItem('escola360_sqlite_db');
+                } catch (e) {
+                    this.db = new SQL.Database();
+                    this.createTables();
+                    this.seedData();
+                }
+            } else {
+                this.db = new SQL.Database();
+                this.createTables();
+                this.seedData();
+            }
         }
     } catch (e) {
         console.error("Failed to initialize SQL.js", e);
@@ -228,13 +324,30 @@ class SqliteApi implements ApiService {
     this.persist();
   }
 
-  private persist() {
+  // Debounced Persist
+  private persist(force = false) {
     if (!this.db) return;
-    try {
-        const binary = this.db.export();
-        const str = toBinString(binary);
-        localStorage.setItem(this.STORAGE_KEY_DB, str);
-    } catch(e) { }
+
+    // Clear pending timeout
+    if (this.persistTimeout) clearTimeout(this.persistTimeout);
+
+    const doSave = async () => {
+        try {
+            const binary = this.db.export();
+            await saveToIDB(binary);
+            // console.log("DB Persisted to IndexedDB");
+        } catch(e) {
+            console.error("DB Persist Failed", e);
+        }
+    };
+
+    if (force) {
+        doSave();
+    } else {
+        // Debounce: Wait 2 seconds of inactivity before saving to disk
+        // This prevents freezing during rapid updates (e.g. attendance call)
+        this.persistTimeout = setTimeout(doSave, 2000);
+    }
   }
 
   private async query(sql: string, params: any[] = []) {
@@ -255,6 +368,9 @@ class SqliteApi implements ApiService {
     if (!this.db) return;
     try {
         this.db.run(sql, params);
+        // We trigger debounce persist here.
+        // SQL.js DB is in-memory, so immediate queries will see the change.
+        // The persistence is only for next page reload.
         this.persist();
     } catch(e) { console.error("SQLite Execute Error:", e, sql); }
   }
@@ -289,11 +405,12 @@ class SqliteApi implements ApiService {
             this.db.run("INSERT INTO pedagogical_records VALUES (?, ?, ?, ?, ?, ?, ?)",
             [p.id, p.teacherName, p.weekStart, JSON.stringify(p.checklist), JSON.stringify(p.classHours), p.observation || '', JSON.stringify(p.missedClasses || [])]);
         }
-        this.persist();
+        this.persist(true); // Force persist after full sync
     } catch (e) { console.error("Error replacing data in SQLite:", e); }
   }
 
   async sync(): Promise<void> { return Promise.resolve(); }
+  async uploadLocalData(): Promise<void> { return Promise.resolve(); } // No-op for pure SQLite
 
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -385,7 +502,8 @@ class SqliteApi implements ApiService {
   async deletePedagogicalRecord(id: string): Promise<void> { await this.execute("DELETE FROM pedagogical_records WHERE id = ?", [id]); }
 
   async resetSystem(): Promise<void> {
-    localStorage.removeItem(this.STORAGE_KEY_DB);
+    await clearIDB();
+    localStorage.removeItem(this.STORAGE_KEY_DB); // Also clear legacy
     this.db = null;
     await this.init();
   }
@@ -393,7 +511,7 @@ class SqliteApi implements ApiService {
 
 // --- HTTP IMPLEMENTATION ---
 class HttpApi implements ApiService {
-  private async request(endpoint: string, method: string = 'GET', body?: any) {
+  public async request(endpoint: string, method: string = 'GET', body?: any) {
     const headers: any = { 'Accept': 'application/json' };
     if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json; charset=utf-8';
     
@@ -413,6 +531,8 @@ class HttpApi implements ApiService {
   }
 
   async sync(): Promise<void> { return; }
+  async uploadLocalData(): Promise<void> { return; } // No-op
+
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
       const formData = new FormData(); formData.append('photo', file); formData.append('type', type); formData.append('id', id);
       const response = await this.request('/upload.php', 'POST', formData);
@@ -451,6 +571,9 @@ class HybridApi implements ApiService {
   private http = new HttpApi();
   private isOnline = navigator.onLine;
 
+  private queue: SyncOperation[] = [];
+  private QUEUE_KEY = 'escola360_sync_queue';
+
   constructor() {
     window.addEventListener('online', () => {
         this.isOnline = true;
@@ -460,14 +583,87 @@ class HybridApi implements ApiService {
         this.isOnline = false;
         this.notifyStatus('offline');
     });
+    try {
+        const q = localStorage.getItem(this.QUEUE_KEY);
+        if (q) this.queue = JSON.parse(q);
+    } catch(e) { console.error("Queue load error", e); }
   }
 
   private notifyStatus(status: 'online' | 'offline' | 'error') {
-      window.dispatchEvent(new CustomEvent('api-sync-status', { detail: { status } }));
+      window.dispatchEvent(new CustomEvent('api-sync-status', {
+          detail: { status, pending: this.queue.length }
+      }));
+  }
+
+  private enqueue(op: SyncOperation) {
+      this.queue.push(op);
+      this.persistQueue();
+      this.notifyStatus(this.isOnline ? 'online' : 'offline');
+  }
+
+  private persistQueue() {
+      localStorage.setItem(this.QUEUE_KEY, JSON.stringify(this.queue));
   }
 
   async sync(): Promise<void> {
     if (!this.isOnline) throw new Error("Sem conexão com a internet.");
+
+    // 1. Process Queue (PUSH)
+    // We clone queue to iterate. If op succeeds, we remove it from main queue.
+    const opsToProcess = [...this.queue];
+    const failedOps: SyncOperation[] = [];
+
+    // Optimistic: Assume success, rebuild queue if failures occur.
+    // Actually safer to remove one by one on success.
+
+    let processedCount = 0;
+
+    for (const op of opsToProcess) {
+        try {
+            switch(op.type) {
+                case 'saveStudent': await this.http.saveStudent(op.data); break;
+                case 'deleteStudent': await this.http.deleteStudent(op.id); break;
+                case 'saveUser': await this.http.saveUser(op.data); break;
+                case 'deleteUser': await this.http.deleteUser(op.id); break;
+                case 'saveAttendance': await this.http.saveAttendance(op.data); break;
+                case 'deleteAttendance': await this.http.deleteAttendance(op.studentId, op.date); break;
+                case 'saveExam': await this.http.saveExam(op.data); break;
+                case 'deleteExam': await this.http.deleteExam(op.id); break;
+                case 'updateSubjects': await this.http.updateSubjects(op.data); break;
+                case 'saveDocument': await this.http.saveDocument(op.data); break;
+                case 'deleteDocument': await this.http.deleteDocument(op.id); break;
+                case 'savePedagogicalRecord': await this.http.savePedagogicalRecord(op.data); break;
+                case 'deletePedagogicalRecord': await this.http.deletePedagogicalRecord(op.id); break;
+            }
+            processedCount++;
+
+            // Remove processed item from queue (find index to be safe against async modifications)
+            // But since we are single threaded here, shift() works if we modify 'this.queue' directly?
+            // Safer: Filter out the specific object instance.
+            this.queue = this.queue.filter(q => q !== op);
+            this.persistQueue();
+            this.notifyStatus('online'); // Update count
+        } catch (e) {
+            console.error("Sync op failed", op, e);
+            failedOps.push(op);
+            // If network fails completely, stop trying others to save time
+            if (e instanceof Error && e.message.includes("Falha ao conectar")) {
+                break;
+            }
+        }
+    }
+
+    if (this.queue.length > 0) {
+        this.notifyStatus('error');
+        // Don't throw if some succeeded, but warn?
+        // Let's throw to alert user, but only after trying all feasible.
+        throw new Error(`Algumas alterações não puderam ser enviadas. (${this.queue.length} pendentes). Tente novamente.`);
+    }
+
+    // 2. Pull Data (PULL)
+    // Only pull if queue is empty (all changes sent), otherwise we risk overwriting local changes that failed to send.
+    // Wait, if queue is not empty, we already threw an error above. So if we are here, queue is empty.
+
     try {
         const serverData = await this.http.loadAllData();
         await this.sqlite.replaceAllData(serverData);
@@ -477,89 +673,156 @@ class HybridApi implements ApiService {
         throw e;
     }
   }
+
+  // --- NEW METHOD: Force Upload Local Data ---
+  async uploadLocalData(): Promise<void> {
+      if (!this.isOnline) throw new Error("Sem conexão com a internet.");
+
+      const localData = await this.sqlite.loadAllData();
+
+      // Upload Users
+      for (const u of localData.users) {
+          await this.http.saveUser(u);
+      }
+
+      // Upload Students
+      for (const s of localData.students) {
+          await this.http.saveStudent(s);
+      }
+
+      // Upload Attendance
+      // Batching might be better but sequential is safer for now
+      for (const a of localData.attendance) {
+          await this.http.saveAttendance(a);
+      }
+
+      // Upload Docs
+      for (const d of localData.documents) {
+          await this.http.saveDocument(d);
+      }
+
+      // Upload Exams
+      for (const e of localData.exams) {
+          await this.http.saveExam(e);
+      }
+
+      // Upload Subjects
+      if (localData.subjects.length > 0) {
+          await this.http.updateSubjects(localData.subjects);
+      }
+
+      // Upload Pedagogical
+      for (const p of localData.pedagogicalRecords) {
+          await this.http.savePedagogicalRecord(p);
+      }
+
+      console.log("Upload completed");
+  }
+
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
       if (this.isOnline) {
           try { return await this.http.uploadPhoto(file, type, id); } catch (e) { }
       }
       return await this.sqlite.uploadPhoto(file, type, id);
   }
+
   async loadAllData(): Promise<AppState> {
-    try {
-      const serverData = await this.http.loadAllData();
-      await this.sqlite.replaceAllData(serverData);
-      this.notifyStatus('online');
-      return serverData;
-    } catch (error: any) {
-      this.notifyStatus('offline');
-      console.warn("HybridAPI: Offline Mode");
-      return await this.sqlite.loadAllData();
+    const localData = await this.sqlite.loadAllData();
+
+    // Auto-Hydrate: If local DB is effectively empty (only default admin), try to fetch from server
+    // This helps new devices/installs get up to speed without manual sync
+    const isEmpty = localData.students.length === 0 && localData.users.length <= 1;
+
+    if (isEmpty && this.isOnline) {
+        try {
+            console.log("Local DB empty, attempting to auto-hydrate from server...");
+            const serverData = await this.http.loadAllData();
+            // Only replace if server actually has meaningful data
+            if (serverData.students.length > 0 || serverData.users.length > 1) {
+                await this.sqlite.replaceAllData(serverData);
+                this.notifyStatus('online');
+                return serverData;
+            }
+        } catch (e) {
+            console.warn("Auto-hydrate failed (likely offline or server empty)", e);
+            // Don't error out, just return local empty state so UI loads
+        }
     }
+
+    this.notifyStatus(this.isOnline ? 'online' : 'offline');
+    return localData;
   }
+
   async login(email: string, password: string): Promise<User | null> {
     try { const serverUser = await this.http.login(email, password); if (serverUser) return serverUser; } catch (e) { }
     return this.sqlite.login(email, password);
   }
+
+  // --- QUEUED OPERATIONS ---
+
   async saveStudent(student: Student): Promise<Student> {
     const local = await this.sqlite.saveStudent(student);
-    this.http.saveStudent(student).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'saveStudent', data: student });
     return local;
   }
   async deleteStudent(id: string): Promise<void> {
     await this.sqlite.deleteStudent(id);
-    this.http.deleteStudent(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'deleteStudent', id });
   }
   async saveUser(user: User): Promise<User> {
     const local = await this.sqlite.saveUser(user);
-    this.http.saveUser(user).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'saveUser', data: user });
     return local;
   }
   async deleteUser(id: string): Promise<void> {
     await this.sqlite.deleteUser(id);
-    this.http.deleteUser(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'deleteUser', id });
   }
   async saveAttendance(record: AttendanceRecord): Promise<AttendanceRecord> {
     const local = await this.sqlite.saveAttendance(record);
-    this.http.saveAttendance(record).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'saveAttendance', data: record });
     return local;
   }
   async deleteAttendance(studentId: string, date: string): Promise<void> {
     await this.sqlite.deleteAttendance(studentId, date);
-    this.http.deleteAttendance(studentId, date).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'deleteAttendance', studentId, date });
   }
   async saveExam(exam: MakeUpExam): Promise<MakeUpExam> {
     const local = await this.sqlite.saveExam(exam);
-    this.http.saveExam(exam).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'saveExam', data: exam });
     return local;
   }
   async deleteExam(id: string): Promise<void> {
     await this.sqlite.deleteExam(id);
-    this.http.deleteExam(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'deleteExam', id });
   }
   async updateSubjects(subjects: string[]): Promise<string[]> {
     const local = await this.sqlite.updateSubjects(subjects);
-    this.http.updateSubjects(subjects).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'updateSubjects', data: subjects });
     return local;
   }
   async saveDocument(doc: HealthDocument): Promise<HealthDocument> {
     const local = await this.sqlite.saveDocument(doc);
-    this.http.saveDocument(doc).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'saveDocument', data: doc });
     return local;
   }
   async deleteDocument(id: string): Promise<void> {
     await this.sqlite.deleteDocument(id);
-    this.http.deleteDocument(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+    this.enqueue({ type: 'deleteDocument', id });
   }
   async savePedagogicalRecord(record: PedagogicalRecord): Promise<PedagogicalRecord> {
       const local = await this.sqlite.savePedagogicalRecord(record);
-      this.http.savePedagogicalRecord(record).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+      this.enqueue({ type: 'savePedagogicalRecord', data: record });
       return local;
   }
   async deletePedagogicalRecord(id: string): Promise<void> {
       await this.sqlite.deletePedagogicalRecord(id);
-      this.http.deletePedagogicalRecord(id).catch(e => { console.warn("Sync Fail", e); this.notifyStatus('error'); });
+      this.enqueue({ type: 'deletePedagogicalRecord', id });
   }
   async resetSystem(): Promise<void> {
     await this.sqlite.resetSystem();
+    // Do not queue reset, send immediately if possible? Or maybe we should?
+    // Reset is drastic. Let's try HTTP directly.
     this.http.resetSystem().catch(e => console.warn("Sync Fail", e));
   }
 }

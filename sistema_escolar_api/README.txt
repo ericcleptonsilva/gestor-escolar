@@ -16,22 +16,23 @@ Passos para instalação:
       - Host: localhost
       - Usuário: root
       - Senha: (vazia)
-      - Banco: sistema_escolar
+      - Banco: escola360 (configurado automaticamente)
 
-    - Certifique-se de criar o banco de dados "sistema_escolar" no PHPMyAdmin
-      (http://localhost/phpmyadmin), ou o sistema tentará criar as tabelas automaticamente
-      se o banco já existir.
+    - O sistema tentará criar o banco de dados "escola360" e as tabelas automaticamente
+      no primeiro acesso. Não é necessário criar manualmente.
 
-5.  Tabelas:
-    - O sistema cria as tabelas automaticamente ao acessar.
-    - Se precisar criar manualmente a tabela pedagógica, use o arquivo "create_pedagogical_table.sql".
+5.  Diagnóstico:
+    - Se houver problemas, acesse http://localhost/sistema_escolar_api/debug.php
+    - Este arquivo testará a conexão com o banco e permissões de escrita.
 
-6.  Teste:
-    - Acesse http://localhost/sistema_escolar_api/students.php no navegador.
-    - Se retornar "[]" (lista vazia) ou dados JSON, está funcionando.
+6.  Documentação:
+    - Consulte o arquivo "DICIONARIO_DADOS.md" nesta pasta para ver a estrutura
+      completa das tabelas e colunas do banco de dados.
 
 Arquivos incluídos:
-- db.php (Conexão)
+- db.php (Conexão e Criação Automática do Banco)
+- cors.php (Configuração de Permissões de Acesso/CORS)
+- debug.php (Ferramenta de Diagnóstico)
+- DICIONARIO_DADOS.md (Documentação do Banco)
 - students.php, users.php, etc. (Endpoints da API)
 - pedagogical.php (Novo módulo pedagógico)
-- setup.sql (Esquema do banco)
