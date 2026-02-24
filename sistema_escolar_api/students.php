@@ -1,5 +1,6 @@
 <?php
 error_reporting(E_ERROR | E_PARSE);
+include_once 'logger.php';
 include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -14,8 +15,11 @@ try {
     $conn->query("SELECT hasAgenda FROM students LIMIT 1");
 } catch (PDOException $e) {
     try {
+        logError("Migrating table students: Adding hasAgenda column");
         $conn->exec("ALTER TABLE students ADD COLUMN hasAgenda TINYINT(1) DEFAULT 0");
-    } catch (Exception $ex) { }
+    } catch (Exception $ex) {
+        logError("Migration Failed: " . $ex->getMessage());
+    }
 }
 
 if ($method == 'GET') {
@@ -30,12 +34,15 @@ if ($method == 'GET') {
         }
         $json = json_encode($results);
         if ($json === false) {
+            $msg = "JSON Encoding Error: " . json_last_error_msg();
+            logError($msg);
             http_response_code(500);
-            echo json_encode(["error" => "JSON Encoding Error: " . json_last_error_msg()]);
+            echo json_encode(["error" => $msg]);
         } else {
             echo $json;
         }
     } catch (PDOException $e) {
+        logError("GET Students Error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["error" => $e->getMessage()]);
     }
@@ -74,6 +81,7 @@ if ($method == 'POST') {
         ]);
         echo json_encode($data);
     } catch (PDOException $e) {
+        logError("POST Student Error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["error" => $e->getMessage()]);
     }
