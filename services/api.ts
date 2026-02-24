@@ -20,7 +20,7 @@ const getEnv = (key: string) => {
 
 const DATA_SOURCE = 'sync' as 'sqlite' | 'http' | 'sync';
 
-let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api";
+let apiBaseUrl = "http://192.168.25.77:8787/sistema_escolar_api_teste";
 try {
   const saved = localStorage.getItem('escola360_api_url');
   if (saved) apiBaseUrl = saved;
