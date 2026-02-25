@@ -135,8 +135,14 @@ export const StudentDetailView = ({
                         <span className="text-lg font-bold text-slate-800 dark:text-white">{student.peStatus}</span>
                      </Card>
 
-                     <Card className="p-4 flex flex-col items-center justify-center text-center bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 shadow-none">
-                        <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400 mb-1">Agenda</span>
+                     <Card className={`p-4 flex flex-col items-center justify-center text-center shadow-none ${
+                        student.hasAgenda
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30'
+                            : 'bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700'
+                     }`}>
+                        <span className={`text-xs font-bold uppercase mb-1 ${
+                            student.hasAgenda ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
+                        }`}>Agenda</span>
                         <span className="text-lg font-bold text-slate-800 dark:text-white">{student.hasAgenda ? 'Sim' : 'Não'}</span>
                      </Card>
                 </div>

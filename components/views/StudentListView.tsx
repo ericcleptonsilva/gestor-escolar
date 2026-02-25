@@ -41,6 +41,7 @@ interface StudentListViewProps {
     onToggleBook: (student: Student, e: React.MouseEvent) => void;
     onTogglePE: (student: Student, e: React.MouseEvent) => void;
     onToggleTurnstile: (student: Student, e: React.MouseEvent) => void;
+    onToggleAgenda: (student: Student, e: React.MouseEvent) => void;
 }
 
 export const StudentListView = ({
@@ -63,7 +64,8 @@ export const StudentListView = ({
     onToggleAbsence,
     onToggleBook,
     onTogglePE,
-    onToggleTurnstile
+    onToggleTurnstile,
+    onToggleAgenda
 }: StudentListViewProps) => {
 
     const formatWhatsAppLink = (phone: string) => {
@@ -274,7 +276,8 @@ export const StudentListView = ({
                                     </span>
                                     <Badge
                                         color={student.hasAgenda ? 'green' : 'slate'}
-                                        className="cursor-default"
+                                        onClick={(e) => onToggleAgenda(student, e)}
+                                        className="cursor-pointer hover:opacity-80 hover:scale-105 transition-transform"
                                     >
                                         {student.hasAgenda ? 'Sim' : 'Não'}
                                     </Badge>
