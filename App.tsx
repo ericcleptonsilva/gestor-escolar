@@ -63,7 +63,7 @@ import { AttendanceView } from '@/components/views/AttendanceView';
 import { HealthView } from '@/components/views/HealthView';
 import { ExamView } from '@/components/views/ExamView';
 import { ReportView } from '@/components/views/ReportView';
-import { PedagogicalView } from '@/components/views/PedagogicalView';
+import { CoordinationView } from '@/components/views/CoordinationView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
 
@@ -109,7 +109,10 @@ const EMPTY_STATE: AppState = {
     attendance: [],
     documents: [],
     exams: [],
-    subjects: []
+    subjects: [],
+    pedagogicalRecords: [],
+    grades: [],
+    coordinationRecords: []
 };
 
 export default function App() {
@@ -300,9 +303,10 @@ export default function App() {
   }, [state.students, currentUser]);
 
   const visibleGradesList = useMemo(() => {
-     if (!currentUser || currentUser.role === 'Admin') return GRADES_LIST;
-     return GRADES_LIST.filter(g => currentUser.allowedGrades?.includes(g));
-  }, [currentUser]);
+     const allGrades = (state.grades && state.grades.length > 0) ? state.grades : GRADES_LIST;
+     if (!currentUser || currentUser.role === 'Admin') return allGrades;
+     return allGrades.filter(g => currentUser.allowedGrades?.includes(g));
+  }, [currentUser, state.grades]);
 
   const filteredStudents = useMemo(() => {
       return (getVisibleStudents || []).filter(student => {
@@ -1632,7 +1636,7 @@ export default function App() {
               <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
               
               {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
-                  <SidebarItem icon={GraduationCap} label="Pedagógico" active={view === 'pedagogical'} onClick={() => { setView('pedagogical'); setIsSidebarOpen(false); }} />
+                  <SidebarItem icon={GraduationCap} label="Coordenação" active={view === 'coordination'} onClick={() => { setView('coordination'); setIsSidebarOpen(false); }} />
               )}
 
               {currentUser.role === 'Admin' && (
@@ -1876,12 +1880,12 @@ export default function App() {
                  <ReportView state={state} />
              )}
 
-             {view === 'pedagogical' && (
+             {view === 'coordination' && (
                  (currentUser.role === 'Admin' || currentUser.role === 'Coordinator') ? (
-                     <PedagogicalView
+                     <CoordinationView
                         state={state}
-                        onSaveRecord={handleSavePedagogical}
-                        onDeleteRecord={handleDeletePedagogical}
+                        currentUser={currentUser}
+                        onRefresh={handleManualSync}
                      />
                  ) : (
                      <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>

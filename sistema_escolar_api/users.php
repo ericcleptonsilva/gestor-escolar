@@ -20,10 +20,17 @@ if ($method == 'GET') {
 
 if ($method == 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
-    $sql = "INSERT INTO users (id, name, email, password, role, photoUrl, allowedGrades)
-            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades)
+    // Migration: Add registration column if missing
+    try {
+        $conn->query("SELECT registration FROM users LIMIT 1");
+    } catch (PDOException $e) {
+        $conn->exec("ALTER TABLE users ADD COLUMN registration VARCHAR(50) DEFAULT ''");
+    }
+
+    $sql = "INSERT INTO users (id, name, email, password, role, photoUrl, allowedGrades, registration)
+            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades, :registration)
             ON DUPLICATE KEY UPDATE
-            name=:name, email=:email, password=:password, role=:role, photoUrl=:photoUrl, allowedGrades=:allowedGrades";
+            name=:name, email=:email, password=:password, role=:role, photoUrl=:photoUrl, allowedGrades=:allowedGrades, registration=:registration";
     $stmt = $conn->prepare($sql);
     $stmt->execute([
         ':id' => $data['id'],
@@ -32,7 +39,8 @@ if ($method == 'POST') {
         ':password' => $data['password'],
         ':role' => $data['role'],
         ':photoUrl' => $data['photoUrl'],
-        ':allowedGrades' => json_encode($data['allowedGrades'])
+        ':allowedGrades' => json_encode($data['allowedGrades']),
+        ':registration' => $data['registration'] ?? ''
     ]);
     echo json_encode($data);
 }
