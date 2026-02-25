@@ -16,9 +16,9 @@ Passos para instalação:
       - Host: localhost
       - Usuário: root
       - Senha: (vazia)
-      - Banco: sistema_escolar
+      - Banco: escola360
 
-    - Certifique-se de criar o banco de dados "sistema_escolar" no PHPMyAdmin
+    - Certifique-se de criar o banco de dados "escola360" no PHPMyAdmin
       (http://localhost/phpmyadmin), ou o sistema tentará criar as tabelas automaticamente
       se o banco já existir.
 

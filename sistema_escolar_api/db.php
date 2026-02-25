@@ -7,7 +7,7 @@ header("Content-Type: application/json; charset=UTF-8");
 include_once 'logger.php';
 
 $host = 'localhost';
-$db_name = 'sistema_escolar';
+$db_name = 'escola360';
 $username = 'root';
 $password = '';
 
