@@ -497,6 +497,13 @@ export default function App() {
     await api.saveStudent(updatedStudent);
   };
 
+  const handleToggleAgenda = async (student: Student, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updatedStudent = { ...student, hasAgenda: !student.hasAgenda };
+    setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? updatedStudent : s) }));
+    await api.saveStudent(updatedStudent);
+  };
+
   const handleTogglePEStatus = async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextStatus: Record<PEStatus, PEStatus> = {
@@ -1780,6 +1787,7 @@ export default function App() {
                             onToggleBook={handleToggleBookStatus}
                             onTogglePE={handleTogglePEStatus}
                             onToggleTurnstile={handleToggleTurnstile}
+                            onToggleAgenda={handleToggleAgenda}
                         />
                     )}
                  </>
