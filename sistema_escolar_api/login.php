@@ -1,28 +1,20 @@
 <?php
-include 'db.php';
+require 'cors.php';
+require 'conexao.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
-
-if ($method == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
-if ($method == 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $email = $data['email'];
-    $password = $data['password'];
-
-    $stmt = $conn->prepare("SELECT * FROM users WHERE email = :email AND password = :password");
-    $stmt->execute([':email' => $email, ':password' => $password]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = getBody();
+    
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND password = ?");
+    $stmt->execute([$data['email'], $data['password']]);
+    $user = $stmt->fetch();
 
     if ($user) {
         $user['allowedGrades'] = json_decode($user['allowedGrades']);
         echo json_encode($user);
     } else {
-        http_response_code(401);
-        echo json_encode(["error" => "Invalid credentials"]);
+        http_response_code(401); // Não autorizado
+        echo json_encode(["error" => "Credenciais inválidas"]);
     }
 }
 ?>

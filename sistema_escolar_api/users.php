@@ -1,30 +1,23 @@
 <?php
-include 'db.php';
+require 'cors.php';
+require 'conexao.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
-if ($method == 'GET') {
-    $stmt = $conn->prepare("SELECT * FROM users");
-    $stmt->execute();
-    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($results as &$row) {
-        $row['allowedGrades'] = json_decode($row['allowedGrades']);
+if ($method === 'GET') {
+    $stmt = $pdo->query("SELECT * FROM users");
+    $users = $stmt->fetchAll();
+    foreach ($users as &$u) {
+        $u['allowedGrades'] = json_decode($u['allowedGrades'] ?? '[]');
     }
-    echo json_encode($results);
-}
+    echo json_encode($users);
 
-if ($method == 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $sql = "INSERT INTO users (id, name, email, password, role, photoUrl, allowedGrades)
-            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades)
-            ON DUPLICATE KEY UPDATE
-            name=:name, email=:email, password=:password, role=:role, photoUrl=:photoUrl, allowedGrades=:allowedGrades";
-    $stmt = $conn->prepare($sql);
+} elseif ($method === 'POST') {
+    $data = getBody();
+    $sql = "REPLACE INTO users (id, name, email, password, role, photoUrl, allowedGrades) 
+            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades)";
+    
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':id' => $data['id'],
         ':name' => $data['name'],
@@ -35,13 +28,12 @@ if ($method == 'POST') {
         ':allowedGrades' => json_encode($data['allowedGrades'])
     ]);
     echo json_encode($data);
-}
 
-if ($method == 'DELETE') {
+} elseif ($method === 'DELETE') {
     $id = $_GET['id'] ?? null;
     if ($id) {
-        $stmt = $conn->prepare("DELETE FROM users WHERE id = :id");
-        $stmt->execute([':id' => $id]);
+        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$id]);
         echo json_encode(["success" => true]);
     }
 }

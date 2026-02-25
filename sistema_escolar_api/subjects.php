@@ -1,39 +1,32 @@
 <?php
-include 'db.php';
+require 'cors.php';
+require 'conexao.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+if ($method === 'GET') {
+    // Retorna array simples de strings ["Matemática", "Português"]
+    $stmt = $pdo->query("SELECT name FROM subjects");
+    echo json_encode($stmt->fetchAll(PDO::FETCH_COLUMN));
 
-if ($method == 'GET') {
-    try {
-        $stmt = $conn->prepare("SELECT * FROM subjects");
-        $stmt->execute();
-        $results = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo json_encode($results);
-    } catch (PDOException $e) {
-        // Fallback for first run
-        echo json_encode([]);
-    }
-}
-
-if ($method == 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
+} elseif ($method === 'POST') {
+    $data = getBody();
+    // O JS manda { subjects: ["A", "B"] }
     $subjects = $data['subjects'] ?? [];
 
+    $pdo->beginTransaction();
     try {
-        $conn->exec("DELETE FROM subjects");
-        $stmt = $conn->prepare("INSERT INTO subjects (name) VALUES (:name)");
+        $pdo->exec("DELETE FROM subjects");
+        $stmt = $pdo->prepare("INSERT INTO subjects (name) VALUES (?)");
         foreach ($subjects as $sub) {
-            $stmt->execute([':name' => $sub]);
+            $stmt->execute([$sub]);
         }
+        $pdo->commit();
         echo json_encode($subjects);
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
+        $pdo->rollBack();
         http_response_code(500);
-        echo json_encode(["error" => $e->getMessage()]);
+        echo json_encode(["error" => "Erro ao atualizar matérias"]);
     }
 }
 ?>
