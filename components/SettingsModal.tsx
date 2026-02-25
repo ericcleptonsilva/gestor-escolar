@@ -66,7 +66,7 @@ export const SettingsModal = ({
                 <Input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="http://localhost/sistema_escolar_api"
+                    placeholder="http://192.168.x.x:8787/sistema_escolar_api"
                 />
                 <p className="text-xs text-slate-500">
                     Endereço para sincronização com o XAMPP.
