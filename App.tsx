@@ -90,7 +90,8 @@ const createEmptyStudent = (): Student => ({
   guardians: [],
   bookStatus: 'Nao Comprou',
   peStatus: 'Pendente',
-  turnstileRegistered: false
+  turnstileRegistered: false,
+  hasAgenda: false
 });
 
 const createEmptyUser = (): User => ({
@@ -499,9 +500,19 @@ export default function App() {
 
   const handleToggleAgenda = async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
+    const oldStudent = { ...student };
     const updatedStudent = { ...student, hasAgenda: !student.hasAgenda };
+
+    // Optimistic Update
     setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? updatedStudent : s) }));
-    await api.saveStudent(updatedStudent);
+
+    try {
+        await api.saveStudent(updatedStudent);
+    } catch (error: any) {
+        // Revert on failure
+        setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? oldStudent : s) }));
+        alert("Erro ao salvar status da agenda: " + error.message);
+    }
   };
 
   const handleTogglePEStatus = async (student: Student, e: React.MouseEvent) => {
