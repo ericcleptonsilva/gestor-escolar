@@ -5,7 +5,8 @@ import {
   AttendanceRecord, 
   MakeUpExam, 
   HealthDocument,
-  PedagogicalRecord
+  PedagogicalRecord,
+  CoordinationRecord
 } from "../types";
 
 // --- CONFIGURATION ---
@@ -64,6 +65,11 @@ interface ApiService {
   // Pedagogical
   savePedagogicalRecord(record: PedagogicalRecord): Promise<PedagogicalRecord>;
   deletePedagogicalRecord(id: string): Promise<void>;
+
+  // Coordination (New)
+  updateGrades(grades: string[]): Promise<string[]>;
+  saveCoordinationRecord(record: CoordinationRecord): Promise<CoordinationRecord>;
+  deleteCoordinationRecord(id: string): Promise<void>;
 
   // System
   resetSystem(): Promise<void>;
@@ -130,18 +136,40 @@ class HttpApi implements ApiService {
 
   async loadAllData(): Promise<AppState> {
     try {
-        const [students, users, attendance, documents, exams, subjects, pedagogicalRecords] = await Promise.all([
+        const [
+            students,
+            users,
+            attendance,
+            documents,
+            exams,
+            subjects,
+            pedagogicalRecords,
+            grades,
+            coordinationRecords
+        ] = await Promise.all([
             this.request('/students.php'),
             this.request('/users.php'),
             this.request('/attendance.php'),
             this.request('/documents.php'),
             this.request('/exams.php'),
             this.request('/subjects.php'),
-            this.request('/pedagogical.php').catch(() => []) // Fallback for new endpoint
+            this.request('/pedagogical.php').catch(() => []),
+            this.request('/grades.php').catch(() => []),
+            this.request('/coordination.php').catch(() => [])
         ]);
 
         this.notifyStatus('online');
-        return { students, users, attendance, documents, exams, subjects, pedagogicalRecords };
+        return {
+            students,
+            users,
+            attendance,
+            documents,
+            exams,
+            subjects,
+            pedagogicalRecords,
+            grades,
+            coordinationRecords
+        };
     } catch (e: any) {
         this.notifyStatus('offline');
         throw e;
@@ -175,6 +203,11 @@ class HttpApi implements ApiService {
 
   async savePedagogicalRecord(record: PedagogicalRecord): Promise<PedagogicalRecord> { return this.request('/pedagogical.php', 'POST', record); }
   async deletePedagogicalRecord(id: string): Promise<void> { return this.request(`/pedagogical.php?id=${id}`, 'DELETE'); }
+
+  // New Coordination Methods
+  async updateGrades(grades: string[]): Promise<string[]> { return this.request('/grades.php', 'POST', { grades }); }
+  async saveCoordinationRecord(record: CoordinationRecord): Promise<CoordinationRecord> { return this.request('/coordination.php', 'POST', record); }
+  async deleteCoordinationRecord(id: string): Promise<void> { return this.request(`/coordination.php?id=${id}`, 'DELETE'); }
 
   async resetSystem(): Promise<void> { return this.request('/reset.php', 'POST'); }
 }

@@ -17,6 +17,7 @@ export interface User {
   role: UserRole;
   photoUrl?: string;
   allowedGrades?: string[]; // Array of grades this user can access
+  registration?: string; // Matricula (para Professores)
 }
 
 export interface Guardian {
@@ -104,6 +105,27 @@ export interface PedagogicalRecord {
   observation?: string;
 }
 
+// --- NEW COORDINATION TYPES ---
+export type CoordinationType = 'EXAM_DELIVERY' | 'PLAN_DELIVERY' | 'REPORT_MONITORING' | 'DRIVE_UPDATE';
+
+export interface CoordinationRecord {
+    id: string;
+    type: CoordinationType;
+    teacherId?: string;
+    teacherName: string;
+    grade?: string;
+    shift?: string;
+    subject?: string;
+    deadline?: string;
+    deliveryDate?: string;
+    status: string; // 'No Prazo' | 'Antecipado' | 'Fora do prazo' | 'Em Dias' | 'Atrasado'
+    fileUrl?: string; // Relatório em PDF ou Excel
+    observation?: string;
+    period?: string; // Bimestral or Period
+    weekDate?: string; // For Drive Update
+    isCompleted?: boolean; // For Drive Update
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
@@ -112,6 +134,10 @@ export interface AppState {
   exams: MakeUpExam[];
   subjects: string[];
   pedagogicalRecords: PedagogicalRecord[];
+
+  // New State
+  grades: string[];
+  coordinationRecords: CoordinationRecord[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';
