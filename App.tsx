@@ -241,7 +241,7 @@ export default function App() {
         setState(data);
       } catch (error: any) {
         console.error("Failed to load data", error);
-        alert("Erro ao carregar dados locais: " + error.message);
+        alert("Erro ao carregar dados do servidor: " + error.message + "\nVerifique se o XAMPP está rodando.");
       } finally {
         setIsLoading(false);
       }
@@ -363,10 +363,10 @@ export default function App() {
           await api.sync();
           const refreshedData = await api.loadAllData();
           setState(refreshedData);
-          alert("Sincronização com o servidor concluída com sucesso!");
+          alert("Dados atualizados do servidor com sucesso!");
       } catch (e: any) {
           console.error(e);
-          alert(`Erro na sincronização: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto (ex: http://192.168.25.77:8787/sistema_escolar_api) e se o XAMPP está rodando.`);
+          alert(`Erro na conexão: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto e se o XAMPP está rodando.`);
       } finally {
           setIsSyncing(false);
       }
@@ -419,24 +419,29 @@ export default function App() {
        }
     }
 
-    const savedStudent = await api.saveStudent(studentToSave);
+    try {
+        const savedStudent = await api.saveStudent(studentToSave);
 
-    setState(prev => {
-        const exists = prev.students.find(s => s.id === savedStudent.id);
-        if (exists) {
-            return { ...prev, students: prev.students.map(s => s.id === savedStudent.id ? savedStudent : s) };
-        } else {
-            return { ...prev, students: [...prev.students, savedStudent] };
+        setState(prev => {
+            const exists = prev.students.find(s => s.id === savedStudent.id);
+            if (exists) {
+                return { ...prev, students: prev.students.map(s => s.id === savedStudent.id ? savedStudent : s) };
+            } else {
+                return { ...prev, students: [...prev.students, savedStudent] };
+            }
+        });
+
+        if (selectedStudent && selectedStudent.id === savedStudent.id) {
+        setSelectedStudent(savedStudent);
         }
-    });
 
-    if (selectedStudent && selectedStudent.id === savedStudent.id) {
-       setSelectedStudent(savedStudent);
+        setTempStudent(createEmptyStudent());
+        setIsEditingStudent(false);
+    } catch (e: any) {
+        alert("Erro ao salvar aluno: " + e.message);
+    } finally {
+        setIsLoading(false);
     }
-
-    setTempStudent(createEmptyStudent());
-    setIsEditingStudent(false);
-    setIsLoading(false);
   };
 
   const handleDeleteStudent = (id: string) => {
@@ -685,15 +690,20 @@ export default function App() {
         userToSave.id = Math.random().toString(36).substr(2, 9);
         userToSave.photoUrl = userToSave.photoUrl || `https://ui-avatars.com/api/?name=${userToSave.name}&background=random`;
     }
-    const savedUser = await api.saveUser(userToSave);
-    setState(prev => {
-        const exists = prev.users.find(u => u.id === savedUser.id);
-        if (exists) return { ...prev, users: prev.users.map(u => u.id === savedUser.id ? savedUser : u) };
-        return { ...prev, users: [...prev.users, savedUser] };
-    });
-    setTempUser(createEmptyUser());
-    setIsEditingUser(false);
-    setIsLoading(false);
+    try {
+        const savedUser = await api.saveUser(userToSave);
+        setState(prev => {
+            const exists = prev.users.find(u => u.id === savedUser.id);
+            if (exists) return { ...prev, users: prev.users.map(u => u.id === savedUser.id ? savedUser : u) };
+            return { ...prev, users: [...prev.users, savedUser] };
+        });
+        setTempUser(createEmptyUser());
+        setIsEditingUser(false);
+    } catch (e: any) {
+        alert("Erro ao salvar usuário: " + e.message);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleDeleteUser = (id: string) => {
