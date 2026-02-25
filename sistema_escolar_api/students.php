@@ -10,17 +10,20 @@ if ($method == 'OPTIONS') {
     exit();
 }
 
-// Migration: Add hasAgenda column if not exists
+// ------------------------------------------------------------------------------------------------
+// MIGRATION: Ensure 'hasAgenda' column exists using robust SHOW COLUMNS check
+// ------------------------------------------------------------------------------------------------
 try {
-    $conn->query("SELECT hasAgenda FROM students LIMIT 1");
-} catch (PDOException $e) {
-    try {
+    $stmt = $conn->query("SHOW COLUMNS FROM students LIKE 'hasAgenda'");
+    if ($stmt->rowCount() == 0) {
         logError("Migrating table students: Adding hasAgenda column");
         $conn->exec("ALTER TABLE students ADD COLUMN hasAgenda TINYINT(1) DEFAULT 0");
-    } catch (Exception $ex) {
-        logError("Migration Failed: " . $ex->getMessage());
     }
+} catch (PDOException $e) {
+    // Fallback or log if SHOW COLUMNS fails (e.g. permissions)
+    logError("Migration Check Failed: " . $e->getMessage());
 }
+// ------------------------------------------------------------------------------------------------
 
 if ($method == 'GET') {
     try {
@@ -30,7 +33,8 @@ if ($method == 'GET') {
         foreach ($results as &$row) {
             $row['guardians'] = json_decode($row['guardians']);
             $row['turnstileRegistered'] = $row['turnstileRegistered'] == 1;
-            $row['hasAgenda'] = isset($row['hasAgenda']) ? $row['hasAgenda'] == 1 : false;
+            // Handle NULL or integer/string conversion safely
+            $row['hasAgenda'] = isset($row['hasAgenda']) ? ($row['hasAgenda'] == 1 || $row['hasAgenda'] === true || $row['hasAgenda'] === '1') : false;
         }
         $json = json_encode($results);
         if ($json === false) {
@@ -49,7 +53,12 @@ if ($method == 'GET') {
 }
 
 if ($method == 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
+    $input = file_get_contents("php://input");
+    $data = json_decode($input, true);
+
+    // Debug Log: Check incoming data for hasAgenda
+    $hasAgendaVal = isset($data['hasAgenda']) ? ($data['hasAgenda'] ? 'TRUE' : 'FALSE') : 'MISSING';
+    // logError("Saving Student: " . ($data['name'] ?? 'Unknown') . " | hasAgenda: " . $hasAgendaVal);
 
     try {
         $sql = "INSERT INTO students (id, name, registration, sequenceNumber, birthDate, grade, shift, email, photoUrl, fatherName, fatherPhone, motherName, motherPhone, guardians, bookStatus, peStatus, turnstileRegistered, hasAgenda)
@@ -59,6 +68,11 @@ if ($method == 'POST') {
                 fatherName=:fatherName, fatherPhone=:fatherPhone, motherName=:motherName, motherPhone=:motherPhone, guardians=:guardians, bookStatus=:bookStatus, peStatus=:peStatus, turnstileRegistered=:turnstileRegistered, hasAgenda=:hasAgenda";
 
         $stmt = $conn->prepare($sql);
+
+        // Explicit boolean to integer conversion
+        $turnstileInt = (!empty($data['turnstileRegistered']) && $data['turnstileRegistered'] !== 'false') ? 1 : 0;
+        $hasAgendaInt = (!empty($data['hasAgenda']) && $data['hasAgenda'] !== 'false') ? 1 : 0;
+
         $stmt->execute([
             ':id' => $data['id'],
             ':name' => $data['name'],
@@ -76,9 +90,14 @@ if ($method == 'POST') {
             ':guardians' => json_encode($data['guardians']),
             ':bookStatus' => $data['bookStatus'],
             ':peStatus' => $data['peStatus'],
-            ':turnstileRegistered' => $data['turnstileRegistered'] ? 1 : 0,
-            ':hasAgenda' => $data['hasAgenda'] ? 1 : 0
+            ':turnstileRegistered' => $turnstileInt,
+            ':hasAgenda' => $hasAgendaInt
         ]);
+
+        // Return the data exactly as processed to confirm state
+        $data['hasAgenda'] = ($hasAgendaInt === 1);
+        $data['turnstileRegistered'] = ($turnstileInt === 1);
+
         echo json_encode($data);
     } catch (PDOException $e) {
         logError("POST Student Error: " . $e->getMessage());
