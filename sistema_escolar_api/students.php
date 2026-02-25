@@ -1,6 +1,7 @@
 <?php
-require 'cors.php';
-require 'conexao.php';
+error_reporting(E_ERROR | E_PARSE);
+include_once 'logger.php';
+include 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -103,49 +104,13 @@ if ($method == 'POST') {
         http_response_code(500);
         echo json_encode(["error" => $e->getMessage()]);
     }
-    echo json_encode($students);
+}
 
-} elseif ($method === 'POST') {
-    // Salva ou Atualiza (REPLACE INTO)
-    $data = getBody();
-    
-    $sql = "REPLACE INTO students (
-        id, name, registration, sequenceNumber, birthDate, grade, shift, email, photoUrl, 
-        fatherName, fatherPhone, motherName, motherPhone, guardians, bookStatus, peStatus, turnstileRegistered
-    ) VALUES (
-        :id, :name, :registration, :sequenceNumber, :birthDate, :grade, :shift, :email, :photoUrl, 
-        :fatherName, :fatherPhone, :motherName, :motherPhone, :guardians, :bookStatus, :peStatus, :turnstileRegistered
-    )";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':id' => $data['id'],
-        ':name' => $data['name'],
-        ':registration' => $data['registration'],
-        ':sequenceNumber' => $data['sequenceNumber'],
-        ':birthDate' => $data['birthDate'],
-        ':grade' => $data['grade'],
-        ':shift' => $data['shift'],
-        ':email' => $data['email'],
-        ':photoUrl' => $data['photoUrl'],
-        ':fatherName' => $data['fatherName'],
-        ':fatherPhone' => $data['fatherPhone'],
-        ':motherName' => $data['motherName'],
-        ':motherPhone' => $data['motherPhone'],
-        ':guardians' => json_encode($data['guardians']), // Array -> String
-        ':bookStatus' => $data['bookStatus'],
-        ':peStatus' => $data['peStatus'],
-        ':turnstileRegistered' => $data['turnstileRegistered'] ? 1 : 0
-    ]);
-    
-    echo json_encode($data);
-
-} elseif ($method === 'DELETE') {
-    // Deleta pelo ID passado na URL
+if ($method == 'DELETE') {
     $id = $_GET['id'] ?? null;
     if ($id) {
-        $stmt = $pdo->prepare("DELETE FROM students WHERE id = ?");
-        $stmt->execute([$id]);
+        $stmt = $conn->prepare("DELETE FROM students WHERE id = :id");
+        $stmt->execute([':id' => $id]);
         echo json_encode(["success" => true]);
     }
 }
