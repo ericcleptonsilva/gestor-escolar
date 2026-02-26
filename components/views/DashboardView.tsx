@@ -7,13 +7,15 @@ import {
   BarChart3,
   ShieldAlert,
   Phone,
-  Eye
+  Eye,
+  Check
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { PrintButton } from '@/components/features/PrintButton';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
-import { AppState, Student, ViewState } from '@/types';
+import { Input } from '@/components/ui/Input';
+import { AppState, Student, ViewState, Occurrence } from '@/types';
 
 interface DashboardViewProps {
   state: AppState;
@@ -21,11 +23,65 @@ interface DashboardViewProps {
   handlePrint: () => void;
   setView: (view: ViewState) => void;
   onSelectStudent: (student: Student) => void;
+  onSaveOccurrence: (occurrence: Occurrence) => Promise<void>;
 }
 
-export const DashboardView = ({ state, visibleStudents, handlePrint, setView, onSelectStudent }: DashboardViewProps) => {
+export const DashboardView = ({ state, visibleStudents, handlePrint, setView, onSelectStudent, onSaveOccurrence }: DashboardViewProps) => {
     const [showAbsenceModal, setShowAbsenceModal] = useState(false);
     const [absenceThreshold, setAbsenceThreshold] = useState(3);
+    const [pendingUpdates, setPendingUpdates] = useState<Record<string, { status: string, date: string }>>({});
+    const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
+
+    const handlePendingChange = (studentId: string, field: 'status' | 'date', value: string) => {
+        setPendingUpdates(prev => ({
+            ...prev,
+            [studentId]: {
+                ...prev[studentId],
+                [field]: value
+            }
+        }));
+    };
+
+    const handleSaveRow = async (student: Student) => {
+        const pending = pendingUpdates[student.id];
+        // If no pending changes, but we want to save (maybe just to confirm contact without changing fields if they were pre-filled?)
+        // But if there are no pending changes, pending is undefined.
+        // We should allow saving if there is an existing record or if pending is set.
+
+        const existing = (state.occurrences || []).find(o => o.studentId === student.id && o.type === 'ConsecutiveAbsence');
+
+        // If nothing changed and nothing exists, and we click save, we probably want to save defaults?
+        // Let's assume user must select something if it's new.
+        const statusToSave = pending?.status || existing?.status;
+        if (!statusToSave) {
+            // User didn't select status
+            return;
+        }
+
+        const occurrence: Occurrence = {
+            id: existing?.id || Math.random().toString(36).substr(2, 9),
+            studentId: student.id,
+            type: 'ConsecutiveAbsence',
+            status: statusToSave,
+            date: pending?.date || existing?.date || new Date().toISOString().split('T')[0],
+            observation: existing?.observation || ''
+        };
+
+        setIsSaving(prev => ({ ...prev, [student.id]: true }));
+        try {
+            await onSaveOccurrence(occurrence);
+
+            const newPending = { ...pendingUpdates };
+            delete newPending[student.id];
+            setPendingUpdates(newPending);
+        } finally {
+            setIsSaving(prev => {
+                const newState = { ...prev };
+                delete newState[student.id];
+                return newState;
+            });
+        }
+    };
 
     const totalStudents = visibleStudents.length;
     const presentToday = state.attendance.filter(a => a.date === new Date().toISOString().split('T')[0] && a.status === 'Present').length;
@@ -58,41 +114,102 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView, on
                     <p className="text-slate-500 text-center py-4">Nenhum aluno com faltas consecutivas nos últimos {absenceThreshold} dias.</p>
                 ) : (
                     <div className="grid grid-cols-1 gap-3">
-                        {consecutiveAbsenceStudents.map(student => (
-                            <div key={student.id} className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600 flex justify-between items-center">
-                                <div>
-                                    <h4 className="font-bold text-slate-800 dark:text-white">{student.name}</h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        {student.grade} • {student.shift} • Mat: {student.registration}
-                                    </p>
-                                </div>
-                                <div className="text-right text-xs">
-                                     {student.motherPhone && (
-                                        <div className="flex items-center justify-end text-emerald-600 dark:text-emerald-400 mb-1">
-                                            <Phone size={12} className="mr-1" />
-                                            <span>Mãe: {student.motherPhone}</span>
+                        {consecutiveAbsenceStudents.map(student => {
+                            const existing = (state.occurrences || [])
+                                .filter(o => o.studentId === student.id && o.type === 'ConsecutiveAbsence')
+                                .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+                            const pending = pendingUpdates[student.id];
+                            const currentStatus = pending?.status ?? existing?.status ?? '';
+                            const currentDate = pending?.date ?? existing?.date ?? new Date().toISOString().split('T')[0];
+
+                            return (
+                                <div key={student.id} className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600 flex flex-col gap-3">
+                                    <div className="flex justify-between items-center w-full">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative w-10 h-10 flex-shrink-0">
+                                                 <img
+                                                    src={student.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.id}`}
+                                                    alt={student.name}
+                                                    className="w-full h-full rounded-full object-cover border border-slate-200 dark:border-slate-600 bg-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 dark:text-white">{student.name}</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    {student.grade} • {student.shift} • Mat: {student.registration}
+                                                </p>
+                                            </div>
                                         </div>
-                                     )}
-                                     {student.fatherPhone && (
-                                        <div className="flex items-center justify-end text-blue-600 dark:text-blue-400">
-                                            <Phone size={12} className="mr-1" />
-                                            <span>Pai: {student.fatherPhone}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-right text-xs hidden sm:block">
+                                                 {student.motherPhone && (
+                                                    <div className="flex items-center justify-end text-emerald-600 dark:text-emerald-400 mb-1">
+                                                        <Phone size={12} className="mr-1" />
+                                                        <span>Mãe: {student.motherPhone}</span>
+                                                    </div>
+                                                 )}
+                                                 {student.fatherPhone && (
+                                                    <div className="flex items-center justify-end text-blue-600 dark:text-blue-400">
+                                                        <Phone size={12} className="mr-1" />
+                                                        <span>Pai: {student.fatherPhone}</span>
+                                                    </div>
+                                                 )}
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    onSelectStudent(student);
+                                                    setView('students');
+                                                    setShowAbsenceModal(false);
+                                                }}
+                                                className="ml-1 p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"
+                                                title="Ver Detalhes do Aluno"
+                                            >
+                                                <Eye size={20} />
+                                            </button>
                                         </div>
-                                     )}
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-12">
+                                        <Select
+                                            value={currentStatus}
+                                            onChange={(e) => handlePendingChange(student.id, 'status', e.target.value)}
+                                            className="!w-48 !py-1 !text-xs"
+                                        >
+                                            <option value="">Status do Contato...</option>
+                                            <option value="Obteve contato">Obteve contato</option>
+                                            <option value="Não obteve contato">Não obteve contato</option>
+                                        </Select>
+
+                                        {currentStatus === 'Obteve contato' && (
+                                            <Input
+                                                type="date"
+                                                value={currentDate}
+                                                onChange={(e) => handlePendingChange(student.id, 'date', e.target.value)}
+                                                className="!w-36 !py-1 !text-xs"
+                                            />
+                                        )}
+
+                                        <button
+                                            onClick={() => handleSaveRow(student)}
+                                            disabled={isSaving[student.id] || !currentStatus || (currentStatus === existing?.status && currentDate === existing?.date)}
+                                            className={`p-1.5 rounded transition-colors ${
+                                                isSaving[student.id] || !currentStatus || (currentStatus === existing?.status && currentDate === existing?.date)
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'
+                                                : 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+                                            }`}
+                                            title="Salvar Registro de Contato"
+                                        >
+                                            {isSaving[student.id] ? (
+                                                <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                                            ) : (
+                                                <Check size={16} />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        onSelectStudent(student);
-                                        setView('students');
-                                        setShowAbsenceModal(false);
-                                    }}
-                                    className="ml-3 p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"
-                                    title="Ver Detalhes do Aluno"
-                                >
-                                    <Eye size={20} />
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-700 text-right">

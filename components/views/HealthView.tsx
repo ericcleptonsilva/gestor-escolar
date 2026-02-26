@@ -138,14 +138,24 @@ export const HealthView = ({
                         return (
                             <Card key={doc.id} className="p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                                 <div>
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className={`p-2 rounded-full ${doc.type === DocType.MEDICAL_REPORT ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            <FileText size={20} />
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="relative w-10 h-10 flex-shrink-0">
+                                                <img
+                                                    src={student?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student?.id}`}
+                                                    alt={student?.name}
+                                                    className="w-full h-full rounded-full object-cover border border-slate-200 dark:border-slate-600 bg-white"
+                                                />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className="font-bold text-slate-800 dark:text-white truncate" title={student?.name}>{student?.name}</h4>
+                                                <div className="text-xs text-slate-500 dark:text-slate-400">{student?.grade} • {student?.shift}</div>
+                                            </div>
                                         </div>
-                                        <Badge color={doc.type === DocType.MEDICAL_REPORT ? 'red' : 'blue'}>{doc.type}</Badge>
+                                        <div className="flex-shrink-0 ml-2">
+                                            <Badge color={doc.type === DocType.MEDICAL_REPORT ? 'red' : 'blue'}>{doc.type}</Badge>
+                                        </div>
                                     </div>
-                                    <h4 className="font-bold text-slate-800 dark:text-white truncate" title={student?.name}>{student?.name}</h4>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">{student?.grade} • {student?.shift}</div>
 
                                     <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg min-h-[60px]">
                                         <p className="text-sm text-slate-600 dark:text-slate-300 italic line-clamp-3">
