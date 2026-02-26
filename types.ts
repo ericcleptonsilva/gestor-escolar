@@ -18,6 +18,13 @@ export interface User {
   photoUrl?: string;
   allowedGrades?: string[]; // Array of grades this user can access
   registration?: string; // Matricula (para Professores)
+  classes?: TeacherClass[]; // Link professor to grade + subject
+}
+
+export interface TeacherClass {
+  id: string; // Unique ID for the link
+  grade: string;
+  subject: string;
 }
 
 export interface Guardian {
