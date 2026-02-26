@@ -817,28 +817,44 @@ export default function App() {
                    photoUrl: existingStudent?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`
                };
 
-               try {
-                   const saved = await api.saveStudent(studentToSave);
-                   processedStudents.push(saved);
-                   successCount++;
-               } catch (err) { failCount++; }
+               processedStudents.push(studentToSave);
            } else { failCount++; }
         }
 
-        // Optimistically update state
-        setState(prev => {
-            const currentStudents = [...prev.students];
-            processedStudents.forEach(processed => {
-                const index = currentStudents.findIndex(s => s && s.id === processed.id);
-                if (index !== -1) {
-                    currentStudents[index] = processed;
-                } else {
-                    currentStudents.push(processed);
+        if (processedStudents.length > 0) {
+            const BATCH_SIZE = 50;
+            const chunks = [];
+            for (let i = 0; i < processedStudents.length; i += BATCH_SIZE) {
+                chunks.push(processedStudents.slice(i, i + BATCH_SIZE));
+            }
+
+            for (const chunk of chunks) {
+                try {
+                    const result = await api.importStudents(chunk);
+                    successCount += (result.successCount || 0);
+                    failCount += (result.failCount || 0);
+                } catch (err) {
+                    failCount += chunk.length;
+                    console.error("Batch student import error", err);
                 }
+            }
+
+            // Optimistically update state
+            setState(prev => {
+                const currentStudents = [...prev.students];
+                processedStudents.forEach(processed => {
+                    const index = currentStudents.findIndex(s => s && s.id === processed.id);
+                    if (index !== -1) {
+                        currentStudents[index] = processed;
+                    } else {
+                        currentStudents.push(processed);
+                    }
+                });
+                return { ...prev, students: currentStudents };
             });
-            return { ...prev, students: currentStudents };
-        });
-        alert(`Importação concluída!\nSucesso: ${successCount}\nFalhas/Ignorados: ${failCount}`);
+        }
+
+        alert(`Importação concluída!\nEnviados: ${processedStudents.length}\nSucesso (Server): ${successCount}\nFalhas (CSV/Server): ${failCount}`);
       } catch (error: any) {
         alert("Erro fatal na importação: " + error.message);
       } finally {
@@ -957,10 +973,18 @@ export default function App() {
             }
         }
 
-        // Save updates
-        for (const s of studentsToUpdate) {
-             await api.saveStudent(s);
-             updatedCount++;
+        // Save updates (Batched)
+        if (studentsToUpdate.length > 0) {
+             const BATCH_SIZE = 50;
+             for (let i = 0; i < studentsToUpdate.length; i += BATCH_SIZE) {
+                 const chunk = studentsToUpdate.slice(i, i + BATCH_SIZE);
+                 try {
+                     const result = await api.importStudents(chunk);
+                     updatedCount += (result.successCount || 0);
+                 } catch (err) {
+                     console.error("Batch phone import error", err);
+                 }
+             }
         }
 
         // Generate duplicate report
@@ -1207,22 +1231,31 @@ export default function App() {
             });
         });
         
-        for (const record of pendingUpdates.values()) {
-             await api.saveAttendance(record);
-        }
-        
-        setState(prev => {
-            const newAttendance = [...prev.attendance];
-            pendingUpdates.forEach(record => {
-                const idx = newAttendance.findIndex(a => a.id === record.id);
-                if (idx >= 0) {
-                    newAttendance[idx] = record;
-                } else {
-                    newAttendance.push(record);
+        const recordsToSave = Array.from(pendingUpdates.values());
+        if (recordsToSave.length > 0) {
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < recordsToSave.length; i += BATCH_SIZE) {
+                const chunk = recordsToSave.slice(i, i + BATCH_SIZE);
+                try {
+                    await api.importAttendance(chunk);
+                } catch (err) {
+                    console.error("Batch turnstile import error", err);
                 }
+            }
+
+            setState(prev => {
+                const newAttendance = [...prev.attendance];
+                recordsToSave.forEach(record => {
+                    const idx = newAttendance.findIndex(a => a.id === record.id);
+                    if (idx >= 0) {
+                        newAttendance[idx] = record;
+                    } else {
+                        newAttendance.push(record);
+                    }
+                });
+                return { ...prev, attendance: newAttendance };
             });
-            return { ...prev, attendance: newAttendance };
-        });
+        }
 
         let msg = `Importação de Catraca Concluída!\n\nLinhas Processadas (Hoje): ${processedCount}\nPresenças Registradas: ${successCount}\nFaltas Automáticas Geradas: ${autoAbsenceCount}\nNão Encontrados: ${notFoundCount}`;
         
@@ -1258,12 +1291,11 @@ export default function App() {
     const studentMap = new Map<string, Student>();
     state.students.forEach(s => studentMap.set(s.registration, s));
 
-    const updatedStudents: Student[] = [];
-
     try {
+        const filesToProcess: File[] = [];
+
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-
             // Security check: ensure it is an image
             if (!file.type.startsWith('image/')) continue;
 
@@ -1274,39 +1306,42 @@ export default function App() {
             const registration = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
 
             // Check if student exists
-            const student = studentMap.get(registration);
-
-            if (student) {
-                try {
-                    // Try to upload via API first (saves to folder)
-                    // If that fails or we are in sqlite mode, it returns base64
-                    const uploadedUrl = await api.uploadPhoto(file, 'student', student.id);
-                    const updatedStudent = { ...student, photoUrl: uploadedUrl };
-
-                    // Save to API
-                    await api.saveStudent(updatedStudent);
-                    updatedStudents.push(updatedStudent);
-                    successCount++;
-                } catch (err) {
-                    console.error(`Erro ao processar foto ${fileName}`, err);
-                }
+            if (studentMap.has(registration)) {
+                filesToProcess.push(file);
             } else {
                 notFoundCount++;
             }
         }
 
-        // Update local state with all changes
-        if (updatedStudents.length > 0) {
-            setState(prev => {
-                const newStudentsList = prev.students.map(s => {
-                    const updated = updatedStudents.find(u => u.id === s.id);
-                    return updated || s;
-                });
-                return { ...prev, students: newStudentsList };
-            });
+        if (filesToProcess.length > 0) {
+            // Batch processing: Send 5 files at a time to avoid server limits/timeouts
+            const BATCH_SIZE = 5;
+            const totalBatches = Math.ceil(filesToProcess.length / BATCH_SIZE);
+
+            for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
+                const chunk = filesToProcess.slice(i, i + BATCH_SIZE);
+                const formData = new FormData();
+                chunk.forEach(file => formData.append('photos[]', file));
+
+                try {
+                    // Update importing state message if possible (currently bool, but could be extended)
+                    // For now, console log progress
+                    console.log(`Processing photo batch ${Math.floor(i / BATCH_SIZE) + 1}/${totalBatches}`);
+
+                    const result = await api.batchUploadPhotos(formData);
+                    successCount += (result.processed || 0);
+                } catch (batchError) {
+                    console.error("Error processing batch", batchError);
+                    // Continue to next batch instead of failing completely
+                }
+            }
+
+            // Reload data to get new photo URLs
+            const refreshedData = await api.loadAllData();
+            setState(refreshedData);
         }
 
-        alert(`Processamento de pasta concluído!\nAssociadas com sucesso: ${successCount}\nNão encontradas (Matrícula inexistente): ${notFoundCount}`);
+        alert(`Processamento de pasta concluído!\nEnviadas: ${filesToProcess.length}\nProcessadas com sucesso: ${successCount}\nFalhas/Não Encontradas: ${notFoundCount}`);
 
     } catch (error: any) {
         console.error("Batch photo import error", error);
