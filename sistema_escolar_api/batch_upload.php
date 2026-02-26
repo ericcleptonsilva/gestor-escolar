@@ -3,8 +3,10 @@ error_reporting(E_ERROR | E_PARSE);
 include_once 'logger.php';
 include 'db.php';
 
+// --- CORS HEADERS ---
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
