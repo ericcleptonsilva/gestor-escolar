@@ -1030,6 +1030,23 @@ export default function App() {
     reader.readAsText(file, 'ISO-8859-1');
   };
 
+  const processTurnstileImportResult = (result: any) => {
+      const processed = result.processed || 0;
+      const present = result.present || 0;
+      const absent = result.absent || 0;
+      const notFound = result.notFound || 0;
+      const datesProcessed = result.datesProcessed || 0;
+
+      let msg = `Importação de Catraca Concluída!\n\n` +
+                `Linhas Processadas: ${processed}\n` +
+                `Presenças Registradas: ${present}\n` +
+                `Faltas Automáticas Geradas: ${absent}\n` +
+                `Não Encontrados: ${notFound}\n` +
+                `Dias Processados: ${datesProcessed}`;
+
+      alert(msg);
+  };
+
   const handleImportTurnstile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1038,22 +1055,8 @@ export default function App() {
 
     try {
         const result = await api.importTurnstileFile(file);
+        processTurnstileImportResult(result);
         
-        const processed = result.processed || 0;
-        const present = result.present || 0;
-        const absent = result.absent || 0;
-        const notFound = result.notFound || 0;
-        const datesProcessed = result.datesProcessed || 0;
-
-        let msg = `Importação de Catraca Concluída (Server-Side)!\n\n` +
-                  `Linhas Processadas: ${processed}\n` +
-                  `Presenças Registradas: ${present}\n` +
-                  `Faltas Automáticas Geradas: ${absent}\n` +
-                  `Não Encontrados: ${notFound}\n` +
-                  `Dias Processados: ${datesProcessed}`;
-        
-        alert(msg);
-
         // Refresh data to show changes
         setIsLoading(true);
         const freshData = await api.loadAllData();
@@ -1066,6 +1069,29 @@ export default function App() {
     } finally {
         setIsImportingTurnstile(false);
         e.target.value = '';
+    }
+  };
+
+  const handleImportTurnstileLocal = async () => {
+    setIsImportingTurnstile(true);
+    try {
+        const result = await api.importTurnstileFromLocal();
+        processTurnstileImportResult(result);
+
+        // Refresh data to show changes
+        setIsLoading(true);
+        const freshData = await api.loadAllData();
+        setState(freshData);
+        setIsLoading(false);
+    } catch (error: any) {
+        console.error("Local turnstile import failed", error);
+        if (error.message.includes("404")) {
+            alert("Arquivo C:\\SIETEX\\Portaria\\TopData.txt não encontrado no servidor.");
+        } else {
+            alert("Erro na importação local: " + error.message);
+        }
+    } finally {
+        setIsImportingTurnstile(false);
     }
   };
 
@@ -1652,6 +1678,7 @@ export default function App() {
                     onUpdateStatus={handleAttendanceUpdate}
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
+                    onImportTurnstileLocal={handleImportTurnstileLocal}
                     isImportingTurnstile={isImportingTurnstile}
                  />
              )}

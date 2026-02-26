@@ -14,13 +14,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        http_response_code(400);
-        echo json_encode(["error" => "No file uploaded or upload error."]);
-        exit();
+    $filePath = '';
+
+    // Check if we are reading from local file path or upload
+    if (isset($_POST['source']) && $_POST['source'] === 'local') {
+        // Windows Path (Double backslashes for escaping)
+        $localPath = 'C:\\SIETEX\\Portaria\\TopData.txt';
+
+        if (!file_exists($localPath)) {
+            // Fallback for testing/dev environments (optional, but good for debugging if C: doesn't exist)
+            // $localPath = 'TopData.txt';
+
+            if (!file_exists($localPath)) {
+                http_response_code(404);
+                echo json_encode(["error" => "Arquivo local não encontrado: $localPath"]);
+                exit();
+            }
+        }
+        $filePath = $localPath;
+    } else {
+        // Default: File Upload
+        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            http_response_code(400);
+            echo json_encode(["error" => "Nenhum arquivo enviado ou erro no upload."]);
+            exit();
+        }
+        $filePath = $_FILES['file']['tmp_name'];
     }
 
-    $filePath = $_FILES['file']['tmp_name'];
     $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
     if ($lines === false) {

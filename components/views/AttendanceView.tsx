@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { PrintButton } from '@/components/features/PrintButton';
@@ -22,6 +22,7 @@ interface AttendanceViewProps {
     onUpdateStatus: (studentId: string, status: AttendanceStatus) => void;
     onUpdateObservation: (studentId: string, obs: string) => void;
     onImportTurnstile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onImportTurnstileLocal: () => void;
     isImportingTurnstile: boolean;
     currentUser: User | null;
 }
@@ -38,6 +39,7 @@ export const AttendanceView = ({
     onUpdateStatus,
     onUpdateObservation,
     onImportTurnstile,
+    onImportTurnstileLocal,
     isImportingTurnstile,
     currentUser
 }: AttendanceViewProps) => {
@@ -72,16 +74,25 @@ export const AttendanceView = ({
                  onChange={e => setAttendanceDate(e.target.value)}
                />
                
+               <button
+                  onClick={onImportTurnstileLocal}
+                  disabled={isImportingTurnstile}
+                  className={`
+                    flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md
+                    ${isImportingTurnstile ? 'opacity-70 cursor-wait' : ''}
+                  `}
+                  title="Ler arquivo direto de C:\SIETEX\Portaria\TopData.txt"
+               >
+                   {isImportingTurnstile ? <Loader2 size={20} className="animate-spin mr-2" /> : <RefreshCw size={20} className="mr-2" />}
+                   <span className="text-sm font-medium">Sincronizar (C:)</span>
+               </button>
+
                <label className={`
                    flex items-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors cursor-pointer shadow-md
                    ${isImportingTurnstile ? 'opacity-70 cursor-wait' : ''}
                `}>
-                   {isImportingTurnstile ? (
-                       <Loader2 size={20} className="animate-spin mr-2" />
-                   ) : (
-                       <UploadCloud size={20} className="mr-2" />
-                   )}
-                   <span className="text-sm font-medium">Importar Catraca</span>
+                   <UploadCloud size={20} className="mr-2" />
+                   <span className="text-sm font-medium">Upload</span>
                    <input 
                        type="file" 
                        accept=".txt"
