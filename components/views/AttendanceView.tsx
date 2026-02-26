@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
@@ -195,54 +195,14 @@ export const AttendanceView = ({
                 const obs = record ? record.observation || '' : '';
 
                 return (
-                    <Card key={student.id} className="p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="flex items-center space-x-3 mb-4">
-                             <img
-                                src={student.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.id}`}
-                                alt={student.name}
-                                className="w-12 h-12 rounded-full object-cover bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
-                            />
-                            <div className="min-w-0">
-                                <div className="font-bold text-slate-800 dark:text-white truncate" title={student.name}>{student.name}</div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400">{student.grade} • {student.shift}</div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-around items-center bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2 mb-3">
-                            <button
-                                onClick={() => onUpdateStatus(student.id, 'Present')}
-                                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentStatus === 'Present' ? 'text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                                title="Presente"
-                            >
-                                <CheckCircle2 size={24} />
-                                <span className="text-[10px] font-bold mt-1">Presente</span>
-                            </button>
-                            <button
-                                onClick={() => onUpdateStatus(student.id, 'Absent')}
-                                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentStatus === 'Absent' ? 'text-red-600 dark:text-red-400 bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                                title="Falta"
-                            >
-                                <XCircle size={24} />
-                                <span className="text-[10px] font-bold mt-1">Falta</span>
-                            </button>
-                            <button
-                                onClick={() => onUpdateStatus(student.id, 'Excused')}
-                                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentStatus === 'Excused' ? 'text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                                title="Justificado"
-                            >
-                                <AlertCircle size={24} />
-                                <span className="text-[10px] font-bold mt-1">Justif.</span>
-                            </button>
-                        </div>
-
-                        <input
-                            type="text"
-                            placeholder="Adicionar observação..."
-                            className="w-full bg-transparent border-b border-slate-200 dark:border-slate-600 focus:border-indigo-500 outline-none text-slate-600 dark:text-slate-300 py-1 text-sm transition-colors"
-                            value={obs}
-                            onChange={(e) => onUpdateObservation(student.id, e.target.value)}
-                        />
-                    </Card>
+                    <AttendanceCard
+                        key={student.id}
+                        student={student}
+                        status={currentStatus}
+                        observation={obs}
+                        onUpdateStatus={onUpdateStatus}
+                        onUpdateObservation={onUpdateObservation}
+                    />
                 );
             })}
             {filteredStudents.length === 0 && (
@@ -253,5 +213,79 @@ export const AttendanceView = ({
             )}
         </div>
       </div>
+    );
+};
+
+interface AttendanceCardProps {
+    student: Student;
+    status: AttendanceStatus;
+    observation: string;
+    onUpdateStatus: (studentId: string, status: AttendanceStatus) => void;
+    onUpdateObservation: (studentId: string, obs: string) => void;
+}
+
+const AttendanceCard = ({ student, status, observation, onUpdateStatus, onUpdateObservation }: AttendanceCardProps) => {
+    const [localObs, setLocalObs] = useState(observation);
+
+    useEffect(() => {
+        setLocalObs(observation);
+    }, [observation]);
+
+    const handleBlur = () => {
+        if (localObs !== observation) {
+            onUpdateObservation(student.id, localObs);
+        }
+    };
+
+    return (
+        <Card className="p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center space-x-3 mb-4">
+                 <img
+                    src={student.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.id}`}
+                    alt={student.name}
+                    className="w-12 h-12 rounded-full object-cover bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                />
+                <div className="min-w-0">
+                    <div className="font-bold text-slate-800 dark:text-white truncate" title={student.name}>{student.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{student.grade} • {student.shift}</div>
+                </div>
+            </div>
+
+            <div className="flex justify-around items-center bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2 mb-3">
+                <button
+                    onClick={() => onUpdateStatus(student.id, 'Present')}
+                    className={`flex flex-col items-center p-2 rounded-lg transition-colors ${status === 'Present' ? 'text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                    title="Presente"
+                >
+                    <CheckCircle2 size={24} />
+                    <span className="text-[10px] font-bold mt-1">Presente</span>
+                </button>
+                <button
+                    onClick={() => onUpdateStatus(student.id, 'Absent')}
+                    className={`flex flex-col items-center p-2 rounded-lg transition-colors ${status === 'Absent' ? 'text-red-600 dark:text-red-400 bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                    title="Falta"
+                >
+                    <XCircle size={24} />
+                    <span className="text-[10px] font-bold mt-1">Falta</span>
+                </button>
+                <button
+                    onClick={() => onUpdateStatus(student.id, 'Excused')}
+                    className={`flex flex-col items-center p-2 rounded-lg transition-colors ${status === 'Excused' ? 'text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                    title="Justificado"
+                >
+                    <AlertCircle size={24} />
+                    <span className="text-[10px] font-bold mt-1">Justif.</span>
+                </button>
+            </div>
+
+            <input
+                type="text"
+                placeholder="Adicionar observação..."
+                className="w-full bg-transparent border-b border-slate-200 dark:border-slate-600 focus:border-indigo-500 outline-none text-slate-600 dark:text-slate-300 py-1 text-sm transition-colors"
+                value={localObs}
+                onChange={(e) => setLocalObs(e.target.value)}
+                onBlur={handleBlur}
+            />
+        </Card>
     );
 };
