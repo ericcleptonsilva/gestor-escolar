@@ -71,6 +71,11 @@ interface ApiService {
   saveCoordinationRecord(record: CoordinationRecord): Promise<CoordinationRecord>;
   deleteCoordinationRecord(id: string): Promise<void>;
 
+  // Imports
+  importStudents(students: Student[]): Promise<any>;
+  importAttendance(records: AttendanceRecord[]): Promise<any>;
+  batchUploadPhotos(formData: FormData): Promise<any>;
+
   // System
   resetSystem(): Promise<void>;
 }
@@ -208,6 +213,11 @@ class HttpApi implements ApiService {
   async updateGrades(grades: string[]): Promise<string[]> { return this.request('/grades.php', 'POST', { grades }); }
   async saveCoordinationRecord(record: CoordinationRecord): Promise<CoordinationRecord> { return this.request('/coordination.php', 'POST', record); }
   async deleteCoordinationRecord(id: string): Promise<void> { return this.request(`/coordination.php?id=${id}`, 'DELETE'); }
+
+  // Imports
+  async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }
+  async importAttendance(records: AttendanceRecord[]): Promise<any> { return this.request('/import_attendance.php', 'POST', records); }
+  async batchUploadPhotos(formData: FormData): Promise<any> { return this.request('/batch_upload.php', 'POST', formData); }
 
   async resetSystem(): Promise<void> { return this.request('/reset.php', 'POST'); }
 }
