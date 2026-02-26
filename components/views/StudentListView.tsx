@@ -23,6 +23,8 @@ interface StudentListViewProps {
     setFilterPEStatus: (status: PEStatus | '') => void;
     filterTurnstile: string;
     setFilterTurnstile: (val: string) => void;
+    filterAgenda: string;
+    setFilterAgenda: (val: string) => void;
     visibleGradesList: string[];
     currentUser: User | null;
     onNewStudent: () => void;
@@ -52,6 +54,7 @@ export const StudentListView = ({
     filterBookStatus, setFilterBookStatus,
     filterPEStatus, setFilterPEStatus,
     filterTurnstile, setFilterTurnstile,
+    filterAgenda, setFilterAgenda,
     visibleGradesList,
     currentUser,
     onNewStudent,
@@ -74,6 +77,7 @@ export const StudentListView = ({
         if (filterBookStatus) setActiveFilterType('book');
         else if (filterPEStatus) setActiveFilterType('pe');
         else if (filterTurnstile) setActiveFilterType('turnstile');
+        else if (filterAgenda) setActiveFilterType('agenda');
     }, []);
 
     const handleFilterTypeChange = (type: string) => {
@@ -81,6 +85,7 @@ export const StudentListView = ({
         setFilterBookStatus('');
         setFilterPEStatus('');
         setFilterTurnstile('');
+        setFilterAgenda('');
     };
 
     const formatWhatsAppLink = (phone: string) => {
@@ -130,6 +135,7 @@ export const StudentListView = ({
                 <option value="book">Status Livro</option>
                 <option value="pe">Status Ed. Física</option>
                 <option value="turnstile">Status Catraca</option>
+                <option value="agenda">Status Agenda</option>
              </Select>
 
              {activeFilterType === 'book' && (
@@ -157,6 +163,14 @@ export const StudentListView = ({
                     <option value="">Todos</option>
                     <option value="true">Com Cadastro</option>
                     <option value="false">Sem Cadastro</option>
+                 </Select>
+             )}
+
+             {activeFilterType === 'agenda' && (
+                 <Select className="!w-full md:!w-full" value={filterAgenda} onChange={e => setFilterAgenda(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="true">Com Agenda</option>
+                    <option value="false">Sem Agenda</option>
                  </Select>
              )}
 

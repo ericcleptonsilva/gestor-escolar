@@ -181,6 +181,7 @@ export default function App() {
   const [filterBookStatus, setFilterBookStatus] = useState<BookStatus | ''>('');
   const [filterPEStatus, setFilterPEStatus] = useState<PEStatus | ''>('');
   const [filterTurnstile, setFilterTurnstile] = useState<string>('');
+  const [filterAgenda, setFilterAgenda] = useState<string>('');
 
   const [filterAttendanceStatus, setFilterAttendanceStatus] = useState<AttendanceStatus | ''>('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -319,8 +320,11 @@ export default function App() {
         const matchesTurnstile = filterTurnstile !== ''
             ? (filterTurnstile === 'true' ? student.turnstileRegistered : !student.turnstileRegistered)
             : true;
+        const matchesAgenda = filterAgenda !== ''
+            ? (filterAgenda === 'true' ? student.hasAgenda : !student.hasAgenda)
+            : true;
 
-        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile;
+        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile && matchesAgenda;
       }).sort((a, b) => {
           const seqA = parseInt(a.sequenceNumber);
           const seqB = parseInt(b.sequenceNumber);
@@ -336,7 +340,7 @@ export default function App() {
 
           return a.name.localeCompare(b.name);
       });
-  }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile]);
+  }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile, filterAgenda]);
 
   // --- ACTIONS ---
 
@@ -1819,6 +1823,7 @@ export default function App() {
                             filterBookStatus={filterBookStatus} setFilterBookStatus={setFilterBookStatus}
                             filterPEStatus={filterPEStatus} setFilterPEStatus={setFilterPEStatus}
                             filterTurnstile={filterTurnstile} setFilterTurnstile={setFilterTurnstile}
+                            filterAgenda={filterAgenda} setFilterAgenda={setFilterAgenda}
                             visibleGradesList={visibleGradesList}
                             currentUser={currentUser}
                             onNewStudent={() => { setTempStudent(createEmptyStudent()); setIsEditingStudent(true); }}
