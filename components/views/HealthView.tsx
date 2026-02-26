@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Plus, Filter, Trash2 } from 'lucide-react';
+import { FileText, Plus, Filter, Trash2, Pencil, X } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -26,6 +26,7 @@ interface HealthViewProps {
     onPrint: () => void;
     onSaveDocument: () => void;
     onDeleteDocument: (id: string) => void;
+    onCancelEdit: () => void;
 }
 
 export const HealthView = ({
@@ -39,7 +40,8 @@ export const HealthView = ({
     visibleGradesList,
     onPrint,
     onSaveDocument,
-    onDeleteDocument
+    onDeleteDocument,
+    onCancelEdit
 }: HealthViewProps) => {
 
     const filteredDocs = (documents || []).filter(doc => {
@@ -67,7 +69,9 @@ export const HealthView = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">
                 <Card className="p-6">
-                    <h3 className="font-bold text-slate-800 dark:text-white mb-4">Novo Documento</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-white mb-4">
+                        {newDoc.id ? 'Editar Documento' : 'Novo Documento'}
+                    </h3>
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aluno</label>
@@ -104,9 +108,20 @@ export const HealthView = ({
                                 onChange={e => setNewDoc({...newDoc, description: e.target.value})}
                              ></textarea>
                         </div>
-                        <Button className="w-full" onClick={onSaveDocument}>
-                            <Plus size={18} /> Cadastrar Documento
-                        </Button>
+                        <div className="flex gap-2">
+                            {newDoc.id && (
+                                <Button variant="outline" className="w-full" onClick={onCancelEdit}>
+                                    <X size={18} /> Cancelar
+                                </Button>
+                            )}
+                            <Button className="w-full" onClick={onSaveDocument}>
+                                {newDoc.id ? (
+                                    <><Pencil size={18} className="mr-2"/> Salvar Alterações</>
+                                ) : (
+                                    <><Plus size={18} /> Cadastrar Documento</>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 </Card>
 
@@ -166,13 +181,25 @@ export const HealthView = ({
 
                                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
                                     <span className="text-xs text-slate-400">Emissão: {new Date(doc.dateIssued).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</span>
-                                    <button
-                                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                        onClick={() => onDeleteDocument(doc.id)}
-                                        title="Excluir Documento"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div className="flex gap-1">
+                                        <button
+                                            className="text-indigo-500 hover:text-indigo-700 p-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                                            onClick={() => {
+                                                setNewDoc(doc);
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            title="Editar Documento"
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
+                                        <button
+                                            className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            onClick={() => onDeleteDocument(doc.id)}
+                                            title="Excluir Documento"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             </Card>
                         );
