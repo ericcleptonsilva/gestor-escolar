@@ -79,6 +79,8 @@ interface ApiService {
   // Imports
   importStudents(students: Student[]): Promise<any>;
   importAttendance(records: AttendanceRecord[]): Promise<any>;
+  importTurnstileFile(file: File, startTime?: string, endTime?: string): Promise<any>;
+  importTurnstileFromLocal(startTime?: string, endTime?: string): Promise<any>;
   batchUploadPhotos(formData: FormData): Promise<any>;
 
   // System
@@ -96,7 +98,8 @@ class HttpApi implements ApiService {
     if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json; charset=utf-8';
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    // Increased timeout to 30s to handle larger file uploads and imports
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     try {
         const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
@@ -229,6 +232,21 @@ class HttpApi implements ApiService {
   // Imports
   async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }
   async importAttendance(records: AttendanceRecord[]): Promise<any> { return this.request('/import_attendance.php', 'POST', records); }
+  async importTurnstileFile(file: File, startTime?: string, endTime?: string): Promise<any> {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (startTime) formData.append('start_time', startTime);
+      if (endTime) formData.append('end_time', endTime);
+      return this.request('/import_turnstile.php', 'POST', formData);
+  }
+
+  async importTurnstileFromLocal(startTime?: string, endTime?: string): Promise<any> {
+      const formData = new FormData();
+      formData.append('source', 'local');
+      if (startTime) formData.append('start_time', startTime);
+      if (endTime) formData.append('end_time', endTime);
+      return this.request('/import_turnstile.php', 'POST', formData);
+  }
   async batchUploadPhotos(formData: FormData): Promise<any> { return this.request('/batch_upload.php', 'POST', formData); }
 
   async resetSystem(): Promise<void> { return this.request('/reset.php', 'POST'); }

@@ -25,6 +25,7 @@ export interface TeacherClass {
   id: string; // Unique ID for the link
   grade: string;
   subject: string;
+  shift?: Shift; // Turno
 }
 
 export interface Guardian {

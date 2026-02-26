@@ -171,15 +171,17 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView, on
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-12">
-                                        <Select
-                                            value={currentStatus}
-                                            onChange={(e) => handlePendingChange(student.id, 'status', e.target.value)}
-                                            className="!w-48 !py-1 !text-xs"
-                                        >
-                                            <option value="">Status do Contato...</option>
-                                            <option value="Obteve contato">Obteve contato</option>
-                                            <option value="Não obteve contato">Não obteve contato</option>
-                                        </Select>
+                                        <div className="w-52">
+                                            <Select
+                                                value={currentStatus}
+                                                onChange={(e) => handlePendingChange(student.id, 'status', e.target.value)}
+                                                className="!py-1.5 !text-xs"
+                                            >
+                                                <option value="">Status do Contato...</option>
+                                                <option value="Obteve contato">Obteve contato</option>
+                                                <option value="Não obteve contato">Não obteve contato</option>
+                                            </Select>
+                                        </div>
 
                                         {currentStatus === 'Obteve contato' && (
                                             <Input

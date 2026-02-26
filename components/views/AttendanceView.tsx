@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { PrintButton } from '@/components/features/PrintButton';
@@ -22,7 +22,12 @@ interface AttendanceViewProps {
     onUpdateStatus: (studentId: string, status: AttendanceStatus) => void;
     onUpdateObservation: (studentId: string, obs: string) => void;
     onImportTurnstile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onImportTurnstileLocal: () => void;
     isImportingTurnstile: boolean;
+    importStartTime: string;
+    setImportStartTime: (time: string) => void;
+    importEndTime: string;
+    setImportEndTime: (time: string) => void;
     currentUser: User | null;
 }
 
@@ -38,7 +43,10 @@ export const AttendanceView = ({
     onUpdateStatus,
     onUpdateObservation,
     onImportTurnstile,
+    onImportTurnstileLocal,
     isImportingTurnstile,
+    importStartTime, setImportStartTime,
+    importEndTime, setImportEndTime,
     currentUser
 }: AttendanceViewProps) => {
 
@@ -72,16 +80,47 @@ export const AttendanceView = ({
                  onChange={e => setAttendanceDate(e.target.value)}
                />
                
+               <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                   <div className="flex flex-col">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase">Início</span>
+                       <input
+                         type="time"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0"
+                         value={importStartTime}
+                         onChange={e => setImportStartTime(e.target.value)}
+                       />
+                   </div>
+                   <div className="w-px h-8 bg-slate-300 dark:bg-slate-600"></div>
+                   <div className="flex flex-col">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase">Fim</span>
+                       <input
+                         type="time"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0"
+                         value={importEndTime}
+                         onChange={e => setImportEndTime(e.target.value)}
+                       />
+                   </div>
+               </div>
+
+               <button
+                  onClick={onImportTurnstileLocal}
+                  disabled={isImportingTurnstile}
+                  className={`
+                    flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md
+                    ${isImportingTurnstile ? 'opacity-70 cursor-wait' : ''}
+                  `}
+                  title="Ler arquivo direto de C:\SIETEX\Portaria\TopData.txt"
+               >
+                   {isImportingTurnstile ? <Loader2 size={20} className="animate-spin mr-2" /> : <RefreshCw size={20} className="mr-2" />}
+                   <span className="text-sm font-medium">Sincronizar (C:)</span>
+               </button>
+
                <label className={`
                    flex items-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors cursor-pointer shadow-md
                    ${isImportingTurnstile ? 'opacity-70 cursor-wait' : ''}
                `}>
-                   {isImportingTurnstile ? (
-                       <Loader2 size={20} className="animate-spin mr-2" />
-                   ) : (
-                       <UploadCloud size={20} className="mr-2" />
-                   )}
-                   <span className="text-sm font-medium">Importar Catraca</span>
+                   <UploadCloud size={20} className="mr-2" />
+                   <span className="text-sm font-medium">Upload</span>
                    <input 
                        type="file" 
                        accept=".txt"

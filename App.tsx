@@ -208,6 +208,10 @@ export default function App() {
   const [newSubjectName, setNewSubjectName] = useState("");
   const [showSubjectCatalog, setShowSubjectCatalog] = useState(false);
 
+  // Import Time Filters
+  const [importStartTime, setImportStartTime] = useState("");
+  const [importEndTime, setImportEndTime] = useState("");
+
   // --- MODAL STATE ---
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -1048,6 +1052,23 @@ export default function App() {
     reader.readAsText(file, 'ISO-8859-1');
   };
 
+  const processTurnstileImportResult = (result: any) => {
+      const processed = result.processed || 0;
+      const present = result.present || 0;
+      const absent = result.absent || 0;
+      const notFound = result.notFound || 0;
+      const datesProcessed = result.datesProcessed || 0;
+
+      let msg = `Importação de Catraca Concluída!\n\n` +
+                `Linhas Processadas: ${processed}\n` +
+                `Presenças Registradas: ${present}\n` +
+                `Faltas Automáticas Geradas: ${absent}\n` +
+                `Não Encontrados: ${notFound}\n` +
+                `Dias Processados: ${datesProcessed}`;
+
+      alert(msg);
+  };
+
   const handleImportTurnstile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1264,34 +1285,18 @@ export default function App() {
                 }
             }
 
-            setState(prev => {
-                const newAttendance = [...prev.attendance];
-                recordsToSave.forEach(record => {
-                    const idx = newAttendance.findIndex(a => a.id === record.id);
-                    if (idx >= 0) {
-                        newAttendance[idx] = record;
-                    } else {
-                        newAttendance.push(record);
-                    }
-                });
-                return { ...prev, attendance: newAttendance };
-            });
-        }
-
-        let msg = `Importação de Catraca Concluída!\n\nLinhas Processadas (Hoje): ${processedCount}\nPresenças Registradas: ${successCount}\nFaltas Automáticas Geradas: ${autoAbsenceCount}\nNão Encontrados: ${notFoundCount}`;
+    try {
+        const result = await api.importTurnstileFile(file, importStartTime, importEndTime);
+        processTurnstileImportResult(result);
         
-        if (skippedDateCount > 0) {
-            msg += `\n\nATENÇÃO: ${skippedDateCount} registros de datas diferentes de hoje (${todayISO.split('-').reverse().join('/')}) foram ignorados.`;
-        } else if (processedCount === 0 && lines.length > 0) {
-             msg += `\n\nATENÇÃO: Nenhum registro encontrado para a data de hoje (${todayISO.split('-').reverse().join('/')}). Verifique a data do arquivo.`;
-        }
-        
-        alert(msg);
-
-      } catch (error: any) {
+        // Refresh data to show changes
+        setIsLoading(true);
+        const freshData = await api.loadAllData();
+        setState(freshData);
+    } catch (error: any) {
         console.error("Turnstile import failed", error);
         alert("Erro na importação: " + error.message);
-      } finally {
+    } finally {
         setIsImportingTurnstile(false);
         e.target.value = '';
       }
@@ -1889,7 +1894,12 @@ export default function App() {
                     onUpdateStatus={handleAttendanceUpdate}
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
+                    onImportTurnstileLocal={handleImportTurnstileLocal}
                     isImportingTurnstile={isImportingTurnstile}
+                    importStartTime={importStartTime}
+                    setImportStartTime={setImportStartTime}
+                    importEndTime={importEndTime}
+                    setImportEndTime={setImportEndTime}
                  />
              )}
 
