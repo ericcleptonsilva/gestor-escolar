@@ -77,16 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
-    // --- TIME FILTER PARSING ---
-    $startTimeInt = null;
-    $endTimeInt = null;
-    if (!empty($_POST['start_time'])) {
-        $startTimeInt = (int)str_replace(':', '', $_POST['start_time']);
-    }
-    if (!empty($_POST['end_time'])) {
-        $endTimeInt = (int)str_replace(':', '', $_POST['end_time']);
-    }
-
     $processedCount = 0;
     $successCount = 0;
     $notFoundCount = 0;
@@ -315,24 +305,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         try {
             $conn->beginTransaction();
 
-            $sql = "INSERT INTO attendance (id, studentId, date, status, observation)
-                    VALUES (:id, :studentId, :date, :status, :observation)
-                    ON DUPLICATE KEY UPDATE
-                    status = VALUES(status),
-                    observation = CASE
-                        WHEN VALUES(status) = 'Present' AND attendance.status = 'Present' THEN CONCAT(attendance.observation, ' | ', VALUES(observation))
-                        ELSE VALUES(observation)
-                    END";
-
-            // Note: The concatenation logic in SQL might be tricky if observation is null or empty.
-            // Simplified logic: Overwrite status. If Present, append observation.
-            // If we are inserting Absent, we overwrite whatever was there (e.g. they were marked Present manually but actually absent in file? No, usually we trust the file).
-            // Actually, the Frontend logic for Present was: Append.
-            // For Absent: Only insert if NOT exists.
-
-            // To match Frontend "Only insert Absent if NOT exists", we need a different query for Absences.
-            // Let's split records into Present and Absent.
-
             $presentRecords = [];
             $absentRecords = [];
 
@@ -350,7 +322,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     VALUES (:id, :studentId, :date, :status, :observation)
                     ON DUPLICATE KEY UPDATE
                     status = :status,
-                    observation = CONCAT(IFNULL(observation, ''), IF(observation <> '' AND observation IS NOT NULL, ' | ', ''), :observation)");
+                    observation = CASE
+                        WHEN observation LIKE CONCAT('%', :observation, '%') THEN observation
+                        ELSE CONCAT(IFNULL(observation, ''), IF(observation <> '' AND observation IS NOT NULL, ' | ', ''), :observation)
+                    END");
 
                 foreach ($presentRecords as $r) {
                     $stmtPresent->execute([
