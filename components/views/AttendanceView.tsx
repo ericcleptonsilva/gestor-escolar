@@ -24,10 +24,14 @@ interface AttendanceViewProps {
     onImportTurnstile: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onImportTurnstileLocal: () => void;
     isImportingTurnstile: boolean;
-    importStartTime: string;
-    setImportStartTime: (time: string) => void;
-    importEndTime: string;
-    setImportEndTime: (time: string) => void;
+    importMorningStart: string;
+    setImportMorningStart: (time: string) => void;
+    importMorningEnd: string;
+    setImportMorningEnd: (time: string) => void;
+    importAfternoonStart: string;
+    setImportAfternoonStart: (time: string) => void;
+    importAfternoonEnd: string;
+    setImportAfternoonEnd: (time: string) => void;
     currentUser: User | null;
 }
 
@@ -45,8 +49,10 @@ export const AttendanceView = ({
     onImportTurnstile,
     onImportTurnstileLocal,
     isImportingTurnstile,
-    importStartTime, setImportStartTime,
-    importEndTime, setImportEndTime,
+    importMorningStart, setImportMorningStart,
+    importMorningEnd, setImportMorningEnd,
+    importAfternoonStart, setImportAfternoonStart,
+    importAfternoonEnd, setImportAfternoonEnd,
     currentUser
 }: AttendanceViewProps) => {
 
@@ -80,24 +86,44 @@ export const AttendanceView = ({
                  onChange={e => setAttendanceDate(e.target.value)}
                />
                
-               <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                   <div className="flex flex-col">
-                       <span className="text-[10px] text-slate-500 font-bold uppercase">Início</span>
+               <div className="flex space-x-2">
+                   <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase w-10 text-right">Manhã</span>
+                       <div className="w-px h-6 bg-slate-300 dark:bg-slate-600"></div>
                        <input
                          type="time"
-                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0"
-                         value={importStartTime}
-                         onChange={e => setImportStartTime(e.target.value)}
+                         title="Início Manhã"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 w-16"
+                         value={importMorningStart}
+                         onChange={e => setImportMorningStart(e.target.value)}
+                       />
+                       <span className="text-slate-400 text-xs">-</span>
+                       <input
+                         type="time"
+                         title="Fim Manhã"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 w-16"
+                         value={importMorningEnd}
+                         onChange={e => setImportMorningEnd(e.target.value)}
                        />
                    </div>
-                   <div className="w-px h-8 bg-slate-300 dark:bg-slate-600"></div>
-                   <div className="flex flex-col">
-                       <span className="text-[10px] text-slate-500 font-bold uppercase">Fim</span>
+
+                   <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase w-10 text-right">Tarde</span>
+                       <div className="w-px h-6 bg-slate-300 dark:bg-slate-600"></div>
                        <input
                          type="time"
-                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0"
-                         value={importEndTime}
-                         onChange={e => setImportEndTime(e.target.value)}
+                         title="Início Tarde"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 w-16"
+                         value={importAfternoonStart}
+                         onChange={e => setImportAfternoonStart(e.target.value)}
+                       />
+                       <span className="text-slate-400 text-xs">-</span>
+                       <input
+                         type="time"
+                         title="Fim Tarde"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 w-16"
+                         value={importAfternoonEnd}
+                         onChange={e => setImportAfternoonEnd(e.target.value)}
                        />
                    </div>
                </div>
