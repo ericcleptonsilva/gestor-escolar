@@ -18,6 +18,13 @@ export interface User {
   photoUrl?: string;
   allowedGrades?: string[]; // Array of grades this user can access
   registration?: string; // Matricula (para Professores)
+  classes?: TeacherClass[]; // Link professor to grade + subject
+}
+
+export interface TeacherClass {
+  id: string; // Unique ID for the link
+  grade: string;
+  subject: string;
 }
 
 export interface Guardian {
@@ -126,6 +133,15 @@ export interface CoordinationRecord {
     isCompleted?: boolean; // For Drive Update
 }
 
+export interface Occurrence {
+    id: string;
+    studentId: string;
+    type: string; // 'ConsecutiveAbsence'
+    status: string; // 'Obteve contato' | 'Não obteve contato'
+    date: string;
+    observation?: string;
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
@@ -138,6 +154,7 @@ export interface AppState {
   // New State
   grades: string[];
   coordinationRecords: CoordinationRecord[];
+  occurrences: Occurrence[];
 }
 
 export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';

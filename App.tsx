@@ -35,7 +35,8 @@ import {
   Guardian, 
   User, 
   UserRole,
-  AcademicPeriod
+  AcademicPeriod,
+  Occurrence
 } from '@/types';
 
 import { generateSmartReport } from '@/services/geminiService';
@@ -112,7 +113,8 @@ const EMPTY_STATE: AppState = {
     subjects: [],
     pedagogicalRecords: [],
     grades: [],
-    coordinationRecords: []
+    coordinationRecords: [],
+    occurrences: []
 };
 
 export default function App() {
@@ -181,6 +183,7 @@ export default function App() {
   const [filterBookStatus, setFilterBookStatus] = useState<BookStatus | ''>('');
   const [filterPEStatus, setFilterPEStatus] = useState<PEStatus | ''>('');
   const [filterTurnstile, setFilterTurnstile] = useState<string>('');
+  const [filterAgenda, setFilterAgenda] = useState<string>('');
 
   const [filterAttendanceStatus, setFilterAttendanceStatus] = useState<AttendanceStatus | ''>('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -319,8 +322,11 @@ export default function App() {
         const matchesTurnstile = filterTurnstile !== ''
             ? (filterTurnstile === 'true' ? student.turnstileRegistered : !student.turnstileRegistered)
             : true;
+        const matchesAgenda = filterAgenda !== ''
+            ? (filterAgenda === 'true' ? student.hasAgenda : !student.hasAgenda)
+            : true;
 
-        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile;
+        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile && matchesAgenda;
       }).sort((a, b) => {
           const seqA = parseInt(a.sequenceNumber);
           const seqB = parseInt(b.sequenceNumber);
@@ -336,7 +342,7 @@ export default function App() {
 
           return a.name.localeCompare(b.name);
       });
-  }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile]);
+  }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile, filterAgenda]);
 
   // --- ACTIONS ---
 
@@ -756,6 +762,22 @@ export default function App() {
     }
   };
 
+  const handleSaveOccurrence = async (occurrence: Occurrence) => {
+    try {
+        const savedOccurrence = await api.saveOccurrence(occurrence);
+        setState(prev => {
+            const exists = (prev.occurrences || []).find(o => o.id === savedOccurrence.id);
+            if (exists) {
+                return { ...prev, occurrences: (prev.occurrences || []).map(o => o.id === savedOccurrence.id ? savedOccurrence : o) };
+            } else {
+                return { ...prev, occurrences: [...(prev.occurrences || []), savedOccurrence] };
+            }
+        });
+    } catch (e: any) {
+        alert("Erro ao salvar ocorrência: " + e.message);
+    }
+  };
+
   // Imports
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1026,6 +1048,23 @@ export default function App() {
     reader.readAsText(file, 'ISO-8859-1');
   };
 
+  const processTurnstileImportResult = (result: any) => {
+      const processed = result.processed || 0;
+      const present = result.present || 0;
+      const absent = result.absent || 0;
+      const notFound = result.notFound || 0;
+      const datesProcessed = result.datesProcessed || 0;
+
+      let msg = `Importação de Catraca Concluída!\n\n` +
+                `Linhas Processadas: ${processed}\n` +
+                `Presenças Registradas: ${present}\n` +
+                `Faltas Automáticas Geradas: ${absent}\n` +
+                `Não Encontrados: ${notFound}\n` +
+                `Dias Processados: ${datesProcessed}`;
+
+      alert(msg);
+  };
+
   const handleImportTurnstile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1257,26 +1296,46 @@ export default function App() {
             });
         }
 
-        let msg = `Importação de Catraca Concluída!\n\nLinhas Processadas (Hoje): ${processedCount}\nPresenças Registradas: ${successCount}\nFaltas Automáticas Geradas: ${autoAbsenceCount}\nNão Encontrados: ${notFoundCount}`;
+    try {
+        const result = await api.importTurnstileFile(file);
+        processTurnstileImportResult(result);
         
-        if (skippedDateCount > 0) {
-            msg += `\n\nATENÇÃO: ${skippedDateCount} registros de datas diferentes de hoje (${todayISO.split('-').reverse().join('/')}) foram ignorados.`;
-        } else if (processedCount === 0 && lines.length > 0) {
-             msg += `\n\nATENÇÃO: Nenhum registro encontrado para a data de hoje (${todayISO.split('-').reverse().join('/')}). Verifique a data do arquivo.`;
-        }
-        
-        alert(msg);
+        // Refresh data to show changes
+        setIsLoading(true);
+        const freshData = await api.loadAllData();
+        setState(freshData);
+        setIsLoading(false);
 
-      } catch (error: any) {
+    } catch (error: any) {
         console.error("Turnstile import failed", error);
         alert("Erro na importação: " + error.message);
-      } finally {
+    } finally {
         setIsImportingTurnstile(false);
         e.target.value = '';
-      }
-    };
-    
-    reader.readAsText(file);
+    }
+  };
+
+  const handleImportTurnstileLocal = async () => {
+    setIsImportingTurnstile(true);
+    try {
+        const result = await api.importTurnstileFromLocal();
+        processTurnstileImportResult(result);
+
+        // Refresh data to show changes
+        setIsLoading(true);
+        const freshData = await api.loadAllData();
+        setState(freshData);
+        setIsLoading(false);
+    } catch (error: any) {
+        console.error("Local turnstile import failed", error);
+        if (error.message.includes("404")) {
+            alert("Arquivo C:\\SIETEX\\Portaria\\TopData.txt não encontrado no servidor.");
+        } else {
+            alert("Erro na importação local: " + error.message);
+        }
+    } finally {
+        setIsImportingTurnstile(false);
+    }
   };
 
   const handleBatchPhotoImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1785,6 +1844,7 @@ export default function App() {
                     handlePrint={handlePrint}
                     setView={setView}
                     onSelectStudent={setSelectedStudent}
+                    onSaveOccurrence={handleSaveOccurrence}
                 />
              )}
 
@@ -1819,6 +1879,7 @@ export default function App() {
                             filterBookStatus={filterBookStatus} setFilterBookStatus={setFilterBookStatus}
                             filterPEStatus={filterPEStatus} setFilterPEStatus={setFilterPEStatus}
                             filterTurnstile={filterTurnstile} setFilterTurnstile={setFilterTurnstile}
+                            filterAgenda={filterAgenda} setFilterAgenda={setFilterAgenda}
                             visibleGradesList={visibleGradesList}
                             currentUser={currentUser}
                             onNewStudent={() => { setTempStudent(createEmptyStudent()); setIsEditingStudent(true); }}
@@ -1861,6 +1922,7 @@ export default function App() {
                     onUpdateStatus={handleAttendanceUpdate}
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
+                    onImportTurnstileLocal={handleImportTurnstileLocal}
                     isImportingTurnstile={isImportingTurnstile}
                  />
              )}

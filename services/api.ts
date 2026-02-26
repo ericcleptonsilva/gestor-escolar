@@ -6,7 +6,8 @@ import {
   MakeUpExam, 
   HealthDocument,
   PedagogicalRecord,
-  CoordinationRecord
+  CoordinationRecord,
+  Occurrence
 } from "../types";
 
 // --- CONFIGURATION ---
@@ -150,7 +151,8 @@ class HttpApi implements ApiService {
             subjects,
             pedagogicalRecords,
             grades,
-            coordinationRecords
+            coordinationRecords,
+            occurrences
         ] = await Promise.all([
             this.request('/students.php'),
             this.request('/users.php'),
@@ -160,7 +162,8 @@ class HttpApi implements ApiService {
             this.request('/subjects.php'),
             this.request('/pedagogical.php').catch(() => []),
             this.request('/grades.php').catch(() => []),
-            this.request('/coordination.php').catch(() => [])
+            this.request('/coordination.php').catch(() => []),
+            this.request('/occurrences.php').catch(() => [])
         ]);
 
         this.notifyStatus('online');
@@ -173,7 +176,8 @@ class HttpApi implements ApiService {
             subjects,
             pedagogicalRecords,
             grades,
-            coordinationRecords
+            coordinationRecords,
+            occurrences
         };
     } catch (e: any) {
         this.notifyStatus('offline');
