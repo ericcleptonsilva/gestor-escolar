@@ -19,32 +19,6 @@ try {
     }
 }
 
-// SEED DEFAULT GRADES IF EMPTY
-try {
-    $stmt = $conn->query("SELECT COUNT(*) FROM grades");
-    if ($stmt->fetchColumn() == 0) {
-        $defaults = [
-            "INF II", "INF III", "INF IV", "INF V",
-            "1º ANO FUND I", "2º ANO FUND I", "3º ANO FUND I", "4º ANO FUND I", "5º ANO FUND I",
-            "6º ANO FUND II", "7º ANO FUND II", "8º ANO FUND II", "9º ANO FUND II",
-            "1º ANO MÉDIO", "2º ANO MÉDIO", "3 ANO MÉDIO"
-        ];
-
-        $insert = $conn->prepare("INSERT INTO grades (name) VALUES (:name)");
-        foreach ($defaults as $grade) {
-            try {
-                $insert->execute([':name' => $grade]);
-            } catch (PDOException $e) {
-                // Ignore duplicates if any race condition
-            }
-        }
-    }
-} catch (PDOException $e) {
-    // Log error but continue
-    error_log("Grade Seeding Error: " . $e->getMessage());
-}
-
-
 if ($method == 'GET') {
     try {
         $stmt = $conn->prepare("SELECT * FROM grades");
