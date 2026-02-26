@@ -55,7 +55,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
   // --- HANDLERS: Config ---
   const handleAddGrade = async () => {
       if (!newGrade) return;
-      const currentGrades = state.grades.length > 0 ? state.grades : [];
+      const currentGrades = state.grades.length > 0 ? state.grades : GRADES_LIST;
       if (currentGrades.includes(newGrade)) return;
 
       const updated = [...currentGrades, newGrade];
