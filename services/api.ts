@@ -79,6 +79,8 @@ interface ApiService {
   // Imports
   importStudents(students: Student[]): Promise<any>;
   importAttendance(records: AttendanceRecord[]): Promise<any>;
+  importTurnstileFile(file: File): Promise<any>;
+  importTurnstileFromLocal(): Promise<any>;
   batchUploadPhotos(formData: FormData): Promise<any>;
 
   // System
@@ -229,6 +231,17 @@ class HttpApi implements ApiService {
   // Imports
   async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }
   async importAttendance(records: AttendanceRecord[]): Promise<any> { return this.request('/import_attendance.php', 'POST', records); }
+  async importTurnstileFile(file: File): Promise<any> {
+      const formData = new FormData();
+      formData.append('file', file);
+      return this.request('/import_turnstile.php', 'POST', formData);
+  }
+
+  async importTurnstileFromLocal(): Promise<any> {
+      const formData = new FormData();
+      formData.append('source', 'local');
+      return this.request('/import_turnstile.php', 'POST', formData);
+  }
   async batchUploadPhotos(formData: FormData): Promise<any> { return this.request('/batch_upload.php', 'POST', formData); }
 
   async resetSystem(): Promise<void> { return this.request('/reset.php', 'POST'); }
