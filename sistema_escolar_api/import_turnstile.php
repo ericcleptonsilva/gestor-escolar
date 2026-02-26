@@ -42,11 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $filePath = $_FILES['file']['tmp_name'];
     }
 
-    $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    // Set script execution time limit to 5 minutes to allow for large files
+    set_time_limit(300);
 
-    if ($lines === false) {
+    // Open file handle for line-by-line reading (memory efficient)
+    $handle = fopen($filePath, "r");
+    if (!$handle) {
         http_response_code(500);
-        echo json_encode(["error" => "Failed to read file."]);
+        echo json_encode(["error" => "Falha ao abrir arquivo: $filePath"]);
         exit();
     }
 
@@ -74,11 +77,47 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
+    // --- TIME FILTER PARSING ---
+    $startTimeInt = null;
+    $endTimeInt = null;
+    if (!empty($_POST['start_time'])) {
+        $startTimeInt = (int)str_replace(':', '', $_POST['start_time']);
+    }
+    if (!empty($_POST['end_time'])) {
+        $endTimeInt = (int)str_replace(':', '', $_POST['end_time']);
+    }
+
     $processedCount = 0;
     $successCount = 0;
     $notFoundCount = 0;
     $autoAbsenceCount = 0;
     $skippedDateCount = 0;
+
+    // --- TIME FILTER PARSING ---
+    $startTimeInt = null;
+    $endTimeInt = null;
+    if (!empty($_POST['start_time'])) {
+        $startTimeInt = (int)str_replace(':', '', $_POST['start_time']);
+    }
+    if (!empty($_POST['end_time'])) {
+        $endTimeInt = (int)str_replace(':', '', $_POST['end_time']);
+    }
+
+    $forcedMorning = false;
+    $forcedAfternoon = false;
+
+    // Determine forced shifts based on input range (if provided)
+    if ($startTimeInt !== null) {
+        // If range starts in morning (<= 1240)
+        if ($startTimeInt <= 1240) $forcedMorning = true;
+    }
+    if ($endTimeInt !== null) {
+        // If range ends in afternoon (> 1240)
+        if ($endTimeInt > 1240) $forcedAfternoon = true;
+    }
+
+    // If user provided a range that covers morning AND afternoon (e.g. 07:00 to 18:00), both true.
+    // If user provided 13:00 to 18:00 -> forcedMorning false, forcedAfternoon true.
 
     // We track presence per date to determine absences later
     // Date (YYYY-MM-DD) -> Set of Student IDs present
@@ -91,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Records to save: Key (studentId_date) -> Record
     $recordsToSave = [];
 
-    foreach ($lines as $line) {
+    while (($line = fgets($handle)) !== false) {
         $line = trim($line);
         if (empty($line)) continue;
 
@@ -151,6 +190,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $cleanTime = str_replace(':', '', $timeRaw);
         $timeInt = (int)$cleanTime;
 
+        // Apply Time Filter (if set)
+        // Skip records outside the desired range
+        if ($startTimeInt !== null && $timeInt < $startTimeInt) continue;
+        if ($endTimeInt !== null && $timeInt > $endTimeInt) continue;
+
         if ($timeInt <= 1240) { // Up to 12:40 -> Morning
             $shiftActivityByDate[$dateISO]['morning'] = true;
         } else { // After 12:40 -> Afternoon
@@ -183,6 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $processedCount++;
     }
 
+    fclose($handle);
+
     // --- AUTOMATIC ABSENCE LOGIC ---
     foreach ($shiftActivityByDate as $dateISO => $activity) {
         $presentSet = $presentStudentsByDate[$dateISO] ?? [];
@@ -191,14 +237,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $studentShift = mb_strtolower(trim($student['shift']), 'UTF-8');
             $shouldProcess = false;
 
-            // Normalize shift checking
+            // Determine if we should check this student for absence
+            // Logic:
+            // 1. If User Filter is set (startTimeInt !== null), rely on Forced Shifts.
+            // 2. If User Filter is NOT set, rely on File Activity ($activity['morning']/['afternoon']).
+
             // Morning check
-            if (($studentShift === 'manhã' || $studentShift === 'manha') && $activity['morning']) {
-                $shouldProcess = true;
+            if ($studentShift === 'manhã' || $studentShift === 'manha') {
+                if ($startTimeInt !== null) {
+                    if ($forcedMorning) $shouldProcess = true;
+                } elseif ($activity['morning']) {
+                    $shouldProcess = true;
+                }
             }
+
             // Afternoon check
-            if (($studentShift === 'tarde' || $studentShift === 'vespertino') && $activity['afternoon']) {
-                $shouldProcess = true;
+            if ($studentShift === 'tarde' || $studentShift === 'vespertino') {
+                 if ($startTimeInt !== null) {
+                    if ($forcedAfternoon) $shouldProcess = true;
+                } elseif ($activity['afternoon']) {
+                    $shouldProcess = true;
+                }
             }
 
             if ($shouldProcess && !isset($presentSet[$student['id']])) {

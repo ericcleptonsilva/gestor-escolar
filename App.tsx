@@ -208,6 +208,10 @@ export default function App() {
   const [newSubjectName, setNewSubjectName] = useState("");
   const [showSubjectCatalog, setShowSubjectCatalog] = useState(false);
 
+  // Import Time Filters
+  const [importStartTime, setImportStartTime] = useState("");
+  const [importEndTime, setImportEndTime] = useState("");
+
   // --- MODAL STATE ---
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -1072,15 +1076,13 @@ export default function App() {
     setIsImportingTurnstile(true);
 
     try {
-        const result = await api.importTurnstileFile(file);
+        const result = await api.importTurnstileFile(file, importStartTime, importEndTime);
         processTurnstileImportResult(result);
         
         // Refresh data to show changes
         setIsLoading(true);
         const freshData = await api.loadAllData();
         setState(freshData);
-        setIsLoading(false);
-
     } catch (error: any) {
         console.error("Turnstile import failed", error);
         alert("Erro na importação: " + error.message);
@@ -1093,7 +1095,7 @@ export default function App() {
   const handleImportTurnstileLocal = async () => {
     setIsImportingTurnstile(true);
     try {
-        const result = await api.importTurnstileFromLocal();
+        const result = await api.importTurnstileFromLocal(importStartTime, importEndTime);
         processTurnstileImportResult(result);
 
         // Refresh data to show changes
@@ -1110,6 +1112,7 @@ export default function App() {
         }
     } finally {
         setIsImportingTurnstile(false);
+        setIsLoading(false);
     }
   };
 
@@ -1699,6 +1702,10 @@ export default function App() {
                     onImportTurnstile={handleImportTurnstile}
                     onImportTurnstileLocal={handleImportTurnstileLocal}
                     isImportingTurnstile={isImportingTurnstile}
+                    importStartTime={importStartTime}
+                    setImportStartTime={setImportStartTime}
+                    importEndTime={importEndTime}
+                    setImportEndTime={setImportEndTime}
                  />
              )}
 

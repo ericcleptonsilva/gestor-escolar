@@ -24,6 +24,10 @@ interface AttendanceViewProps {
     onImportTurnstile: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onImportTurnstileLocal: () => void;
     isImportingTurnstile: boolean;
+    importStartTime: string;
+    setImportStartTime: (time: string) => void;
+    importEndTime: string;
+    setImportEndTime: (time: string) => void;
     currentUser: User | null;
 }
 
@@ -41,6 +45,8 @@ export const AttendanceView = ({
     onImportTurnstile,
     onImportTurnstileLocal,
     isImportingTurnstile,
+    importStartTime, setImportStartTime,
+    importEndTime, setImportEndTime,
     currentUser
 }: AttendanceViewProps) => {
 
@@ -74,6 +80,28 @@ export const AttendanceView = ({
                  onChange={e => setAttendanceDate(e.target.value)}
                />
                
+               <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                   <div className="flex flex-col">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase">Início</span>
+                       <input
+                         type="time"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0"
+                         value={importStartTime}
+                         onChange={e => setImportStartTime(e.target.value)}
+                       />
+                   </div>
+                   <div className="w-px h-8 bg-slate-300 dark:bg-slate-600"></div>
+                   <div className="flex flex-col">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase">Fim</span>
+                       <input
+                         type="time"
+                         className="bg-transparent border-none p-0 text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0"
+                         value={importEndTime}
+                         onChange={e => setImportEndTime(e.target.value)}
+                       />
+                   </div>
+               </div>
+
                <button
                   onClick={onImportTurnstileLocal}
                   disabled={isImportingTurnstile}
