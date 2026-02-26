@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Search, Plus, BookOpen, Activity, CreditCard, Phone, MessageCircle, XCircle, CheckSquare, Calendar } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -68,6 +68,25 @@ export const StudentListView = ({
     onToggleAgenda
 }: StudentListViewProps) => {
 
+    const [activeFilterType, setActiveFilterType] = useState<string>('');
+
+    useEffect(() => {
+        if (filterGrade) setActiveFilterType('grade');
+        else if (filterShift) setActiveFilterType('shift');
+        else if (filterBookStatus) setActiveFilterType('book');
+        else if (filterPEStatus) setActiveFilterType('pe');
+        else if (filterTurnstile) setActiveFilterType('turnstile');
+    }, []);
+
+    const handleFilterTypeChange = (type: string) => {
+        setActiveFilterType(type);
+        setFilterGrade('');
+        setFilterShift('');
+        setFilterBookStatus('');
+        setFilterPEStatus('');
+        setFilterTurnstile('');
+    };
+
     const formatWhatsAppLink = (phone: string) => {
         if (!phone) return '#';
         const cleaned = phone.replace(/\D/g, '');
@@ -95,37 +114,67 @@ export const StudentListView = ({
                 onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
-             <Select className="!w-full md:!w-full" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
-                <option value="">Todas Séries</option>
-                {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
+
+             <Select
+                className="!w-full md:!w-full"
+                value={activeFilterType}
+                onChange={e => handleFilterTypeChange(e.target.value)}
+             >
+                <option value="">Filtrar por...</option>
+                <option value="grade">Série</option>
+                <option value="shift">Turno</option>
+                <option value="book">Status Livro</option>
+                <option value="pe">Status Ed. Física</option>
+                <option value="turnstile">Status Catraca</option>
              </Select>
 
-             <Select className="!w-full md:!w-full" value={filterShift} onChange={e => setFilterShift(e.target.value)}>
-                <option value="">Todos Turnos</option>
-                {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-             </Select>
+             {activeFilterType === 'grade' && (
+                 <Select className="!w-full md:!w-full" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
+                    <option value="">Todas Séries</option>
+                    {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
+                 </Select>
+             )}
 
-             <Select className="!w-full md:!w-full" value={filterBookStatus} onChange={e => setFilterBookStatus(e.target.value as BookStatus)}>
-                <option value="">Status Livro</option>
-                <option value="Comprou">Comprou</option>
-                <option value="Nao Comprou">Não Comprou</option>
-                <option value="Copia">Cópia</option>
-                <option value="Livro Antigo">Livro Antigo</option>
-             </Select>
+             {activeFilterType === 'shift' && (
+                 <Select className="!w-full md:!w-full" value={filterShift} onChange={e => setFilterShift(e.target.value)}>
+                    <option value="">Todos Turnos</option>
+                    {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                 </Select>
+             )}
 
-             <Select className="!w-full md:!w-full" value={filterPEStatus} onChange={e => setFilterPEStatus(e.target.value as PEStatus)}>
-                <option value="">Status Ed. Física</option>
-                <option value="Pendente">Pendente</option>
-                <option value="Em Análise">Em Análise</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Reprovado">Reprovado</option>
-             </Select>
+             {activeFilterType === 'book' && (
+                 <Select className="!w-full md:!w-full" value={filterBookStatus} onChange={e => setFilterBookStatus(e.target.value as BookStatus)}>
+                    <option value="">Todos Status</option>
+                    <option value="Comprou">Comprou</option>
+                    <option value="Nao Comprou">Não Comprou</option>
+                    <option value="Copia">Cópia</option>
+                    <option value="Livro Antigo">Livro Antigo</option>
+                 </Select>
+             )}
 
-             <Select className="!w-full md:!w-full" value={filterTurnstile} onChange={e => setFilterTurnstile(e.target.value)}>
-                <option value="">Catraca (Todos)</option>
-                <option value="true">Com Cadastro</option>
-                <option value="false">Sem Cadastro</option>
-             </Select>
+             {activeFilterType === 'pe' && (
+                 <Select className="!w-full md:!w-full" value={filterPEStatus} onChange={e => setFilterPEStatus(e.target.value as PEStatus)}>
+                    <option value="">Todos Status</option>
+                    <option value="Pendente">Pendente</option>
+                    <option value="Em Análise">Em Análise</option>
+                    <option value="Aprovado">Aprovado</option>
+                    <option value="Reprovado">Reprovado</option>
+                 </Select>
+             )}
+
+             {activeFilterType === 'turnstile' && (
+                 <Select className="!w-full md:!w-full" value={filterTurnstile} onChange={e => setFilterTurnstile(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="true">Com Cadastro</option>
+                    <option value="false">Sem Cadastro</option>
+                 </Select>
+             )}
+
+             {activeFilterType === '' && (
+                 <Select className="!w-full md:!w-full" disabled value="">
+                     <option>Selecione um filtro...</option>
+                 </Select>
+             )}
 
              {currentUser?.role !== 'Teacher' && (
                 <>
