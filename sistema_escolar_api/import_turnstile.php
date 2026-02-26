@@ -93,31 +93,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $autoAbsenceCount = 0;
     $skippedDateCount = 0;
 
-    // --- TIME FILTER PARSING ---
-    $startTimeInt = null;
-    $endTimeInt = null;
-    if (!empty($_POST['start_time'])) {
-        $startTimeInt = (int)str_replace(':', '', $_POST['start_time']);
-    }
-    if (!empty($_POST['end_time'])) {
-        $endTimeInt = (int)str_replace(':', '', $_POST['end_time']);
-    }
+    // --- TIME FILTER PARSING (Dual Shift) ---
+    $morningStart = null;
+    $morningEnd = null;
+    $afternoonStart = null;
+    $afternoonEnd = null;
 
-    $forcedMorning = false;
-    $forcedAfternoon = false;
+    if (!empty($_POST['morning_start'])) $morningStart = (int)str_replace(':', '', $_POST['morning_start']);
+    if (!empty($_POST['morning_end']))   $morningEnd = (int)str_replace(':', '', $_POST['morning_end']);
 
-    // Determine forced shifts based on input range (if provided)
-    if ($startTimeInt !== null) {
-        // If range starts in morning (<= 1240)
-        if ($startTimeInt <= 1240) $forcedMorning = true;
-    }
-    if ($endTimeInt !== null) {
-        // If range ends in afternoon (> 1240)
-        if ($endTimeInt > 1240) $forcedAfternoon = true;
-    }
+    if (!empty($_POST['afternoon_start'])) $afternoonStart = (int)str_replace(':', '', $_POST['afternoon_start']);
+    if (!empty($_POST['afternoon_end']))   $afternoonEnd = (int)str_replace(':', '', $_POST['afternoon_end']);
 
-    // If user provided a range that covers morning AND afternoon (e.g. 07:00 to 18:00), both true.
-    // If user provided 13:00 to 18:00 -> forcedMorning false, forcedAfternoon true.
+    $hasMorningFilter = ($morningStart !== null && $morningEnd !== null);
+    $hasAfternoonFilter = ($afternoonStart !== null && $afternoonEnd !== null);
 
     // We track presence per date to determine absences later
     // Date (YYYY-MM-DD) -> Set of Student IDs present
@@ -191,13 +180,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $timeInt = (int)$cleanTime;
 
         // Apply Time Filter (if set)
-        // Skip records outside the desired range
-        if ($startTimeInt !== null && $timeInt < $startTimeInt) continue;
-        if ($endTimeInt !== null && $timeInt > $endTimeInt) continue;
+        // We only process the record if it falls within EITHER the morning range OR the afternoon range.
+        // If NO filters are set, we process everything.
 
-        if ($timeInt <= 1240) { // Up to 12:40 -> Morning
+        $inMorningRange = false;
+        $inAfternoonRange = false;
+
+        if ($hasMorningFilter) {
+            if ($timeInt >= $morningStart && $timeInt <= $morningEnd) {
+                $inMorningRange = true;
+            }
+        }
+
+        if ($hasAfternoonFilter) {
+             if ($timeInt >= $afternoonStart && $timeInt <= $afternoonEnd) {
+                $inAfternoonRange = true;
+             }
+        }
+
+        // Skip if filters exist but record doesn't match any
+        if (($hasMorningFilter || $hasAfternoonFilter) && !$inMorningRange && !$inAfternoonRange) {
+            continue;
+        }
+
+        // Determine Shift Activity
+        // Use standard logic (<= 1240) OR specific filter match
+        if ($timeInt <= 1240 || $inMorningRange) {
             $shiftActivityByDate[$dateISO]['morning'] = true;
-        } else { // After 12:40 -> Afternoon
+        }
+
+        if ($timeInt > 1240 || $inAfternoonRange) {
             $shiftActivityByDate[$dateISO]['afternoon'] = true;
         }
 
@@ -239,23 +251,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             // Determine if we should check this student for absence
             // Logic:
-            // 1. If User Filter is set (startTimeInt !== null), rely on Forced Shifts.
-            // 2. If User Filter is NOT set, rely on File Activity ($activity['morning']/['afternoon']).
+            // 1. If Morning Filter is set -> ONLY check morning students if file has activity in that range (implied by $activity['morning'] being true from filtered records).
+            //    Actually, if filter is set, we force check.
 
             // Morning check
             if ($studentShift === 'manhã' || $studentShift === 'manha') {
-                if ($startTimeInt !== null) {
-                    if ($forcedMorning) $shouldProcess = true;
-                } elseif ($activity['morning']) {
+                if ($hasMorningFilter) {
+                    // If user specifically asked to filter Morning, we check all morning students
+                    $shouldProcess = true;
+                } elseif (!$hasAfternoonFilter && $activity['morning']) {
+                    // If NO filters set (default mode), rely on file activity
                     $shouldProcess = true;
                 }
             }
 
             // Afternoon check
             if ($studentShift === 'tarde' || $studentShift === 'vespertino') {
-                 if ($startTimeInt !== null) {
-                    if ($forcedAfternoon) $shouldProcess = true;
-                } elseif ($activity['afternoon']) {
+                 if ($hasAfternoonFilter) {
+                    // If user specifically asked to filter Afternoon, we check all afternoon students
+                    $shouldProcess = true;
+                } elseif (!$hasMorningFilter && $activity['afternoon']) {
+                    // If NO filters set (default mode), rely on file activity
                     $shouldProcess = true;
                 }
             }

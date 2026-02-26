@@ -209,8 +209,10 @@ export default function App() {
   const [showSubjectCatalog, setShowSubjectCatalog] = useState(false);
 
   // Import Time Filters
-  const [importStartTime, setImportStartTime] = useState("");
-  const [importEndTime, setImportEndTime] = useState("");
+  const [importMorningStart, setImportMorningStart] = useState("");
+  const [importMorningEnd, setImportMorningEnd] = useState("");
+  const [importAfternoonStart, setImportAfternoonStart] = useState("");
+  const [importAfternoonEnd, setImportAfternoonEnd] = useState("");
 
   // --- MODAL STATE ---
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -1076,7 +1078,7 @@ export default function App() {
     setIsImportingTurnstile(true);
 
     try {
-        const result = await api.importTurnstileFile(file, importStartTime, importEndTime);
+        const result = await api.importTurnstileFile(file, importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
         processTurnstileImportResult(result);
         
         // Refresh data to show changes
@@ -1095,7 +1097,7 @@ export default function App() {
   const handleImportTurnstileLocal = async () => {
     setIsImportingTurnstile(true);
     try {
-        const result = await api.importTurnstileFromLocal(importStartTime, importEndTime);
+        const result = await api.importTurnstileFromLocal(importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
         processTurnstileImportResult(result);
 
         // Refresh data to show changes
@@ -1702,10 +1704,14 @@ export default function App() {
                     onImportTurnstile={handleImportTurnstile}
                     onImportTurnstileLocal={handleImportTurnstileLocal}
                     isImportingTurnstile={isImportingTurnstile}
-                    importStartTime={importStartTime}
-                    setImportStartTime={setImportStartTime}
-                    importEndTime={importEndTime}
-                    setImportEndTime={setImportEndTime}
+                    importMorningStart={importMorningStart}
+                    setImportMorningStart={setImportMorningStart}
+                    importMorningEnd={importMorningEnd}
+                    setImportMorningEnd={setImportMorningEnd}
+                    importAfternoonStart={importAfternoonStart}
+                    setImportAfternoonStart={setImportAfternoonStart}
+                    importAfternoonEnd={importAfternoonEnd}
+                    setImportAfternoonEnd={setImportAfternoonEnd}
                  />
              )}
 
