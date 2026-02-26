@@ -24,6 +24,8 @@ interface AttendanceViewProps {
     onImportTurnstile: (e: React.ChangeEvent<HTMLInputElement>) => void;
     isImportingTurnstile: boolean;
     currentUser: User | null;
+    autoAbsenceEnabled: boolean;
+    setAutoAbsenceEnabled: (enabled: boolean) => void;
 }
 
 export const AttendanceView = ({
@@ -39,7 +41,9 @@ export const AttendanceView = ({
     onUpdateObservation,
     onImportTurnstile,
     isImportingTurnstile,
-    currentUser
+    currentUser,
+    autoAbsenceEnabled,
+    setAutoAbsenceEnabled
 }: AttendanceViewProps) => {
 
     const filteredStudents = (students || [])
@@ -72,24 +76,36 @@ export const AttendanceView = ({
                  onChange={e => setAttendanceDate(e.target.value)}
                />
                
-               <label className={`
-                   flex items-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors cursor-pointer shadow-md
-                   ${isImportingTurnstile ? 'opacity-70 cursor-wait' : ''}
-               `}>
-                   {isImportingTurnstile ? (
-                       <Loader2 size={20} className="animate-spin mr-2" />
-                   ) : (
-                       <UploadCloud size={20} className="mr-2" />
-                   )}
-                   <span className="text-sm font-medium">Importar Catraca</span>
-                   <input 
-                       type="file" 
-                       accept=".txt"
-                       className="hidden"
-                       onChange={onImportTurnstile}
-                       disabled={isImportingTurnstile}
-                   />
-               </label>
+               <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                   <label className="flex items-center space-x-2 text-xs text-slate-600 dark:text-slate-300 px-2 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            checked={autoAbsenceEnabled}
+                            onChange={(e) => setAutoAbsenceEnabled(e.target.checked)}
+                        />
+                        <span>Gerar Faltas Automáticas</span>
+                   </label>
+                   <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                   <label className={`
+                       flex items-center px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md transition-colors cursor-pointer
+                       ${isImportingTurnstile ? 'opacity-70 cursor-wait' : ''}
+                   `}>
+                       {isImportingTurnstile ? (
+                           <Loader2 size={16} className="animate-spin mr-1.5" />
+                       ) : (
+                           <UploadCloud size={16} className="mr-1.5" />
+                       )}
+                       <span className="text-xs font-bold uppercase tracking-wide">Importar</span>
+                       <input
+                           type="file"
+                           accept=".txt"
+                           className="hidden"
+                           onChange={onImportTurnstile}
+                           disabled={isImportingTurnstile}
+                       />
+                   </label>
+               </div>
 
                <PrintButton onClick={onPrint} />
            </div>

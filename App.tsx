@@ -193,6 +193,9 @@ export default function App() {
   const [filterExamGrade, setFilterExamGrade] = useState('');
   const [filterExamShift, setFilterExamShift] = useState('');
 
+  // --- IMPORT CONFIG STATE ---
+  const [autoAbsenceEnabled, setAutoAbsenceEnabled] = useState(false);
+
   // --- EDITING STATES ---
   const [tempStudent, setTempStudent] = useState<Student>(createEmptyStudent());
   const [tempUser, setTempUser] = useState<User>(createEmptyUser());
@@ -1191,14 +1194,7 @@ export default function App() {
         }
 
         // --- AUTOMATIC ABSENCE LOGIC ---
-        // Prompt user before generating absences to respect manual deletions
-        const shouldGenerateAbsences = window.confirm(
-            "Deseja gerar FALTAS automáticas para os alunos que não estão no arquivo?\n\n" +
-            "• Clique em OK para gerar faltas (padrão).\n" +
-            "• Clique em Cancelar para importar APENAS as presenças (útil se você já excluiu faltas manualmente)."
-        );
-
-        if (shouldGenerateAbsences) {
+        if (autoAbsenceEnabled) {
             // For each date found in the import file, check all active students.
             // If a student is NOT in the present set for that date, mark them as Absent.
             // BUT ONLY IF the file contains data for their specific shift.
@@ -1872,6 +1868,8 @@ export default function App() {
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
                     isImportingTurnstile={isImportingTurnstile}
+                    autoAbsenceEnabled={autoAbsenceEnabled}
+                    setAutoAbsenceEnabled={setAutoAbsenceEnabled}
                  />
              )}
 
