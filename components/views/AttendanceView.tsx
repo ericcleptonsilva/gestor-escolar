@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
@@ -226,9 +226,14 @@ interface AttendanceCardProps {
 
 const AttendanceCard = ({ student, status, observation, onUpdateStatus, onUpdateObservation }: AttendanceCardProps) => {
     const [localObs, setLocalObs] = useState(observation);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        setLocalObs(observation);
+        // Only update local state if the input is NOT focused
+        // This prevents overwriting user input while typing if a background sync happens
+        if (document.activeElement !== inputRef.current) {
+            setLocalObs(observation);
+        }
     }, [observation]);
 
     const handleBlur = () => {
@@ -279,6 +284,7 @@ const AttendanceCard = ({ student, status, observation, onUpdateStatus, onUpdate
             </div>
 
             <input
+                ref={inputRef}
                 type="text"
                 placeholder="Adicionar observação..."
                 className="w-full bg-transparent border-b border-slate-200 dark:border-slate-600 focus:border-indigo-500 outline-none text-slate-600 dark:text-slate-300 py-1 text-sm transition-colors"
