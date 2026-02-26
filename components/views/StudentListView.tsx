@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Users, Search, Plus, BookOpen, Activity, CreditCard, Phone, MessageCircle, XCircle, CheckSquare, Calendar } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -23,8 +23,6 @@ interface StudentListViewProps {
     setFilterPEStatus: (status: PEStatus | '') => void;
     filterTurnstile: string;
     setFilterTurnstile: (val: string) => void;
-    filterAgenda: string;
-    setFilterAgenda: (val: string) => void;
     visibleGradesList: string[];
     currentUser: User | null;
     onNewStudent: () => void;
@@ -54,7 +52,6 @@ export const StudentListView = ({
     filterBookStatus, setFilterBookStatus,
     filterPEStatus, setFilterPEStatus,
     filterTurnstile, setFilterTurnstile,
-    filterAgenda, setFilterAgenda,
     visibleGradesList,
     currentUser,
     onNewStudent,
@@ -70,23 +67,6 @@ export const StudentListView = ({
     onToggleTurnstile,
     onToggleAgenda
 }: StudentListViewProps) => {
-
-    const [activeFilterType, setActiveFilterType] = useState<string>('');
-
-    useEffect(() => {
-        if (filterBookStatus) setActiveFilterType('book');
-        else if (filterPEStatus) setActiveFilterType('pe');
-        else if (filterTurnstile) setActiveFilterType('turnstile');
-        else if (filterAgenda) setActiveFilterType('agenda');
-    }, []);
-
-    const handleFilterTypeChange = (type: string) => {
-        setActiveFilterType(type);
-        setFilterBookStatus('');
-        setFilterPEStatus('');
-        setFilterTurnstile('');
-        setFilterAgenda('');
-    };
 
     const formatWhatsAppLink = (phone: string) => {
         if (!phone) return '#';
@@ -115,7 +95,6 @@ export const StudentListView = ({
                 onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
-
              <Select className="!w-full md:!w-full" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
                 <option value="">Todas Séries</option>
                 {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
@@ -126,59 +105,27 @@ export const StudentListView = ({
                 {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
              </Select>
 
-             <Select
-                className="!w-full md:!w-full"
-                value={activeFilterType}
-                onChange={e => handleFilterTypeChange(e.target.value)}
-             >
-                <option value="">Outros Filtros...</option>
-                <option value="book">Status Livro</option>
-                <option value="pe">Status Ed. Física</option>
-                <option value="turnstile">Status Catraca</option>
-                <option value="agenda">Status Agenda</option>
+             <Select className="!w-full md:!w-full" value={filterBookStatus} onChange={e => setFilterBookStatus(e.target.value as BookStatus)}>
+                <option value="">Status Livro</option>
+                <option value="Comprou">Comprou</option>
+                <option value="Nao Comprou">Não Comprou</option>
+                <option value="Copia">Cópia</option>
+                <option value="Livro Antigo">Livro Antigo</option>
              </Select>
 
-             {activeFilterType === 'book' && (
-                 <Select className="!w-full md:!w-full" value={filterBookStatus} onChange={e => setFilterBookStatus(e.target.value as BookStatus)}>
-                    <option value="">Todos Status</option>
-                    <option value="Comprou">Comprou</option>
-                    <option value="Nao Comprou">Não Comprou</option>
-                    <option value="Copia">Cópia</option>
-                    <option value="Livro Antigo">Livro Antigo</option>
-                 </Select>
-             )}
+             <Select className="!w-full md:!w-full" value={filterPEStatus} onChange={e => setFilterPEStatus(e.target.value as PEStatus)}>
+                <option value="">Status Ed. Física</option>
+                <option value="Pendente">Pendente</option>
+                <option value="Em Análise">Em Análise</option>
+                <option value="Aprovado">Aprovado</option>
+                <option value="Reprovado">Reprovado</option>
+             </Select>
 
-             {activeFilterType === 'pe' && (
-                 <Select className="!w-full md:!w-full" value={filterPEStatus} onChange={e => setFilterPEStatus(e.target.value as PEStatus)}>
-                    <option value="">Todos Status</option>
-                    <option value="Pendente">Pendente</option>
-                    <option value="Em Análise">Em Análise</option>
-                    <option value="Aprovado">Aprovado</option>
-                    <option value="Reprovado">Reprovado</option>
-                 </Select>
-             )}
-
-             {activeFilterType === 'turnstile' && (
-                 <Select className="!w-full md:!w-full" value={filterTurnstile} onChange={e => setFilterTurnstile(e.target.value)}>
-                    <option value="">Todos</option>
-                    <option value="true">Com Cadastro</option>
-                    <option value="false">Sem Cadastro</option>
-                 </Select>
-             )}
-
-             {activeFilterType === 'agenda' && (
-                 <Select className="!w-full md:!w-full" value={filterAgenda} onChange={e => setFilterAgenda(e.target.value)}>
-                    <option value="">Todos</option>
-                    <option value="true">Com Agenda</option>
-                    <option value="false">Sem Agenda</option>
-                 </Select>
-             )}
-
-             {activeFilterType === '' && (
-                 <Select className="!w-full md:!w-full" disabled value="">
-                     <option>Selecione um filtro...</option>
-                 </Select>
-             )}
+             <Select className="!w-full md:!w-full" value={filterTurnstile} onChange={e => setFilterTurnstile(e.target.value)}>
+                <option value="">Catraca (Todos)</option>
+                <option value="true">Com Cadastro</option>
+                <option value="false">Sem Cadastro</option>
+             </Select>
 
              {currentUser?.role !== 'Teacher' && (
                 <>

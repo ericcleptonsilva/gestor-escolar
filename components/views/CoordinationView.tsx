@@ -14,10 +14,9 @@ import {
   User as UserIcon,
   Settings,
   BookOpen,
-  GraduationCap,
-  Printer
+  GraduationCap
 } from 'lucide-react';
-import { AppState, User, CoordinationRecord, CoordinationType, TeacherClass } from '@/types';
+import { AppState, User, CoordinationRecord, CoordinationType } from '@/types';
 import { api } from '@/services/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -40,9 +39,8 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<User | null>(null);
   const [teacherForm, setTeacherForm] = useState<Partial<User>>({
-      name: '', email: '', password: '', role: 'Teacher', registration: '', photoUrl: '', classes: []
+      name: '', email: '', password: '', role: 'Teacher', registration: '', photoUrl: ''
   });
-  const [newTeacherClass, setNewTeacherClass] = useState<{grade: string, subject: string}>({ grade: '', subject: '' });
 
   // --- STATE: Drives ---
   const [expandedSection, setExpandedSection] = useState<CoordinationType | null>(null);
@@ -66,6 +64,10 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
 
   const handleDeleteGrade = async (grade: string) => {
       if (!confirm(`Remover a série "${grade}"?`)) return;
+      const currentGrades = state.grades.length > 0 ? state.grades : []; // Should filter from state
+      // If state.grades is empty, we can't really delete from GRADES_LIST constant in UI conceptually without saving first.
+      // But if state.grades is empty, we are using defaults.
+      // So first delete creates the list minus the item.
 
       let sourceList = state.grades.length > 0 ? state.grades : GRADES_LIST;
       const updated = sourceList.filter(g => g !== grade);
@@ -96,38 +98,15 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
   const handleOpenTeacherModal = (teacher?: User) => {
       if (teacher) {
           setEditingTeacher(teacher);
-          setTeacherForm({ ...teacher, password: '', classes: teacher.classes || [] });
+          setTeacherForm({ ...teacher, password: '' }); // Don't show hash
       } else {
           setEditingTeacher(null);
           setTeacherForm({
               id: '', name: '', email: '', password: '', role: 'Teacher', registration: '', photoUrl: '',
-              allowedGrades: [], classes: []
+              allowedGrades: []
           });
       }
-      setNewTeacherClass({ grade: '', subject: '' });
       setIsTeacherModalOpen(true);
-  };
-
-  const handleAddTeacherClass = () => {
-      if (newTeacherClass.grade && newTeacherClass.subject) {
-          const newClass: TeacherClass = {
-              id: Math.random().toString(36).substr(2, 9),
-              grade: newTeacherClass.grade,
-              subject: newTeacherClass.subject
-          };
-          setTeacherForm(prev => ({
-              ...prev,
-              classes: [...(prev.classes || []), newClass]
-          }));
-          setNewTeacherClass({ grade: '', subject: '' });
-      }
-  };
-
-  const handleRemoveTeacherClass = (id: string) => {
-      setTeacherForm(prev => ({
-          ...prev,
-          classes: (prev.classes || []).filter(c => c.id !== id)
-      }));
   };
 
   const handleSaveTeacher = async () => {
@@ -143,8 +122,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
           role: 'Teacher',
           photoUrl: teacherForm.photoUrl || `https://ui-avatars.com/api/?name=${teacherForm.name}&background=random`,
           registration: teacherForm.registration || '',
-          allowedGrades: teacherForm.allowedGrades || [],
-          classes: teacherForm.classes || []
+          allowedGrades: teacherForm.allowedGrades || []
       };
 
       if (teacherForm.password) {
@@ -201,22 +179,10 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
               shift: 'Manhã',
               period: '',
               weekDate: '',
-              isCompleted: false,
-              subject: ''
+              isCompleted: false
           });
       }
       setIsRecordModalOpen(true);
-  };
-
-  const handleTeacherSelect = (teacherId: string) => {
-      const teacher = state.users.find(u => u.id === teacherId);
-      setRecordForm(prev => ({
-          ...prev,
-          teacherId,
-          teacherName: teacher?.name || '',
-          grade: '',
-          subject: ''
-      }));
   };
 
   const handleSaveRecord = async () => {
@@ -257,105 +223,15 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
       }
   };
 
-  const handlePrintSection = (type: CoordinationType, title: string) => {
-      const records = (state.coordinationRecords || []).filter(r => r.type === type);
-
-      let html = `
-        <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            @page { size: A4; margin: 1cm; }
-            body { font-family: sans-serif; padding: 20px; }
-            h1 { text-align: center; color: #333; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-            th { background-color: #f0f0f0; }
-            .status-badge { padding: 2px 5px; border-radius: 4px; font-size: 10px; border: 1px solid #ccc; }
-          </style>
-        </head>
-        <body>
-          <h1>${title}</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Professor</th>
-                ${type === 'DRIVE_UPDATE' ? '<th>Série/Turno</th><th>Semana</th><th>Concluído</th>' : '<th>Prazo</th><th>Entrega</th>'}
-                ${type === 'REPORT_MONITORING' ? '<th>Bimestre</th>' : ''}
-                ${type === 'EXAM_DELIVERY' || type === 'PLAN_DELIVERY' ? '<th>Série</th><th>Disciplina</th>' : ''}
-                <th>Status</th>
-                <th>Observação</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${records.map(r => `
-                <tr>
-                  <td>${r.teacherName}</td>
-                  ${type === 'DRIVE_UPDATE'
-                    ? `<td>${r.grade || '-'} / ${r.shift || '-'}</td><td>${r.weekDate ? new Date(r.weekDate).toLocaleDateString('pt-BR') : '-'}</td><td>${r.isCompleted ? 'Sim' : 'Não'}</td>`
-                    : `<td>${r.deadline ? new Date(r.deadline).toLocaleDateString('pt-BR') : '-'}</td><td>${r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR') : '-'}</td>`
-                  }
-                  ${type === 'REPORT_MONITORING' ? `<td>${r.period || '-'}</td>` : ''}
-                  ${type === 'EXAM_DELIVERY' || type === 'PLAN_DELIVERY' ? `<td>${r.grade || '-'}</td><td>${r.subject || '-'}</td>` : ''}
-                  <td>${r.status}</td>
-                  <td>${r.observation || ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-        </html>
-      `;
-
-      const win = window.open('', '_blank');
-      win?.document.write(html);
-      win?.document.close();
-      win?.print();
-  };
-
   // --- RENDER HELPERS ---
   const teachers = state.users.filter(u => u.role === 'Teacher');
   const activeGrades = state.grades.length > 0 ? state.grades : GRADES_LIST;
 
-  // Helper to get available grades for selected teacher in form
-  const getTeacherGrades = () => {
-      if (!recordForm.teacherId) return activeGrades;
-      const teacher = state.users.find(u => u.id === recordForm.teacherId);
-      if (teacher && teacher.classes && teacher.classes.length > 0) {
-          // Unique grades from classes
-          return Array.from(new Set(teacher.classes.map(c => c.grade)));
-      }
-      return activeGrades;
-  };
-
-  // Helper to get available subjects for selected teacher AND grade in form
-  const getTeacherSubjects = () => {
-      if (!recordForm.teacherId) return state.subjects;
-      const teacher = state.users.find(u => u.id === recordForm.teacherId);
-      if (!teacher) return state.subjects;
-
-      if (teacher.classes && teacher.classes.length > 0) {
-          let classes = teacher.classes;
-          if (recordForm.grade) {
-              classes = classes.filter(c => c.grade === recordForm.grade);
-          }
-          const subjects = Array.from(new Set(classes.map(c => c.subject)));
-          return subjects.length > 0 ? subjects : state.subjects;
-      }
-      return state.subjects;
-  };
-
-  const renderRecordTable = (type: CoordinationType, title: string) => {
+  const renderRecordTable = (type: CoordinationType) => {
       const records = (state.coordinationRecords || []).filter(r => r.type === type);
 
       return (
           <div className="overflow-x-auto">
-              <div className="flex justify-between mb-2">
-                 <h4 className="font-bold text-sm text-slate-500 uppercase tracking-wide pt-2">Registros</h4>
-                 <Button variant="ghost" size="sm" onClick={() => handlePrintSection(type, title)} className="text-slate-500">
-                     <Printer size={16} className="mr-2"/> Imprimir Relatório
-                 </Button>
-              </div>
               <table className="w-full text-sm text-left">
                   <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-medium border-b border-slate-200 dark:border-slate-700">
                       <tr>
@@ -373,12 +249,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 {type === 'REPORT_MONITORING' && <th className="px-4 py-3">Bimestre</th>}
                               </>
                           )}
-                          {(type === 'EXAM_DELIVERY' || type === 'PLAN_DELIVERY') && (
-                              <>
-                                <th className="px-4 py-3">Série</th>
-                                <th className="px-4 py-3">Disciplina</th>
-                              </>
-                          )}
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Arquivo</th>
                           <th className="px-4 py-3 text-right">Ações</th>
@@ -386,7 +256,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {records.length === 0 ? (
-                          <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Nenhum registro.</td></tr>
+                          <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Nenhum registro.</td></tr>
                       ) : (
                           records.map(r => (
                               <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
@@ -394,22 +264,16 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                   {type === 'DRIVE_UPDATE' ? (
                                       <>
                                           <td className="px-4 py-3">{r.grade} - {r.shift}</td>
-                                          <td className="px-4 py-3">{r.weekDate ? new Date(r.weekDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
+                                          <td className="px-4 py-3">{r.weekDate ? new Date(r.weekDate).toLocaleDateString() : '-'}</td>
                                           <td className="px-4 py-3">
                                               {r.isCompleted ? <CheckCircle2 size={16} className="text-green-500"/> : <XCircle size={16} className="text-red-300"/>}
                                           </td>
                                       </>
                                   ) : (
                                       <>
-                                          <td className="px-4 py-3">{r.deadline ? new Date(r.deadline).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
-                                          <td className="px-4 py-3">{r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
+                                          <td className="px-4 py-3">{r.deadline ? new Date(r.deadline).toLocaleDateString() : '-'}</td>
+                                          <td className="px-4 py-3">{r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString() : '-'}</td>
                                           {type === 'REPORT_MONITORING' && <td className="px-4 py-3">{r.period}</td>}
-                                      </>
-                                  )}
-                                  {(type === 'EXAM_DELIVERY' || type === 'PLAN_DELIVERY') && (
-                                      <>
-                                        <td className="px-4 py-3">{r.grade || '-'}</td>
-                                        <td className="px-4 py-3">{r.subject || '-'}</td>
                                       </>
                                   )}
                                   <td className="px-4 py-3">
@@ -540,7 +404,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                           <th className="px-6 py-4">Professor</th>
                           <th className="px-6 py-4">Matrícula</th>
                           <th className="px-6 py-4">Email</th>
-                          <th className="px-6 py-4">Turmas</th>
                           <th className="px-6 py-4 text-right">Ações</th>
                       </tr>
                   </thead>
@@ -553,12 +416,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                               </td>
                               <td className="px-6 py-4 text-slate-500">{t.registration || '-'}</td>
                               <td className="px-6 py-4 text-slate-500">{t.email}</td>
-                              <td className="px-6 py-4 text-slate-500 text-xs">
-                                  {(t.classes || []).length > 0
-                                      ? (t.classes || []).map(c => `${c.grade} (${c.subject})`).join(', ')
-                                      : <span className="text-slate-400 italic">Nenhuma turma</span>
-                                  }
-                              </td>
                               <td className="px-6 py-4 text-right">
                                   <div className="flex justify-end gap-2">
                                       <button onClick={() => handleOpenTeacherModal(t)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded"><Edit size={16}/></button>
@@ -602,7 +459,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                       <Plus size={16}/> Novo Registro
                                   </Button>
                               </div>
-                              {renderRecordTable(section.type, section.label)}
+                              {renderRecordTable(section.type)}
                           </div>
                       )}
                   </div>
@@ -613,7 +470,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
       {/* --- MODAL: TEACHER --- */}
       {isTeacherModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold">{editingTeacher ? 'Editar Professor' : 'Novo Professor'}</h3>
                     <button onClick={() => setIsTeacherModalOpen(false)}><X size={20} className="text-slate-400 hover:text-slate-600"/></button>
@@ -630,53 +487,11 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                             <input type="file" className="hidden" accept="image/*" onChange={handleTeacherPhotoUpload}/>
                         </label>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input placeholder="Nome Completo" value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})}/>
-                        <Input placeholder="Matrícula" value={teacherForm.registration} onChange={e => setTeacherForm({...teacherForm, registration: e.target.value})}/>
-                    </div>
-
+                    <Input placeholder="Nome Completo" value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})}/>
+                    <Input placeholder="Matrícula" value={teacherForm.registration} onChange={e => setTeacherForm({...teacherForm, registration: e.target.value})}/>
                     <Input type="email" placeholder="Email" value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})}/>
                     <Input type="password" placeholder={editingTeacher ? "Nova Senha (opcional)" : "Senha"} value={teacherForm.password} onChange={e => setTeacherForm({...teacherForm, password: e.target.value})}/>
-
-                    {/* Class/Subject Linker */}
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <h4 className="font-bold text-sm text-slate-600 dark:text-slate-400 mb-3">Vincular Turmas e Disciplinas</h4>
-
-                        <div className="flex gap-2 mb-3">
-                            <select
-                                className="flex-1 p-2 rounded text-sm border border-slate-200 dark:border-slate-600"
-                                value={newTeacherClass.grade}
-                                onChange={e => setNewTeacherClass({...newTeacherClass, grade: e.target.value})}
-                            >
-                                <option value="">Série...</option>
-                                {activeGrades.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                            <select
-                                className="flex-1 p-2 rounded text-sm border border-slate-200 dark:border-slate-600"
-                                value={newTeacherClass.subject}
-                                onChange={e => setNewTeacherClass({...newTeacherClass, subject: e.target.value})}
-                            >
-                                <option value="">Disciplina...</option>
-                                {state.subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                            <Button size="sm" onClick={handleAddTeacherClass} disabled={!newTeacherClass.grade || !newTeacherClass.subject}>
-                                <Plus size={16}/>
-                            </Button>
-                        </div>
-
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {(teacherForm.classes || []).length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">Nenhuma turma vinculada</p>}
-                            {(teacherForm.classes || []).map(c => (
-                                <div key={c.id} className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700 text-xs">
-                                    <span>{c.grade} - <strong>{c.subject}</strong></span>
-                                    <button onClick={() => handleRemoveTeacherClass(c.id)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <Button className="w-full mt-2" onClick={handleSaveTeacher}>Salvar Professor</Button>
+                    <Button className="w-full mt-4" onClick={handleSaveTeacher}>Salvar Professor</Button>
                 </div>
             </div>
           </div>
@@ -699,7 +514,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                         <select
                             className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
                             value={recordForm.teacherId}
-                            onChange={e => handleTeacherSelect(e.target.value)}
+                            onChange={e => setRecordForm({...recordForm, teacherId: e.target.value})}
                         >
                             <option value="">Selecione...</option>
                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -715,7 +530,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 onChange={e => setRecordForm({...recordForm, grade: e.target.value})}
                             >
                                 <option value="">Selecione...</option>
-                                {getTeacherGrades().map(g => <option key={g} value={g}>{g}</option>)}
+                                {activeGrades.map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
                         </div>
                         <div>
@@ -742,20 +557,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 <label className="text-xs font-bold text-slate-500 uppercase">Data Entrega</label>
                                 <Input type="date" value={recordForm.deliveryDate} onChange={e => setRecordForm({...recordForm, deliveryDate: e.target.value})}/>
                             </div>
-                        </div>
-                    )}
-
-                    {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && (
-                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Disciplina</label>
-                            <select
-                                className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
-                                value={recordForm.subject}
-                                onChange={e => setRecordForm({...recordForm, subject: e.target.value})}
-                            >
-                                <option value="">Selecione...</option>
-                                {getTeacherSubjects().map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
                         </div>
                     )}
 

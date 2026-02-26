@@ -35,8 +35,7 @@ import {
   Guardian, 
   User, 
   UserRole,
-  AcademicPeriod,
-  Occurrence
+  AcademicPeriod
 } from '@/types';
 
 import { generateSmartReport } from '@/services/geminiService';
@@ -113,8 +112,7 @@ const EMPTY_STATE: AppState = {
     subjects: [],
     pedagogicalRecords: [],
     grades: [],
-    coordinationRecords: [],
-    occurrences: []
+    coordinationRecords: []
 };
 
 export default function App() {
@@ -183,7 +181,6 @@ export default function App() {
   const [filterBookStatus, setFilterBookStatus] = useState<BookStatus | ''>('');
   const [filterPEStatus, setFilterPEStatus] = useState<PEStatus | ''>('');
   const [filterTurnstile, setFilterTurnstile] = useState<string>('');
-  const [filterAgenda, setFilterAgenda] = useState<string>('');
 
   const [filterAttendanceStatus, setFilterAttendanceStatus] = useState<AttendanceStatus | ''>('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -322,11 +319,8 @@ export default function App() {
         const matchesTurnstile = filterTurnstile !== ''
             ? (filterTurnstile === 'true' ? student.turnstileRegistered : !student.turnstileRegistered)
             : true;
-        const matchesAgenda = filterAgenda !== ''
-            ? (filterAgenda === 'true' ? student.hasAgenda : !student.hasAgenda)
-            : true;
 
-        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile && matchesAgenda;
+        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile;
       }).sort((a, b) => {
           const seqA = parseInt(a.sequenceNumber);
           const seqB = parseInt(b.sequenceNumber);
@@ -342,7 +336,7 @@ export default function App() {
 
           return a.name.localeCompare(b.name);
       });
-  }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile, filterAgenda]);
+  }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile]);
 
   // --- ACTIONS ---
 
@@ -762,22 +756,6 @@ export default function App() {
     }
   };
 
-  const handleSaveOccurrence = async (occurrence: Occurrence) => {
-    try {
-        const savedOccurrence = await api.saveOccurrence(occurrence);
-        setState(prev => {
-            const exists = (prev.occurrences || []).find(o => o.id === savedOccurrence.id);
-            if (exists) {
-                return { ...prev, occurrences: (prev.occurrences || []).map(o => o.id === savedOccurrence.id ? savedOccurrence : o) };
-            } else {
-                return { ...prev, occurrences: [...(prev.occurrences || []), savedOccurrence] };
-            }
-        });
-    } catch (e: any) {
-        alert("Erro ao salvar ocorrência: " + e.message);
-    }
-  };
-
   // Imports
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1048,23 +1026,6 @@ export default function App() {
     reader.readAsText(file, 'ISO-8859-1');
   };
 
-  const processTurnstileImportResult = (result: any) => {
-      const processed = result.processed || 0;
-      const present = result.present || 0;
-      const absent = result.absent || 0;
-      const notFound = result.notFound || 0;
-      const datesProcessed = result.datesProcessed || 0;
-
-      let msg = `Importação de Catraca Concluída!\n\n` +
-                `Linhas Processadas: ${processed}\n` +
-                `Presenças Registradas: ${present}\n` +
-                `Faltas Automáticas Geradas: ${absent}\n` +
-                `Não Encontrados: ${notFound}\n` +
-                `Dias Processados: ${datesProcessed}`;
-
-      alert(msg);
-  };
-
   const handleImportTurnstile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1230,45 +1191,55 @@ export default function App() {
         }
 
         // --- AUTOMATIC ABSENCE LOGIC ---
-        // For each date found in the import file, check all active students.
-        // If a student is NOT in the present set for that date, mark them as Absent.
-        // BUT ONLY IF the file contains data for their specific shift.
-        presentStudentsByDate.forEach((presentSet, dateISO) => {
-            const shiftFlags = shiftsProcessedByDate.get(dateISO);
-            
-            state.students.forEach(student => {
-                // Determine if we should process this student's absence
-                let shouldProcess = false;
-                const studentShift = (student.shift || '').trim().toLowerCase();
+        // Prompt user before generating absences to respect manual deletions
+        const shouldGenerateAbsences = window.confirm(
+            "Deseja gerar FALTAS automáticas para os alunos que não estão no arquivo?\n\n" +
+            "• Clique em OK para gerar faltas (padrão).\n" +
+            "• Clique em Cancelar para importar APENAS as presenças (útil se você já excluiu faltas manualmente)."
+        );
 
-                if ((studentShift === 'manhã' || studentShift === 'manha') && shiftFlags?.morning) shouldProcess = true;
-                if ((studentShift === 'tarde' || studentShift === 'vespertino') && shiftFlags?.afternoon) shouldProcess = true;
+        if (shouldGenerateAbsences) {
+            // For each date found in the import file, check all active students.
+            // If a student is NOT in the present set for that date, mark them as Absent.
+            // BUT ONLY IF the file contains data for their specific shift.
+            presentStudentsByDate.forEach((presentSet, dateISO) => {
+                const shiftFlags = shiftsProcessedByDate.get(dateISO);
 
-                if (shouldProcess && !presentSet.has(student.id)) {
-                    // Student was NOT in the turnstile file for this date AND we have data for their shift
-                    const key = `${student.id}_${dateISO}`;
-                    
-                    // Check if we already have a pending update
-                    if (!pendingUpdates.has(key)) {
-                        // Check existing record in state
-                        const existing = state.attendance.find(a => a.studentId === student.id && a.date === dateISO);
+                state.students.forEach(student => {
+                    // Determine if we should process this student's absence
+                    let shouldProcess = false;
+                    const studentShift = (student.shift || '').trim().toLowerCase();
+
+                    if ((studentShift === 'manhã' || studentShift === 'manha') && shiftFlags?.morning) shouldProcess = true;
+                    if ((studentShift === 'tarde' || studentShift === 'vespertino') && shiftFlags?.afternoon) shouldProcess = true;
+
+                    if (shouldProcess && !presentSet.has(student.id)) {
+                        // Student was NOT in the turnstile file for this date AND we have data for their shift
+                        const key = `${student.id}_${dateISO}`;
                         
-                        // STRICT OVERWRITE POLICY:
-                        // Only create a new Absent record if NO record exists.
-                        if (!existing) {
-                            pendingUpdates.set(key, {
-                                id: Math.random().toString(36).substr(2, 9),
-                                studentId: student.id,
-                                date: dateISO,
-                                status: 'Absent',
-                                observation: 'Ausência automática (Catraca)'
-                            });
-                            autoAbsenceCount++;
+                        // Check if we already have a pending update
+                        if (!pendingUpdates.has(key)) {
+                            // Check existing record in state
+                            const existing = state.attendance.find(a => a.studentId === student.id && a.date === dateISO);
+
+                            // STRICT OVERWRITE POLICY:
+                            // Only create a new Absent record if NO record exists.
+                            // If user explicitly asks for absences but record is 'Present', we still respect 'Present'.
+                            if (!existing) {
+                                pendingUpdates.set(key, {
+                                    id: Math.random().toString(36).substr(2, 9),
+                                    studentId: student.id,
+                                    date: dateISO,
+                                    status: 'Absent',
+                                    observation: 'Ausência automática (Catraca)'
+                                });
+                                autoAbsenceCount++;
+                            }
                         }
                     }
-                }
+                });
             });
-        });
+        }
         
         const recordsToSave = Array.from(pendingUpdates.values());
         if (recordsToSave.length > 0) {
@@ -1296,46 +1267,26 @@ export default function App() {
             });
         }
 
-    try {
-        const result = await api.importTurnstileFile(file);
-        processTurnstileImportResult(result);
+        let msg = `Importação de Catraca Concluída!\n\nLinhas Processadas (Hoje): ${processedCount}\nPresenças Registradas: ${successCount}\nFaltas Automáticas Geradas: ${autoAbsenceCount}\nNão Encontrados: ${notFoundCount}`;
         
-        // Refresh data to show changes
-        setIsLoading(true);
-        const freshData = await api.loadAllData();
-        setState(freshData);
-        setIsLoading(false);
+        if (skippedDateCount > 0) {
+            msg += `\n\nATENÇÃO: ${skippedDateCount} registros de datas diferentes de hoje (${todayISO.split('-').reverse().join('/')}) foram ignorados.`;
+        } else if (processedCount === 0 && lines.length > 0) {
+             msg += `\n\nATENÇÃO: Nenhum registro encontrado para a data de hoje (${todayISO.split('-').reverse().join('/')}). Verifique a data do arquivo.`;
+        }
 
-    } catch (error: any) {
+        alert(msg);
+
+      } catch (error: any) {
         console.error("Turnstile import failed", error);
         alert("Erro na importação: " + error.message);
-    } finally {
+      } finally {
         setIsImportingTurnstile(false);
         e.target.value = '';
-    }
-  };
+      }
+    };
 
-  const handleImportTurnstileLocal = async () => {
-    setIsImportingTurnstile(true);
-    try {
-        const result = await api.importTurnstileFromLocal();
-        processTurnstileImportResult(result);
-
-        // Refresh data to show changes
-        setIsLoading(true);
-        const freshData = await api.loadAllData();
-        setState(freshData);
-        setIsLoading(false);
-    } catch (error: any) {
-        console.error("Local turnstile import failed", error);
-        if (error.message.includes("404")) {
-            alert("Arquivo C:\\SIETEX\\Portaria\\TopData.txt não encontrado no servidor.");
-        } else {
-            alert("Erro na importação local: " + error.message);
-        }
-    } finally {
-        setIsImportingTurnstile(false);
-    }
+    reader.readAsText(file);
   };
 
   const handleBatchPhotoImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1844,7 +1795,6 @@ export default function App() {
                     handlePrint={handlePrint}
                     setView={setView}
                     onSelectStudent={setSelectedStudent}
-                    onSaveOccurrence={handleSaveOccurrence}
                 />
              )}
 
@@ -1879,7 +1829,6 @@ export default function App() {
                             filterBookStatus={filterBookStatus} setFilterBookStatus={setFilterBookStatus}
                             filterPEStatus={filterPEStatus} setFilterPEStatus={setFilterPEStatus}
                             filterTurnstile={filterTurnstile} setFilterTurnstile={setFilterTurnstile}
-                            filterAgenda={filterAgenda} setFilterAgenda={setFilterAgenda}
                             visibleGradesList={visibleGradesList}
                             currentUser={currentUser}
                             onNewStudent={() => { setTempStudent(createEmptyStudent()); setIsEditingStudent(true); }}
@@ -1922,7 +1871,6 @@ export default function App() {
                     onUpdateStatus={handleAttendanceUpdate}
                     onUpdateObservation={handleAttendanceObservation}
                     onImportTurnstile={handleImportTurnstile}
-                    onImportTurnstileLocal={handleImportTurnstileLocal}
                     isImportingTurnstile={isImportingTurnstile}
                  />
              )}

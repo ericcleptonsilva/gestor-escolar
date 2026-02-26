@@ -184,25 +184,18 @@ export const ExamView = ({
                         return (
                             <Card key={exam.id} className="p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                                 <div>
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="relative w-10 h-10 flex-shrink-0">
-                                                <img
-                                                    src={student?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student?.id}`}
-                                                    alt={student?.name}
-                                                    className="w-full h-full rounded-full object-cover border border-slate-200 dark:border-slate-600 bg-white"
-                                                />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <h4 className="font-bold text-slate-800 dark:text-white truncate" title={student?.name}>{student?.name}</h4>
-                                                <div className="text-xs text-slate-500 dark:text-slate-400">{student?.grade} • {student?.shift}</div>
-                                            </div>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="p-2 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400">
+                                            <ClipboardList size={20} />
                                         </div>
-                                        <div className="flex flex-col gap-1 items-end flex-shrink-0 ml-2">
+                                        <div className="flex space-x-1">
                                             <Badge color="blue">{exam.subject}</Badge>
                                             <Badge color="slate">{exam.period}</Badge>
                                         </div>
                                     </div>
+
+                                    <h4 className="font-bold text-slate-800 dark:text-white truncate" title={student?.name}>{student?.name}</h4>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">{student?.grade} • {student?.shift}</div>
 
                                     <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
                                         <p className="text-sm text-slate-600 dark:text-slate-300">
