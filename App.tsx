@@ -1055,9 +1055,8 @@ export default function App() {
     setIsImportingTurnstile(true);
     const reader = new FileReader();
 
-    reader.onload = async (evt) => {
+    const processTurnstileData = async (text: string) => {
       try {
-        const text = evt.target?.result as string;
         const lines = text.split('\n');
         
         let successCount = 0;
@@ -1296,6 +1295,11 @@ export default function App() {
         setIsImportingTurnstile(false);
         e.target.value = '';
       }
+    };
+
+    reader.onload = async (evt) => {
+      const text = evt.target?.result as string;
+      if (text) await processTurnstileData(text);
     };
     
     reader.readAsText(file);
