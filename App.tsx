@@ -35,7 +35,8 @@ import {
   Guardian, 
   User, 
   UserRole,
-  AcademicPeriod
+  AcademicPeriod,
+  Occurrence
 } from '@/types';
 
 import { generateSmartReport } from '@/services/geminiService';
@@ -112,7 +113,8 @@ const EMPTY_STATE: AppState = {
     subjects: [],
     pedagogicalRecords: [],
     grades: [],
-    coordinationRecords: []
+    coordinationRecords: [],
+    occurrences: []
 };
 
 export default function App() {
@@ -757,6 +759,22 @@ export default function App() {
           console.error("Failed to upload user photo", err);
           alert("Erro ao enviar foto de usuário.");
       }
+    }
+  };
+
+  const handleSaveOccurrence = async (occurrence: Occurrence) => {
+    try {
+        const savedOccurrence = await api.saveOccurrence(occurrence);
+        setState(prev => {
+            const exists = (prev.occurrences || []).find(o => o.id === savedOccurrence.id);
+            if (exists) {
+                return { ...prev, occurrences: (prev.occurrences || []).map(o => o.id === savedOccurrence.id ? savedOccurrence : o) };
+            } else {
+                return { ...prev, occurrences: [...(prev.occurrences || []), savedOccurrence] };
+            }
+        });
+    } catch (e: any) {
+        alert("Erro ao salvar ocorrência: " + e.message);
     }
   };
 
@@ -1789,6 +1807,7 @@ export default function App() {
                     handlePrint={handlePrint}
                     setView={setView}
                     onSelectStudent={setSelectedStudent}
+                    onSaveOccurrence={handleSaveOccurrence}
                 />
              )}
 

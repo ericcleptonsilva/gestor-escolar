@@ -6,7 +6,8 @@ import {
   MakeUpExam, 
   HealthDocument,
   PedagogicalRecord,
-  CoordinationRecord
+  CoordinationRecord,
+  Occurrence
 } from "../types";
 
 // --- CONFIGURATION ---
@@ -70,6 +71,10 @@ interface ApiService {
   updateGrades(grades: string[]): Promise<string[]>;
   saveCoordinationRecord(record: CoordinationRecord): Promise<CoordinationRecord>;
   deleteCoordinationRecord(id: string): Promise<void>;
+
+  // Occurrences (Consecutive Absences)
+  saveOccurrence(occurrence: Occurrence): Promise<Occurrence>;
+  deleteOccurrence(id: string): Promise<void>;
 
   // Imports
   importStudents(students: Student[]): Promise<any>;
@@ -150,7 +155,8 @@ class HttpApi implements ApiService {
             subjects,
             pedagogicalRecords,
             grades,
-            coordinationRecords
+            coordinationRecords,
+            occurrences
         ] = await Promise.all([
             this.request('/students.php'),
             this.request('/users.php'),
@@ -160,7 +166,8 @@ class HttpApi implements ApiService {
             this.request('/subjects.php'),
             this.request('/pedagogical.php').catch(() => []),
             this.request('/grades.php').catch(() => []),
-            this.request('/coordination.php').catch(() => [])
+            this.request('/coordination.php').catch(() => []),
+            this.request('/occurrences.php').catch(() => [])
         ]);
 
         this.notifyStatus('online');
@@ -173,7 +180,8 @@ class HttpApi implements ApiService {
             subjects,
             pedagogicalRecords,
             grades,
-            coordinationRecords
+            coordinationRecords,
+            occurrences
         };
     } catch (e: any) {
         this.notifyStatus('offline');
@@ -213,6 +221,10 @@ class HttpApi implements ApiService {
   async updateGrades(grades: string[]): Promise<string[]> { return this.request('/grades.php', 'POST', { grades }); }
   async saveCoordinationRecord(record: CoordinationRecord): Promise<CoordinationRecord> { return this.request('/coordination.php', 'POST', record); }
   async deleteCoordinationRecord(id: string): Promise<void> { return this.request(`/coordination.php?id=${id}`, 'DELETE'); }
+
+  // Occurrences
+  async saveOccurrence(occurrence: Occurrence): Promise<Occurrence> { return this.request('/occurrences.php', 'POST', occurrence); }
+  async deleteOccurrence(id: string): Promise<void> { return this.request(`/occurrences.php?id=${id}`, 'DELETE'); }
 
   // Imports
   async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }

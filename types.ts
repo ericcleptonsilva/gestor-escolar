@@ -126,6 +126,15 @@ export interface CoordinationRecord {
     isCompleted?: boolean; // For Drive Update
 }
 
+export interface Occurrence {
+    id: string;
+    studentId: string;
+    type: string; // 'ConsecutiveAbsence'
+    status: string; // 'Obteve contato' | 'Não obteve contato'
+    date: string;
+    observation?: string;
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
@@ -138,6 +147,7 @@ export interface AppState {
   // New State
   grades: string[];
   coordinationRecords: CoordinationRecord[];
+  occurrences: Occurrence[];
 }
 
 export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';
