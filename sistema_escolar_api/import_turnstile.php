@@ -42,11 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $filePath = $_FILES['file']['tmp_name'];
     }
 
-    $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    // Set script execution time limit to 5 minutes to allow for large files
+    set_time_limit(300);
 
-    if ($lines === false) {
+    // Open file handle for line-by-line reading (memory efficient)
+    $handle = fopen($filePath, "r");
+    if (!$handle) {
         http_response_code(500);
-        echo json_encode(["error" => "Failed to read file."]);
+        echo json_encode(["error" => "Falha ao abrir arquivo: $filePath"]);
         exit();
     }
 
@@ -91,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Records to save: Key (studentId_date) -> Record
     $recordsToSave = [];
 
-    foreach ($lines as $line) {
+    while (($line = fgets($handle)) !== false) {
         $line = trim($line);
         if (empty($line)) continue;
 
@@ -182,6 +185,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         $processedCount++;
     }
+
+    fclose($handle);
 
     // --- AUTOMATIC ABSENCE LOGIC ---
     foreach ($shiftActivityByDate as $dateISO => $activity) {

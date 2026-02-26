@@ -93,7 +93,8 @@ class HttpApi implements ApiService {
     if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json; charset=utf-8';
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    // Increased timeout to 30s to handle larger file uploads and imports
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     try {
         const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
