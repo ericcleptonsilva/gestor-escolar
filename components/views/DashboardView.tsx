@@ -99,7 +99,7 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView, on
         const recentRecords = studentRecords.slice(0, absenceThreshold);
 
         // Check if ALL of them are 'Absent'
-        return recentRecords.every(r => r.status === 'Absent');
+        return recentRecords.every(r => r.status !== 'Present');
     });
 
     return (
