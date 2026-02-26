@@ -8,16 +8,16 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  CheckCircle2,
+  CheckCircle,
   XCircle,
   Upload,
-  User as UserIcon,
+  User,
   Settings,
   BookOpen,
   GraduationCap,
   Printer
 } from 'lucide-react';
-import { AppState, User, CoordinationRecord, CoordinationType, TeacherClass } from '@/types';
+import { AppState, User as UserType, CoordinationRecord, CoordinationType, TeacherClass, Shift } from '@/types';
 import { api } from '@/services/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -25,7 +25,7 @@ import { GRADES_LIST } from '@/constants';
 
 interface CoordinationViewProps {
   state: AppState;
-  currentUser: User;
+  currentUser: UserType;
   onRefresh: () => void;
 }
 
@@ -38,11 +38,11 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
 
   // --- STATE: Teachers ---
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
-  const [editingTeacher, setEditingTeacher] = useState<User | null>(null);
-  const [teacherForm, setTeacherForm] = useState<Partial<User>>({
+  const [editingTeacher, setEditingTeacher] = useState<UserType | null>(null);
+  const [teacherForm, setTeacherForm] = useState<Partial<UserType>>({
       name: '', email: '', password: '', role: 'Teacher', registration: '', photoUrl: '', classes: []
   });
-  const [newTeacherClass, setNewTeacherClass] = useState<{grade: string, subject: string}>({ grade: '', subject: '' });
+  const [newTeacherClass, setNewTeacherClass] = useState<{grade: string, subject: string, shift: Shift}>({ grade: '', subject: '', shift: 'Manhã' });
 
   // --- STATE: Drives ---
   const [expandedSection, setExpandedSection] = useState<CoordinationType | null>(null);
@@ -93,7 +93,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
   };
 
   // --- HANDLERS: Teachers ---
-  const handleOpenTeacherModal = (teacher?: User) => {
+  const handleOpenTeacherModal = (teacher?: UserType) => {
       if (teacher) {
           setEditingTeacher(teacher);
           setTeacherForm({ ...teacher, password: '', classes: teacher.classes || [] });
@@ -104,7 +104,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
               allowedGrades: [], classes: []
           });
       }
-      setNewTeacherClass({ grade: '', subject: '' });
+      setNewTeacherClass({ grade: '', subject: '', shift: 'Manhã' });
       setIsTeacherModalOpen(true);
   };
 
@@ -113,13 +113,14 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
           const newClass: TeacherClass = {
               id: Math.random().toString(36).substr(2, 9),
               grade: newTeacherClass.grade,
-              subject: newTeacherClass.subject
+              subject: newTeacherClass.subject,
+              shift: newTeacherClass.shift
           };
           setTeacherForm(prev => ({
               ...prev,
               classes: [...(prev.classes || []), newClass]
           }));
-          setNewTeacherClass({ grade: '', subject: '' });
+          setNewTeacherClass({ grade: '', subject: '', shift: 'Manhã' });
       }
   };
 
@@ -131,15 +132,20 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
   };
 
   const handleSaveTeacher = async () => {
-      if (!teacherForm.name || !teacherForm.email) {
-          alert("Nome e Email são obrigatórios.");
+      if (!teacherForm.name) {
+          alert("Nome é obrigatório.");
           return;
       }
 
-      const userToSave: User = {
+      // Auto-generate credentials if not provided (hidden from UI)
+      const generatedEmail = teacherForm.registration
+          ? `${teacherForm.registration}@professor.com`
+          : `${teacherForm.name.toLowerCase().replace(/\s+/g, '.')}@professor.com`;
+
+      const userToSave: UserType = {
           id: editingTeacher?.id || Math.random().toString(36).substr(2, 9),
           name: teacherForm.name,
-          email: teacherForm.email,
+          email: editingTeacher?.email || generatedEmail,
           role: 'Teacher',
           photoUrl: teacherForm.photoUrl || `https://ui-avatars.com/api/?name=${teacherForm.name}&background=random`,
           registration: teacherForm.registration || '',
@@ -147,11 +153,9 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
           classes: teacherForm.classes || []
       };
 
-      if (teacherForm.password) {
-          userToSave.password = teacherForm.password;
-      } else if (!editingTeacher) {
-          alert("Senha é obrigatória para novos usuários.");
-          return;
+      // Default password for new users if hidden
+      if (!editingTeacher) {
+          userToSave.password = '123';
       } else {
           userToSave.password = editingTeacher.password;
       }
@@ -328,6 +332,23 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
       return activeGrades;
   };
 
+  // Helper to get available shifts for selected teacher AND grade in form
+  const getTeacherShifts = () => {
+      if (!recordForm.teacherId) return ['Manhã', 'Tarde'];
+      const teacher = state.users.find(u => u.id === recordForm.teacherId);
+      if (!teacher) return ['Manhã', 'Tarde'];
+
+      if (teacher.classes && teacher.classes.length > 0) {
+          let classes = teacher.classes;
+          if (recordForm.grade) {
+              classes = classes.filter(c => c.grade === recordForm.grade);
+          }
+          const shifts = Array.from(new Set(classes.map(c => c.shift || 'Manhã'))); // Default to Manhã if undefined
+          return shifts.length > 0 ? shifts : ['Manhã', 'Tarde'];
+      }
+      return ['Manhã', 'Tarde'];
+  };
+
   // Helper to get available subjects for selected teacher AND grade in form
   const getTeacherSubjects = () => {
       if (!recordForm.teacherId) return state.subjects;
@@ -396,7 +417,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                           <td className="px-4 py-3">{r.grade} - {r.shift}</td>
                                           <td className="px-4 py-3">{r.weekDate ? new Date(r.weekDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
                                           <td className="px-4 py-3">
-                                              {r.isCompleted ? <CheckCircle2 size={16} className="text-green-500"/> : <XCircle size={16} className="text-red-300"/>}
+                                              {r.isCompleted ? <CheckCircle size={16} className="text-green-500"/> : <XCircle size={16} className="text-red-300"/>}
                                           </td>
                                       </>
                                   ) : (
@@ -539,7 +560,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                       <tr>
                           <th className="px-6 py-4">Professor</th>
                           <th className="px-6 py-4">Matrícula</th>
-                          <th className="px-6 py-4">Email</th>
                           <th className="px-6 py-4">Turmas</th>
                           <th className="px-6 py-4 text-right">Ações</th>
                       </tr>
@@ -552,7 +572,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                   <span className="font-medium">{t.name}</span>
                               </td>
                               <td className="px-6 py-4 text-slate-500">{t.registration || '-'}</td>
-                              <td className="px-6 py-4 text-slate-500">{t.email}</td>
                               <td className="px-6 py-4 text-slate-500 text-xs">
                                   {(t.classes || []).length > 0
                                       ? (t.classes || []).map(c => `${c.grade} (${c.subject})`).join(', ')
@@ -622,7 +641,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                     <div className="flex justify-center mb-4">
                         <label className="cursor-pointer relative group">
                             <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border-2 border-slate-200">
-                                {teacherForm.photoUrl ? <img src={teacherForm.photoUrl} alt="" className="w-full h-full object-cover"/> : <UserIcon size={32} className="text-slate-400"/>}
+                                {teacherForm.photoUrl ? <img src={teacherForm.photoUrl} alt="" className="w-full h-full object-cover"/> : <User size={32} className="text-slate-400"/>}
                             </div>
                             <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Upload size={20} className="text-white"/>
@@ -636,9 +655,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                         <Input placeholder="Matrícula" value={teacherForm.registration} onChange={e => setTeacherForm({...teacherForm, registration: e.target.value})}/>
                     </div>
 
-                    <Input type="email" placeholder="Email" value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})}/>
-                    <Input type="password" placeholder={editingTeacher ? "Nova Senha (opcional)" : "Senha"} value={teacherForm.password} onChange={e => setTeacherForm({...teacherForm, password: e.target.value})}/>
-
                     {/* Class/Subject Linker */}
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                         <h4 className="font-bold text-sm text-slate-600 dark:text-slate-400 mb-3">Vincular Turmas e Disciplinas</h4>
@@ -651,6 +667,14 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                             >
                                 <option value="">Série...</option>
                                 {activeGrades.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                             <select
+                                className="flex-1 p-2 rounded text-sm border border-slate-200 dark:border-slate-600"
+                                value={newTeacherClass.shift}
+                                onChange={e => setNewTeacherClass({...newTeacherClass, shift: e.target.value as Shift})}
+                            >
+                                <option value="Manhã">Manhã</option>
+                                <option value="Tarde">Tarde</option>
                             </select>
                             <select
                                 className="flex-1 p-2 rounded text-sm border border-slate-200 dark:border-slate-600"
@@ -669,7 +693,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                             {(teacherForm.classes || []).length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">Nenhuma turma vinculada</p>}
                             {(teacherForm.classes || []).map(c => (
                                 <div key={c.id} className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700 text-xs">
-                                    <span>{c.grade} - <strong>{c.subject}</strong></span>
+                                    <span>{c.grade} ({c.shift || 'Manhã'}) - <strong>{c.subject}</strong></span>
                                     <button onClick={() => handleRemoveTeacherClass(c.id)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
                                 </div>
                             ))}
@@ -725,8 +749,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 value={recordForm.shift}
                                 onChange={e => setRecordForm({...recordForm, shift: e.target.value})}
                             >
-                                <option value="Manhã">Manhã</option>
-                                <option value="Tarde">Tarde</option>
+                                {getTeacherShifts().map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
                     </div>
