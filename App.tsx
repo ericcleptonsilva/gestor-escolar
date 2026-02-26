@@ -630,10 +630,27 @@ export default function App() {
       alert("Selecione um aluno e a data do documento.");
       return;
     }
-    const docToSave = { ...newDoc, id: newDoc.id || Math.random().toString(36).substr(2, 9) };
-    await api.saveDocument(docToSave);
-    setState(prev => ({...prev, documents: [...prev.documents, docToSave]}));
-    setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
+    try {
+        const docToSave = { ...newDoc, id: newDoc.id || Math.random().toString(36).substr(2, 9) };
+        await api.saveDocument(docToSave);
+        setState(prev => {
+            const exists = prev.documents.some(d => d.id === docToSave.id);
+            if (exists) {
+                return {
+                    ...prev,
+                    documents: prev.documents.map(d => d.id === docToSave.id ? docToSave : d)
+                };
+            }
+            return { ...prev, documents: [...prev.documents, docToSave] };
+        });
+        setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
+    } catch (e: any) {
+        alert("Erro ao salvar documento: " + e.message);
+    }
+  };
+
+  const handleCancelEditDocument = () => {
+      setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
   };
 
   const handleDeleteDocument = (id: string) => {
@@ -1732,6 +1749,7 @@ export default function App() {
                     visibleGradesList={visibleGradesList}
                     onSaveDocument={handleSaveDocument}
                     onDeleteDocument={handleDeleteDocument}
+                    onCancelEdit={handleCancelEditDocument}
                     onPrint={handlePrint}
                  />
              )}
