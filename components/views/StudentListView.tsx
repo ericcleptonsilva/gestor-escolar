@@ -71,17 +71,13 @@ export const StudentListView = ({
     const [activeFilterType, setActiveFilterType] = useState<string>('');
 
     useEffect(() => {
-        if (filterGrade) setActiveFilterType('grade');
-        else if (filterShift) setActiveFilterType('shift');
-        else if (filterBookStatus) setActiveFilterType('book');
+        if (filterBookStatus) setActiveFilterType('book');
         else if (filterPEStatus) setActiveFilterType('pe');
         else if (filterTurnstile) setActiveFilterType('turnstile');
     }, []);
 
     const handleFilterTypeChange = (type: string) => {
         setActiveFilterType(type);
-        setFilterGrade('');
-        setFilterShift('');
         setFilterBookStatus('');
         setFilterPEStatus('');
         setFilterTurnstile('');
@@ -115,32 +111,26 @@ export const StudentListView = ({
                 />
             </div>
 
+             <Select className="!w-full md:!w-full" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
+                <option value="">Todas Séries</option>
+                {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
+             </Select>
+
+             <Select className="!w-full md:!w-full" value={filterShift} onChange={e => setFilterShift(e.target.value)}>
+                <option value="">Todos Turnos</option>
+                {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+             </Select>
+
              <Select
                 className="!w-full md:!w-full"
                 value={activeFilterType}
                 onChange={e => handleFilterTypeChange(e.target.value)}
              >
-                <option value="">Filtrar por...</option>
-                <option value="grade">Série</option>
-                <option value="shift">Turno</option>
+                <option value="">Outros Filtros...</option>
                 <option value="book">Status Livro</option>
                 <option value="pe">Status Ed. Física</option>
                 <option value="turnstile">Status Catraca</option>
              </Select>
-
-             {activeFilterType === 'grade' && (
-                 <Select className="!w-full md:!w-full" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
-                    <option value="">Todas Séries</option>
-                    {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
-                 </Select>
-             )}
-
-             {activeFilterType === 'shift' && (
-                 <Select className="!w-full md:!w-full" value={filterShift} onChange={e => setFilterShift(e.target.value)}>
-                    <option value="">Todos Turnos</option>
-                    {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                 </Select>
-             )}
 
              {activeFilterType === 'book' && (
                  <Select className="!w-full md:!w-full" value={filterBookStatus} onChange={e => setFilterBookStatus(e.target.value as BookStatus)}>
