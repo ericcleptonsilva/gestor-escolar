@@ -1074,6 +1074,216 @@ export default function App() {
     if (!file) return;
 
     setIsImportingTurnstile(true);
+    const reader = new FileReader();
+
+    const processTurnstileData = async (text: string) => {
+      try {
+        const lines = text.split('\n');
+        
+        let successCount = 0;
+        let notFoundCount = 0;
+        let processedCount = 0;
+        let autoAbsenceCount = 0;
+        let skippedDateCount = 0;
+
+        // Get local date string for "Today" (YYYY-MM-DD)
+        const today = new Date();
+        const todayISO = today.getFullYear() + '-' + 
+                         String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(today.getDate()).padStart(2, '0');
+
+        // Create a normalized map for matching students
+        // ENFORCE UNIQUE MATRICULA: Priority given to exact matches, then normalized.
+        // If duplicates exist, the map will store the last processed student.
+        const studentMap = new Map<string, Student>();
+        
+        state.students.forEach(s => {
+             // 1. Normalize registration (remove leading zeros)
+             const regInt = parseInt(s.registration, 10);
+             const normalizedReg = !isNaN(regInt) ? regInt.toString() : s.registration.trim();
+             
+             // 2. Store normalized key. 
+             // This effectively makes the Matricula the unique ID for lookup purposes.
+             studentMap.set(normalizedReg, s);
+             
+             // 3. Also store exact string just in case normalization fails or differs
+             if (s.registration !== normalizedReg) {
+                 studentMap.set(s.registration, s);
+             }
+        });
+        
+        const pendingUpdates = new Map<string, AttendanceRecord>();
+        const presentStudentsByDate = new Map<string, Set<string>>(); // Date -> Set<StudentId>
+        const shiftsProcessedByDate = new Map<string, { morning: boolean, afternoon: boolean }>(); // Date -> Flags
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            
+            const cols = trimmed.split(';');
+            if (cols.length < 6) continue;
+            
+            // Format: ID;Matrícula;Code;Date;Time;Turnstile
+            // Example: 03549;00001018;111;29012026;1042;01
+            const matriculaRaw = cols[1].trim();
+            const code = cols[2].trim();
+            const dateRaw = cols[3].trim(); 
+            const timeRaw = cols[4].trim(); 
+            
+            // Find Student with Robust Matching
+            // 1. Try exact match
+            let student = studentMap.get(matriculaRaw);
+            
+            // 2. If not found, try stripping leading zeros from the file input
+            if (!student) {
+                const matriculaInt = parseInt(matriculaRaw, 10);
+                if (!isNaN(matriculaInt)) {
+                   student = studentMap.get(matriculaInt.toString());
+                }
+            }
+            
+            if (!student) {
+                // Debug log for developer matching issues
+                console.log(`Student not found for matricula: ${matriculaRaw}`);
+                notFoundCount++;
+                continue;
+            }
+            
+            // Parse Date
+            // Handle both DDMMYYYY and DD/MM/YYYY
+            let dateISO = '';
+            if (dateRaw.includes('/')) {
+                const parts = dateRaw.split('/');
+                if (parts.length === 3) {
+                   dateISO = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            } else if (dateRaw.length === 8) {
+                const day = dateRaw.substring(0, 2);
+                const month = dateRaw.substring(2, 4);
+                const year = dateRaw.substring(4, 8);
+                dateISO = `${year}-${month}-${day}`;
+            }
+
+            if (!dateISO) continue; // Invalid date format
+            
+            // STRICT DATE FILTER: Only process records for TODAY
+            if (dateISO !== todayISO) {
+                skippedDateCount++;
+                continue;
+            }
+            
+            // Track presence
+            if (!presentStudentsByDate.has(dateISO)) {
+                presentStudentsByDate.set(dateISO, new Set());
+                shiftsProcessedByDate.set(dateISO, { morning: false, afternoon: false });
+            }
+            presentStudentsByDate.get(dateISO)?.add(student.id);
+
+            // Parse Time & Detect Shift Activity
+            // Handle HHMM (1042) or HH:MM (10:42)
+            const cleanTime = timeRaw.replace(':', '');
+            const timeInt = parseInt(cleanTime, 10);
+            
+            if (!isNaN(timeInt)) {
+                const flags = shiftsProcessedByDate.get(dateISO)!;
+                // Morning: 06:00 (600) to 12:40 (1240)
+                if (timeInt <= 1240) flags.morning = true;
+                // Afternoon: 12:41 (1241) to 18:40 (1840)
+                if (timeInt > 1240) flags.afternoon = true;
+            }
+
+            let timeFormatted = timeRaw;
+            if (timeRaw.length === 4 && !timeRaw.includes(':')) {
+                timeFormatted = `${timeRaw.substring(0, 2)}:${timeRaw.substring(2, 4)}`;
+            }
+            
+            const key = `${student.id}_${dateISO}`;
+            
+            let record = pendingUpdates.get(key);
+            if (!record) {
+                const existing = state.attendance.find(a => a.studentId === student!.id && a.date === dateISO);
+                if (existing) {
+                    record = { ...existing };
+                } else {
+                    record = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        studentId: student.id,
+                        date: dateISO,
+                        status: 'Present',
+                        observation: ''
+                    };
+                }
+            }
+            
+            const newObs = `Catraca (${code}) ${timeFormatted}`;
+            
+            if (record.observation) {
+                if (!record.observation.includes(newObs)) {
+                   record.observation += ` | ${newObs}`;
+                }
+            } else {
+                record.observation = newObs;
+            }
+            
+            record.status = 'Present';
+            
+            pendingUpdates.set(key, record);
+            processedCount++;
+            successCount++;
+        }
+
+        // --- AUTOMATIC ABSENCE LOGIC ---
+        // For each date found in the import file, check all active students.
+        // If a student is NOT in the present set for that date, mark them as Absent.
+        // BUT ONLY IF the file contains data for their specific shift.
+        presentStudentsByDate.forEach((presentSet, dateISO) => {
+            const shiftFlags = shiftsProcessedByDate.get(dateISO);
+            
+            state.students.forEach(student => {
+                // Determine if we should process this student's absence
+                let shouldProcess = false;
+                const studentShift = (student.shift || '').trim().toLowerCase();
+
+                if ((studentShift === 'manhã' || studentShift === 'manha') && shiftFlags?.morning) shouldProcess = true;
+                if ((studentShift === 'tarde' || studentShift === 'vespertino') && shiftFlags?.afternoon) shouldProcess = true;
+
+                if (shouldProcess && !presentSet.has(student.id)) {
+                    // Student was NOT in the turnstile file for this date AND we have data for their shift
+                    const key = `${student.id}_${dateISO}`;
+                    
+                    // Check if we already have a pending update
+                    if (!pendingUpdates.has(key)) {
+                        // Check existing record in state
+                        const existing = state.attendance.find(a => a.studentId === student.id && a.date === dateISO);
+                        
+                        // STRICT OVERWRITE POLICY:
+                        // Only create a new Absent record if NO record exists.
+                        if (!existing) {
+                            pendingUpdates.set(key, {
+                                id: Math.random().toString(36).substr(2, 9),
+                                studentId: student.id,
+                                date: dateISO,
+                                status: 'Absent',
+                                observation: 'Ausência automática (Catraca)'
+                            });
+                            autoAbsenceCount++;
+                        }
+                    }
+                }
+            });
+        });
+        
+        const recordsToSave = Array.from(pendingUpdates.values());
+        if (recordsToSave.length > 0) {
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < recordsToSave.length; i += BATCH_SIZE) {
+                const chunk = recordsToSave.slice(i, i + BATCH_SIZE);
+                try {
+                    await api.importAttendance(chunk);
+                } catch (err) {
+                    console.error("Batch turnstile import error", err);
+                }
+            }
 
     try {
         const result = await api.importTurnstileFile(file, importStartTime, importEndTime);
@@ -1089,31 +1299,15 @@ export default function App() {
     } finally {
         setIsImportingTurnstile(false);
         e.target.value = '';
-    }
-  };
+      }
+    };
 
-  const handleImportTurnstileLocal = async () => {
-    setIsImportingTurnstile(true);
-    try {
-        const result = await api.importTurnstileFromLocal(importStartTime, importEndTime);
-        processTurnstileImportResult(result);
-
-        // Refresh data to show changes
-        setIsLoading(true);
-        const freshData = await api.loadAllData();
-        setState(freshData);
-        setIsLoading(false);
-    } catch (error: any) {
-        console.error("Local turnstile import failed", error);
-        if (error.message.includes("404")) {
-            alert("Arquivo C:\\SIETEX\\Portaria\\TopData.txt não encontrado no servidor.");
-        } else {
-            alert("Erro na importação local: " + error.message);
-        }
-    } finally {
-        setIsImportingTurnstile(false);
-        setIsLoading(false);
-    }
+    reader.onload = async (evt) => {
+      const text = evt.target?.result as string;
+      if (text) await processTurnstileData(text);
+    };
+    
+    reader.readAsText(file);
   };
 
   const handleBatchPhotoImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
