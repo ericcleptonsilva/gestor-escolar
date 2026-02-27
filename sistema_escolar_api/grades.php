@@ -29,44 +29,38 @@ try {
 
 // Self-Healing Logic: Check if table is empty or missing critical defaults
 try {
-    $stmt = $conn->query("SELECT COUNT(*) FROM grades");
-    $count = $stmt->fetchColumn();
+    // Strategy: Fetch ALL existing grades into a set for fast lookup
+    $stmt = $conn->query("SELECT name FROM grades");
+    $existingGrades = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    if ($count == 0) {
-        // Table empty -> Seed all defaults
+    // PHP array flip for O(1) lookup
+    $existingMap = array_flip($existingGrades);
+
+    $missingGrades = [];
+
+    // Check which default grades are missing
+    foreach ($default_grades as $def) {
+        if (!isset($existingMap[$def])) {
+            $missingGrades[] = $def;
+        }
+    }
+
+    // If we have missing grades, insert them
+    if (!empty($missingGrades)) {
         $conn->beginTransaction();
         $stmtInsert = $conn->prepare("INSERT INTO grades (name) VALUES (:name)");
-        foreach ($default_grades as $grade) {
+        foreach ($missingGrades as $grade) {
             $stmtInsert->execute([':name' => $grade]);
         }
         $conn->commit();
-    } else {
-        // Table not empty -> Check for missing critical grades (INF II, INF III) specifically requested by user
-        // We can just try to insert ignore missing defaults
-        // Or specifically check the user request.
-        // Let's do a targeted check for INF II and INF III to be safe and minimally invasive
-        $missingCritical = [];
-        $criticalGrades = ["INF II", "INF III"];
-
-        $stmtCheck = $conn->prepare("SELECT COUNT(*) FROM grades WHERE name = :name");
-        foreach ($criticalGrades as $crit) {
-            $stmtCheck->execute([':name' => $crit]);
-            if ($stmtCheck->fetchColumn() == 0) {
-                $missingCritical[] = $crit;
-            }
-        }
-
-        if (!empty($missingCritical)) {
-            $conn->beginTransaction();
-            $stmtInsert = $conn->prepare("INSERT INTO grades (name) VALUES (:name)");
-            foreach ($missingCritical as $grade) {
-                $stmtInsert->execute([':name' => $grade]);
-            }
-            $conn->commit();
-        }
     }
+
 } catch (PDOException $e) {
     // Log error but don't crash main request
+    // If transaction fails (e.g. race condition), we just rollback and continue
+    if ($conn->inTransaction()) {
+        $conn->rollBack();
+    }
     error_log("Grade seeding failed: " . $e->getMessage());
 }
 
