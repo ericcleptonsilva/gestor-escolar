@@ -6,9 +6,9 @@ $method = $_SERVER['REQUEST_METHOD'];
 // Hardcoded Default Grades (Must match constants.ts)
 $default_grades = [
     "INF II", "INF III", "INF IV", "INF V",
-    "1º ANO FUND I", "2º ANO FUND I", "3º ANO FUND I", "4º ANO FUND I", "5º ANO FUND I",
-    "6º ANO FUND II", "7º ANO FUND II", "8º ANO FUND II", "9º ANO FUND II",
-    "1º ANO MÉDIO", "2º ANO MÉDIO", "3 ANO MÉDIO"
+    "1º ANO", "2º ANO", "3º ANO", "4º ANO", "5º ANO",
+    "6º ANO", "7º ANO", "8º ANO", "9º ANO",
+    "1º ANO MÉDIO", "2º ANO MÉDIO", "3º ANO MÉDIO"
 ];
 
 if ($method == 'OPTIONS') {
@@ -55,13 +55,45 @@ try {
         $conn->commit();
     }
 
+    // --- MIGRATION: Update Old Grade Names to New Standard ---
+    // This fixes the issue where existing students/permissions use "1º ANO FUND I" but the new standard is "1º ANO".
+    // We update the DB strings to match the new constants.
+
+    $migrations = [
+        "1º ANO FUND I" => "1º ANO",
+        "2º ANO FUND I" => "2º ANO",
+        "3º ANO FUND I" => "3º ANO",
+        "4º ANO FUND I" => "4º ANO",
+        "5º ANO FUND I" => "5º ANO",
+        "6º ANO FUND II" => "6º ANO",
+        "7º ANO FUND II" => "7º ANO",
+        "8º ANO FUND II" => "8º ANO",
+        "9º ANO FUND II" => "9º ANO",
+        "3 ANO MÉDIO" => "3º ANO MÉDIO" // Typo fix
+    ];
+
+    foreach ($migrations as $old => $new) {
+        // 1. Update Students
+        $conn->exec("UPDATE students SET grade = '$new' WHERE grade = '$old'");
+
+        // 2. Update Grades Table (Delete old if exists, ensuring new exists)
+        // If 'old' exists in grades table, remove it (since 'new' was likely added by self-healing above)
+        $conn->exec("DELETE FROM grades WHERE name = '$old'");
+
+        // 3. Update Users allowedGrades?
+        // This is harder because it's JSON. A robust SQL REPLACE on JSON text is risky but workable for simple strings.
+        // We replace "1º ANO FUND I" with "1º ANO" inside the JSON string.
+        // MySQL 5.7+ supports JSON_REPLACE but simple text replace is safer for basic XAMPP setups.
+        // We use REPLACE() function on the text column.
+        $conn->exec("UPDATE users SET allowedGrades = REPLACE(allowedGrades, '$old', '$new')");
+    }
+
 } catch (PDOException $e) {
     // Log error but don't crash main request
-    // If transaction fails (e.g. race condition), we just rollback and continue
     if ($conn->inTransaction()) {
         $conn->rollBack();
     }
-    error_log("Grade seeding failed: " . $e->getMessage());
+    error_log("Grade seeding/migration failed: " . $e->getMessage());
 }
 
 if ($method == 'GET') {
