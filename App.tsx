@@ -1,10 +1,10 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  CalendarCheck, 
-  FileText, 
-  ClipboardList, 
+import {
+  LayoutDashboard,
+  Users,
+  CalendarCheck,
+  FileText,
+  ClipboardList,
   Bot,
   UserCog,
   Menu,
@@ -20,20 +20,20 @@ import {
   GraduationCap
 } from 'lucide-react';
 
-import { 
-  Student, 
-  AttendanceRecord, 
-  HealthDocument, 
-  MakeUpExam, 
-  AppState, 
-  ViewState, 
-  DocType, 
-  AttendanceStatus, 
-  BookStatus, 
-  PEStatus, 
-  Shift, 
-  Guardian, 
-  User, 
+import {
+  Student,
+  AttendanceRecord,
+  HealthDocument,
+  MakeUpExam,
+  AppState,
+  ViewState,
+  DocType,
+  AttendanceStatus,
+  BookStatus,
+  PEStatus,
+  Shift,
+  Guardian,
+  User,
   UserRole,
   AcademicPeriod,
   Occurrence
@@ -42,11 +42,11 @@ import {
 import { generateSmartReport } from '@/services/geminiService';
 import { api, setApiBaseUrl } from '@/services/api';
 import {
-    GRADE_GROUPS,
-    GRADES_LIST,
-    IMPORT_GRADE_MAP,
-    SHIFTS_LIST,
-    ACADEMIC_PERIODS
+  GRADE_GROUPS,
+  GRADES_LIST,
+  IMPORT_GRADE_MAP,
+  SHIFTS_LIST,
+  ACADEMIC_PERIODS
 } from '@/constants';
 
 // --- Components ---
@@ -105,16 +105,16 @@ const createEmptyUser = (): User => ({
 });
 
 const EMPTY_STATE: AppState = {
-    users: [],
-    students: [],
-    attendance: [],
-    documents: [],
-    exams: [],
-    subjects: [],
-    pedagogicalRecords: [],
-    grades: [],
-    coordinationRecords: [],
-    occurrences: []
+  users: [],
+  students: [],
+  attendance: [],
+  documents: [],
+  exams: [],
+  subjects: [],
+  pedagogicalRecords: [],
+  grades: [],
+  coordinationRecords: [],
+  occurrences: []
 };
 
 export default function App() {
@@ -158,7 +158,7 @@ export default function App() {
       return null;
     }
   });
-  
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -169,7 +169,7 @@ export default function App() {
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  
+
   // Custom Settings
   const [appTitle, setAppTitle] = useState(() => localStorage.getItem('escola360_school_name') || 'Gestor de Alunos');
   const [appLogo, setAppLogo] = useState(() => localStorage.getItem('escola360_logo') || '');
@@ -214,6 +214,11 @@ export default function App() {
   const [importAfternoonStart, setImportAfternoonStart] = useState("");
   const [importAfternoonEnd, setImportAfternoonEnd] = useState("");
 
+  // AI Report States
+  const [aiReport, setAiReport] = useState("");
+  const [aiReportPrompt, setAiReportPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
   // --- MODAL STATE ---
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -224,7 +229,7 @@ export default function App() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const requestConfirm = (title: string, message: string, action: () => void) => {
@@ -243,7 +248,7 @@ export default function App() {
   // --- INITIAL DATA LOAD ---
   useEffect(() => {
     const handleSyncStatus = (e: any) => {
-        setSyncStatus(e.detail.status);
+      setSyncStatus(e.detail.status);
     };
     window.addEventListener('api-sync-status', handleSyncStatus);
 
@@ -312,42 +317,42 @@ export default function App() {
   }, [state.students, currentUser]);
 
   const visibleGradesList = useMemo(() => {
-     const allGrades = (state.grades && state.grades.length > 0) ? state.grades : GRADES_LIST;
-     if (!currentUser || currentUser.role === 'Admin') return allGrades;
-     return allGrades.filter(g => currentUser.allowedGrades?.includes(g));
+    const allGrades = (state.grades && state.grades.length > 0) ? state.grades : GRADES_LIST;
+    if (!currentUser || currentUser.role === 'Admin') return allGrades;
+    return allGrades.filter(g => currentUser.allowedGrades?.includes(g));
   }, [currentUser, state.grades]);
 
   const filteredStudents = useMemo(() => {
-      return (getVisibleStudents || []).filter(student => {
-        const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                              student.registration.includes(searchTerm);
-        const matchesGrade = filterGrade ? student.grade === filterGrade : true;
-        const matchesShift = filterShift ? student.shift === filterShift : true;
-        const matchesBook = filterBookStatus ? student.bookStatus === filterBookStatus : true;
-        const matchesPE = filterPEStatus ? student.peStatus === filterPEStatus : true;
-        const matchesTurnstile = filterTurnstile !== ''
-            ? (filterTurnstile === 'true' ? student.turnstileRegistered : !student.turnstileRegistered)
-            : true;
-        const matchesAgenda = filterAgenda !== ''
-            ? (filterAgenda === 'true' ? student.hasAgenda : !student.hasAgenda)
-            : true;
+    return (getVisibleStudents || []).filter(student => {
+      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.registration.includes(searchTerm);
+      const matchesGrade = filterGrade ? student.grade === filterGrade : true;
+      const matchesShift = filterShift ? student.shift === filterShift : true;
+      const matchesBook = filterBookStatus ? student.bookStatus === filterBookStatus : true;
+      const matchesPE = filterPEStatus ? student.peStatus === filterPEStatus : true;
+      const matchesTurnstile = filterTurnstile !== ''
+        ? (filterTurnstile === 'true' ? student.turnstileRegistered : !student.turnstileRegistered)
+        : true;
+      const matchesAgenda = filterAgenda !== ''
+        ? (filterAgenda === 'true' ? student.hasAgenda : !student.hasAgenda)
+        : true;
 
-        return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile && matchesAgenda;
-      }).sort((a, b) => {
-          const seqA = parseInt(a.sequenceNumber);
-          const seqB = parseInt(b.sequenceNumber);
+      return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile && matchesAgenda;
+    }).sort((a, b) => {
+      const seqA = parseInt(a.sequenceNumber);
+      const seqB = parseInt(b.sequenceNumber);
 
-          const hasSeqA = !isNaN(seqA);
-          const hasSeqB = !isNaN(seqB);
+      const hasSeqA = !isNaN(seqA);
+      const hasSeqB = !isNaN(seqB);
 
-          if (hasSeqA && hasSeqB) {
-            return seqA - seqB;
-          }
-          if (hasSeqA) return -1;
-          if (hasSeqB) return 1;
+      if (hasSeqA && hasSeqB) {
+        return seqA - seqB;
+      }
+      if (hasSeqA) return -1;
+      if (hasSeqB) return 1;
 
-          return a.name.localeCompare(b.name);
-      });
+      return a.name.localeCompare(b.name);
+    });
   }, [getVisibleStudents, searchTerm, filterGrade, filterShift, filterBookStatus, filterPEStatus, filterTurnstile, filterAgenda]);
 
   // --- ACTIONS ---
@@ -374,19 +379,19 @@ export default function App() {
   };
 
   const handleManualSync = async () => {
-      if (isSyncing) return;
-      setIsSyncing(true);
-      try {
-          await api.sync();
-          const refreshedData = await api.loadAllData();
-          setState(refreshedData);
-          alert("Dados atualizados do servidor com sucesso!");
-      } catch (e: any) {
-          console.error(e);
-          alert(`Erro na conexão: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto e se o XAMPP está rodando.`);
-      } finally {
-          setIsSyncing(false);
-      }
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await api.sync();
+      const refreshedData = await api.loadAllData();
+      setState(refreshedData);
+      alert("Dados atualizados do servidor com sucesso!");
+    } catch (e: any) {
+      console.error(e);
+      alert(`Erro na conexão: ${e.message || "Verifique sua conexão."}\n\nDica: Verifique se o endereço do servidor nas Configurações está correto e se o XAMPP está rodando.`);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleResetSystem = async () => {
@@ -415,49 +420,49 @@ export default function App() {
     if (!tempStudent.name || !tempStudent.grade) return;
 
     // Check for Duplicate Matricula
-    const isDuplicate = state.students.some(s => 
-        s.id !== tempStudent.id && 
-        s.registration.trim() === tempStudent.registration.trim() &&
-        s.registration.trim() !== ""
+    const isDuplicate = state.students.some(s =>
+      s.id !== tempStudent.id &&
+      s.registration.trim() === tempStudent.registration.trim() &&
+      s.registration.trim() !== ""
     );
 
     if (isDuplicate) {
-        alert(`Erro: A matrícula "${tempStudent.registration}" já está cadastrada para outro aluno.`);
-        return;
+      alert(`Erro: A matrícula "${tempStudent.registration}" já está cadastrada para outro aluno.`);
+      return;
     }
 
     setIsLoading(true);
-    let studentToSave = {...tempStudent};
+    let studentToSave = { ...tempStudent };
 
     if (!studentToSave.id) {
-       studentToSave.id = Math.random().toString(36).substr(2, 9);
-       if (!studentToSave.photoUrl) {
-           studentToSave.photoUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentToSave.id}`;
-       }
+      studentToSave.id = Math.random().toString(36).substr(2, 9);
+      if (!studentToSave.photoUrl) {
+        studentToSave.photoUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentToSave.id}`;
+      }
     }
 
     try {
-        const savedStudent = await api.saveStudent(studentToSave);
+      const savedStudent = await api.saveStudent(studentToSave);
 
-        setState(prev => {
-            const exists = prev.students.find(s => s.id === savedStudent.id);
-            if (exists) {
-                return { ...prev, students: prev.students.map(s => s.id === savedStudent.id ? savedStudent : s) };
-            } else {
-                return { ...prev, students: [...prev.students, savedStudent] };
-            }
-        });
-
-        if (selectedStudent && selectedStudent.id === savedStudent.id) {
-        setSelectedStudent(savedStudent);
+      setState(prev => {
+        const exists = prev.students.find(s => s.id === savedStudent.id);
+        if (exists) {
+          return { ...prev, students: prev.students.map(s => s.id === savedStudent.id ? savedStudent : s) };
+        } else {
+          return { ...prev, students: [...prev.students, savedStudent] };
         }
+      });
 
-        setTempStudent(createEmptyStudent());
-        setIsEditingStudent(false);
+      if (selectedStudent && selectedStudent.id === savedStudent.id) {
+        setSelectedStudent(savedStudent);
+      }
+
+      setTempStudent(createEmptyStudent());
+      setIsEditingStudent(false);
     } catch (e: any) {
-        alert("Erro ao salvar aluno: " + e.message);
+      alert("Erro ao salvar aluno: " + e.message);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -468,7 +473,7 @@ export default function App() {
       async () => {
         setIsLoading(true);
         await api.deleteStudent(id);
-        setState(prev => ({...prev, students: (prev.students || []).filter(s => s.id !== id)}));
+        setState(prev => ({ ...prev, students: (prev.students || []).filter(s => s.id !== id) }));
         if (selectedStudent?.id === id) setSelectedStudent(null);
         setIsEditingStudent(false);
         setIsLoading(false);
@@ -478,7 +483,7 @@ export default function App() {
   };
 
   const handleEditStudent = (student: Student) => {
-    setTempStudent({...student});
+    setTempStudent({ ...student });
     setIsEditingStudent(true);
   };
 
@@ -487,14 +492,14 @@ export default function App() {
     if (file) {
       setIsUploadingPhoto(true);
       try {
-          const currentId = tempStudent.id || Math.random().toString(36).substr(2, 9);
-          const photoUrl = await api.uploadPhoto(file, 'student', currentId);
-          setTempStudent(prev => ({ ...prev, id: currentId, photoUrl: photoUrl }));
+        const currentId = tempStudent.id || Math.random().toString(36).substr(2, 9);
+        const photoUrl = await api.uploadPhoto(file, 'student', currentId);
+        setTempStudent(prev => ({ ...prev, id: currentId, photoUrl: photoUrl }));
       } catch (err) {
-          console.error("Failed to upload photo", err);
-          alert("Erro ao enviar foto. Verifique a conexão com o servidor.");
+        console.error("Failed to upload photo", err);
+        alert("Erro ao enviar foto. Verifique a conexão com o servidor.");
       } finally {
-          setIsUploadingPhoto(false);
+        setIsUploadingPhoto(false);
       }
     }
   };
@@ -503,10 +508,10 @@ export default function App() {
   const handleToggleBookStatus = async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextStatus: Record<BookStatus, BookStatus> = {
-        'Nao Comprou': 'Comprou',
-        'Comprou': 'Copia',
-        'Copia': 'Livro Antigo',
-        'Livro Antigo': 'Nao Comprou'
+      'Nao Comprou': 'Comprou',
+      'Comprou': 'Copia',
+      'Copia': 'Livro Antigo',
+      'Livro Antigo': 'Nao Comprou'
     };
     const newStatus = nextStatus[student.bookStatus] || 'Nao Comprou';
     const updatedStudent = { ...student, bookStatus: newStatus };
@@ -523,21 +528,21 @@ export default function App() {
     setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? updatedStudent : s) }));
 
     try {
-        await api.saveStudent(updatedStudent);
+      await api.saveStudent(updatedStudent);
     } catch (error: any) {
-        // Revert on failure
-        setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? oldStudent : s) }));
-        alert("Erro ao salvar status da agenda: " + error.message);
+      // Revert on failure
+      setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? oldStudent : s) }));
+      alert("Erro ao salvar status da agenda: " + error.message);
     }
   };
 
   const handleTogglePEStatus = async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextStatus: Record<PEStatus, PEStatus> = {
-        'Pendente': 'Em Análise',
-        'Em Análise': 'Aprovado',
-        'Aprovado': 'Reprovado',
-        'Reprovado': 'Pendente'
+      'Pendente': 'Em Análise',
+      'Em Análise': 'Aprovado',
+      'Aprovado': 'Reprovado',
+      'Reprovado': 'Pendente'
     };
     const newStatus = nextStatus[student.peStatus] || 'Pendente';
     const updatedStudent = { ...student, peStatus: newStatus };
@@ -559,21 +564,21 @@ export default function App() {
     let recordToSave: AttendanceRecord;
 
     if (existingIndex >= 0 && state.attendance[existingIndex]) {
-        recordToSave = { ...state.attendance[existingIndex]!, status };
+      recordToSave = { ...state.attendance[existingIndex]!, status };
     } else {
-        recordToSave = {
-            id: Math.random().toString(36).substr(2, 9),
-            studentId,
-            date: attendanceDate,
-            status
-        };
+      recordToSave = {
+        id: Math.random().toString(36).substr(2, 9),
+        studentId,
+        date: attendanceDate,
+        status
+      };
     }
     api.saveAttendance(recordToSave);
     let newAttendance = [...state.attendance];
     if (existingIndex >= 0) {
-       newAttendance[existingIndex] = recordToSave;
+      newAttendance[existingIndex] = recordToSave;
     } else {
-       newAttendance.push(recordToSave);
+      newAttendance.push(recordToSave);
     }
     setState(prev => ({ ...prev, attendance: newAttendance }));
   };
@@ -594,12 +599,12 @@ export default function App() {
   };
 
   const handleToggleAbsence = (student: Student, isAbsentToday: boolean) => {
-      if (isAbsentToday) {
-          handleRemoveAttendanceRecord(student.id);
-      } else {
-          setAttendanceDate(new Date().toISOString().split('T')[0]);
-          handleAttendanceUpdate(student.id, 'Absent');
-      }
+    if (isAbsentToday) {
+      handleRemoveAttendanceRecord(student.id);
+    } else {
+      setAttendanceDate(new Date().toISOString().split('T')[0]);
+      handleAttendanceUpdate(student.id, 'Absent');
+    }
   };
 
   const handleAttendanceObservation = async (studentId: string, observation: string) => {
@@ -608,20 +613,20 @@ export default function App() {
     );
     let record;
     if (existingIndex >= 0) {
-        record = { ...state.attendance[existingIndex], observation };
+      record = { ...state.attendance[existingIndex], observation };
     } else {
-       record = {
-           id: Math.random().toString(36).substr(2, 9),
-           studentId, date: attendanceDate,
-           status: 'Present',
-           observation
-       };
+      record = {
+        id: Math.random().toString(36).substr(2, 9),
+        studentId, date: attendanceDate,
+        status: 'Present',
+        observation
+      };
     }
     await api.saveAttendance(record);
     let newAttendance = [...state.attendance];
     if (existingIndex >= 0) newAttendance[existingIndex] = record;
     else newAttendance.push(record);
-    setState(prev => ({...prev, attendance: newAttendance}));
+    setState(prev => ({ ...prev, attendance: newAttendance }));
   };
 
   // Health Docs
@@ -631,32 +636,32 @@ export default function App() {
       return;
     }
     try {
-        const docToSave = { ...newDoc, id: newDoc.id || Math.random().toString(36).substr(2, 9) };
-        await api.saveDocument(docToSave);
-        setState(prev => {
-            const exists = prev.documents.some(d => d.id === docToSave.id);
-            if (exists) {
-                return {
-                    ...prev,
-                    documents: prev.documents.map(d => d.id === docToSave.id ? docToSave : d)
-                };
-            }
-            return { ...prev, documents: [...prev.documents, docToSave] };
-        });
-        setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
+      const docToSave = { ...newDoc, id: newDoc.id || Math.random().toString(36).substr(2, 9) };
+      await api.saveDocument(docToSave);
+      setState(prev => {
+        const exists = prev.documents.some(d => d.id === docToSave.id);
+        if (exists) {
+          return {
+            ...prev,
+            documents: prev.documents.map(d => d.id === docToSave.id ? docToSave : d)
+          };
+        }
+        return { ...prev, documents: [...prev.documents, docToSave] };
+      });
+      setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
     } catch (e: any) {
-        alert("Erro ao salvar documento: " + e.message);
+      alert("Erro ao salvar documento: " + e.message);
     }
   };
 
   const handleCancelEditDocument = () => {
-      setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
+    setNewDoc({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
   };
 
   const handleDeleteDocument = (id: string) => {
     requestConfirm("Excluir Documento", "Tem certeza que deseja excluir este documento?", async () => {
       await api.deleteDocument(id);
-      setState(prev => ({...prev, documents: (prev.documents || []).filter(d => d.id !== id)}));
+      setState(prev => ({ ...prev, documents: (prev.documents || []).filter(d => d.id !== id) }));
       closeConfirm();
     });
   };
@@ -669,7 +674,7 @@ export default function App() {
     }
     const examToSave = { ...newExam, id: newExam.id || Math.random().toString(36).substr(2, 9) };
     await api.saveExam(examToSave);
-    setState(prev => ({...prev, exams: [...prev.exams, examToSave]}));
+    setState(prev => ({ ...prev, exams: [...prev.exams, examToSave] }));
     setNewExam({ id: '', studentId: '', subject: '', originalDate: '', reason: '', status: 'Pending', period: '1ª Bi' });
   };
 
@@ -678,14 +683,14 @@ export default function App() {
     if (exam) {
       const updatedExam = { ...exam, status };
       await api.saveExam(updatedExam);
-      setState(prev => ({...prev, exams: prev.exams.map(e => e.id === id ? updatedExam : e)}));
+      setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === id ? updatedExam : e) }));
     }
   };
 
   const handleDeleteExam = (id: string) => {
     requestConfirm("Excluir Agendamento", "Deseja mesmo remover este agendamento de prova?", async () => {
       await api.deleteExam(id);
-      setState(prev => ({...prev, exams: (prev.exams || []).filter(e => e.id !== id)}));
+      setState(prev => ({ ...prev, exams: (prev.exams || []).filter(e => e.id !== id) }));
       closeConfirm();
     });
   };
@@ -712,48 +717,48 @@ export default function App() {
   const handleSavePedagogical = async (record: any) => {
     const savedRecord = await api.savePedagogicalRecord(record);
     setState(prev => {
-        const exists = (prev.pedagogicalRecords || []).find(r => r.id === savedRecord.id);
-        if (exists) {
-            return { ...prev, pedagogicalRecords: (prev.pedagogicalRecords || []).map(r => r.id === savedRecord.id ? savedRecord : r) };
-        } else {
-            return { ...prev, pedagogicalRecords: [...(prev.pedagogicalRecords || []), savedRecord] };
-        }
+      const exists = (prev.pedagogicalRecords || []).find(r => r.id === savedRecord.id);
+      if (exists) {
+        return { ...prev, pedagogicalRecords: (prev.pedagogicalRecords || []).map(r => r.id === savedRecord.id ? savedRecord : r) };
+      } else {
+        return { ...prev, pedagogicalRecords: [...(prev.pedagogicalRecords || []), savedRecord] };
+      }
     });
   };
 
   const handleDeletePedagogical = async (id: string) => {
     await api.deletePedagogicalRecord(id);
     setState(prev => ({
-        ...prev,
-        pedagogicalRecords: (prev.pedagogicalRecords || []).filter(r => r.id !== id)
+      ...prev,
+      pedagogicalRecords: (prev.pedagogicalRecords || []).filter(r => r.id !== id)
     }));
   };
 
   // Users
   const handleSaveUser = async () => {
-    if (!tempUser.name || !tempUser.email || ( !tempUser.id && !tempUser.password )) {
+    if (!tempUser.name || !tempUser.email || (!tempUser.id && !tempUser.password)) {
       alert("Por favor, preencha Nome, Email e Senha para novos usuários.");
       return;
     }
     setIsLoading(true);
-    let userToSave = {...tempUser};
+    let userToSave = { ...tempUser };
     if (!userToSave.id) {
-        userToSave.id = Math.random().toString(36).substr(2, 9);
-        userToSave.photoUrl = userToSave.photoUrl || `https://ui-avatars.com/api/?name=${userToSave.name}&background=random`;
+      userToSave.id = Math.random().toString(36).substr(2, 9);
+      userToSave.photoUrl = userToSave.photoUrl || `https://ui-avatars.com/api/?name=${userToSave.name}&background=random`;
     }
     try {
-        const savedUser = await api.saveUser(userToSave);
-        setState(prev => {
-            const exists = prev.users.find(u => u.id === savedUser.id);
-            if (exists) return { ...prev, users: prev.users.map(u => u.id === savedUser.id ? savedUser : u) };
-            return { ...prev, users: [...prev.users, savedUser] };
-        });
-        setTempUser(createEmptyUser());
-        setIsEditingUser(false);
+      const savedUser = await api.saveUser(userToSave);
+      setState(prev => {
+        const exists = prev.users.find(u => u.id === savedUser.id);
+        if (exists) return { ...prev, users: prev.users.map(u => u.id === savedUser.id ? savedUser : u) };
+        return { ...prev, users: [...prev.users, savedUser] };
+      });
+      setTempUser(createEmptyUser());
+      setIsEditingUser(false);
     } catch (e: any) {
-        alert("Erro ao salvar usuário: " + e.message);
+      alert("Erro ao salvar usuário: " + e.message);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -775,29 +780,29 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       try {
-          const currentId = tempUser.id || Math.random().toString(36).substr(2, 9);
-          const photoUrl = await api.uploadPhoto(file, 'user', currentId);
-          setTempUser(prev => ({ ...prev, id: currentId, photoUrl: photoUrl }));
+        const currentId = tempUser.id || Math.random().toString(36).substr(2, 9);
+        const photoUrl = await api.uploadPhoto(file, 'user', currentId);
+        setTempUser(prev => ({ ...prev, id: currentId, photoUrl: photoUrl }));
       } catch (err) {
-          console.error("Failed to upload user photo", err);
-          alert("Erro ao enviar foto de usuário.");
+        console.error("Failed to upload user photo", err);
+        alert("Erro ao enviar foto de usuário.");
       }
     }
   };
 
   const handleSaveOccurrence = async (occurrence: Occurrence) => {
     try {
-        const savedOccurrence = await api.saveOccurrence(occurrence);
-        setState(prev => {
-            const exists = (prev.occurrences || []).find(o => o.id === savedOccurrence.id);
-            if (exists) {
-                return { ...prev, occurrences: (prev.occurrences || []).map(o => o.id === savedOccurrence.id ? savedOccurrence : o) };
-            } else {
-                return { ...prev, occurrences: [...(prev.occurrences || []), savedOccurrence] };
-            }
-        });
+      const savedOccurrence = await api.saveOccurrence(occurrence);
+      setState(prev => {
+        const exists = (prev.occurrences || []).find(o => o.id === savedOccurrence.id);
+        if (exists) {
+          return { ...prev, occurrences: (prev.occurrences || []).map(o => o.id === savedOccurrence.id ? savedOccurrence : o) };
+        } else {
+          return { ...prev, occurrences: [...(prev.occurrences || []), savedOccurrence] };
+        }
+      });
     } catch (e: any) {
-        alert("Erro ao salvar ocorrência: " + e.message);
+      alert("Erro ao salvar ocorrência: " + e.message);
     }
   };
 
@@ -822,81 +827,84 @@ export default function App() {
         state.students.forEach(s => existingStudentsMap.set(s.registration, s));
 
         for (const line of dataLines) {
-           const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-           if (cols.length >= 8) {
-               const gradeCode = cols[0];
-               const shiftRaw = cols[1];
-               const registration = cols[2];
-               const name = cols[3];
-               const birthDateRaw = cols[4];
-               const sequenceNumber = cols[5];
-               const motherPhone = cols[6];
-               const motherName = cols[7];
-               const grade = IMPORT_GRADE_MAP[gradeCode] || "Não Identificado";
-               let shift: Shift = 'Manhã';
-               if (shiftRaw.trim().toUpperCase() === 'T' || shiftRaw.trim().toUpperCase() === 'TARDE') {
-                   shift = 'Tarde';
-               }
-               let birthDate = '';
-               if (birthDateRaw.includes('/')) {
-                   const [day, month, year] = birthDateRaw.split('/');
-                   birthDate = `${year}-${month}-${day}`;
-               } else {
-                   birthDate = birthDateRaw;
-               }
+          const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+          if (cols.length >= 8) {
+            const gradeCode = cols[0];
+            const shiftRaw = cols[1];
+            const registration = cols[2];
+            const name = cols[3];
+            const birthDateRaw = cols[4];
+            const sequenceNumber = cols[5];
+            const motherPhone = cols[6];
+            const motherName = cols[7];
+            const grade = IMPORT_GRADE_MAP[gradeCode] || "Não Identificado";
+            let shift: Shift = 'Manhã';
+            if (shiftRaw.trim().toUpperCase() === 'T' || shiftRaw.trim().toUpperCase() === 'TARDE') {
+              shift = 'Tarde';
+            }
+            let birthDate = '';
+            if (birthDateRaw.includes('/')) {
+              const [day, month, year] = birthDateRaw.split('/');
+              birthDate = `${year}-${month}-${day}`;
+            } else {
+              birthDate = birthDateRaw;
+            }
 
-               // Check if student exists
-               const existingStudent = existingStudentsMap.get(registration);
+            // Check if student exists
+            const existingStudent = existingStudentsMap.get(registration);
 
-               const studentToSave: Student = {
-                   id: existingStudent ? existingStudent.id : Math.random().toString(36).substr(2, 9),
-                   name, registration, sequenceNumber, birthDate, grade, shift,
-                   email: existingStudent?.email || '',
-                   fatherName: existingStudent?.fatherName || '',
-                   fatherPhone: existingStudent?.fatherPhone || '',
-                   motherName, motherPhone,
-                   guardians: existingStudent?.guardians || [],
-                   bookStatus: existingStudent?.bookStatus || 'Nao Comprou',
-                   peStatus: existingStudent?.peStatus || 'Pendente',
-                   turnstileRegistered: existingStudent?.turnstileRegistered || false,
-                   photoUrl: existingStudent?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`
-               };
+            const studentToSave: Student = {
+              id: existingStudent ? existingStudent.id : Math.random().toString(36).substr(2, 9),
+              name, registration, sequenceNumber, birthDate, grade, shift,
+              email: existingStudent?.email || '',
+              fatherName: existingStudent?.fatherName || '',
+              fatherPhone: existingStudent?.fatherPhone || '',
+              motherName, motherPhone,
+              guardians: existingStudent?.guardians || [],
+              bookStatus: existingStudent?.bookStatus || 'Nao Comprou',
+              peStatus: existingStudent?.peStatus || 'Pendente',
+              turnstileRegistered: existingStudent?.turnstileRegistered || false,
+              hasAgenda: existingStudent?.hasAgenda || false,
+              photoUrl: existingStudent?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${registration}`
+            };
 
-               processedStudents.push(studentToSave);
-           } else { failCount++; }
+            processedStudents.push(studentToSave);
+          } else {
+            failCount++;
+          }
         }
 
         if (processedStudents.length > 0) {
-            const BATCH_SIZE = 50;
-            const chunks = [];
-            for (let i = 0; i < processedStudents.length; i += BATCH_SIZE) {
-                chunks.push(processedStudents.slice(i, i + BATCH_SIZE));
-            }
+          const BATCH_SIZE = 50;
+          const chunks = [];
+          for (let i = 0; i < processedStudents.length; i += BATCH_SIZE) {
+            chunks.push(processedStudents.slice(i, i + BATCH_SIZE));
+          }
 
-            for (const chunk of chunks) {
-                try {
-                    const result = await api.importStudents(chunk);
-                    successCount += (result.successCount || 0);
-                    failCount += (result.failCount || 0);
-                } catch (err) {
-                    failCount += chunk.length;
-                    console.error("Batch student import error", err);
-                }
+          for (const chunk of chunks) {
+            try {
+              const result = await api.importStudents(chunk);
+              successCount += (result.successCount || 0);
+              failCount += (result.failCount || 0);
+            } catch (err) {
+              failCount += chunk.length;
+              console.error("Batch student import error", err);
             }
+          }
 
-            // Optimistically update state
-            setState(prev => {
-                const currentStudents = [...prev.students];
-                processedStudents.forEach(processed => {
-                    const index = currentStudents.findIndex(s => s && s.id === processed.id);
-                    if (index !== -1) {
-                        currentStudents[index] = processed;
-                    } else {
-                        currentStudents.push(processed);
-                    }
-                });
-                return { ...prev, students: currentStudents };
+          // Optimistically update state
+          setState(prev => {
+            const currentStudents = [...prev.students];
+            processedStudents.forEach(processed => {
+              const index = currentStudents.findIndex(s => s && s.id === processed.id);
+              if (index !== -1) {
+                currentStudents[index] = processed;
+              } else {
+                currentStudents.push(processed);
+              }
             });
+            return { ...prev, students: currentStudents };
+          });
         }
 
         alert(`Importação concluída!\nEnviados: ${processedStudents.length}\nSucesso (Server): ${successCount}\nFalhas (CSV/Server): ${failCount}`);
@@ -935,126 +943,126 @@ export default function App() {
 
         // FORMAT: Matrícula|-GS-|Nome|Mãe|Pai|Responsável|
         for (const line of lines) {
-            const trimmedLine = line.trim();
-            // Skip empty lines, header lines, or separator lines
-            if (!trimmedLine || trimmedLine.startsWith('Matrícula') || trimmedLine.startsWith('---')) continue;
+          const trimmedLine = line.trim();
+          // Skip empty lines, header lines, or separator lines
+          if (!trimmedLine || trimmedLine.startsWith('Matrícula') || trimmedLine.startsWith('---')) continue;
 
-            // Split by pipe
-            let parts = trimmedLine.split('|').map(p => p.trim());
+          // Split by pipe
+          let parts = trimmedLine.split('|').map(p => p.trim());
 
-            // Handle leading pipe (results in first element being empty)
-            // e.g. "| 123 |" -> ["", "123", ""]
-            if (trimmedLine.startsWith('|')) {
-                parts.shift();
+          // Handle leading pipe (results in first element being empty)
+          // e.g. "| 123 |" -> ["", "123", ""]
+          if (trimmedLine.startsWith('|')) {
+            parts.shift();
+          }
+
+          if (parts.length < 4) continue; // Minimum required columns
+
+          const matricula = parts[0];
+          const motherPhoneRaw = parts[3] || "";
+          const fatherPhoneRaw = parts[4] || "";
+          const responsiblePhoneRaw = parts[5] || "";
+
+          if (!matricula) continue;
+
+          const student = studentMap.get(matricula);
+
+          if (student) {
+            let changed = false;
+            let newMotherPhone = student.motherPhone;
+            let newFatherPhone = student.fatherPhone;
+
+            // Helper to validate and clean phone
+            const isValidPhone = (p: string) => {
+              // Reject if contains any letters (avoids Names being saved as phones)
+              if (/[a-zA-Z]/.test(p)) return false;
+              const digits = p.replace(/\D/g, '');
+              return digits.length >= 8;
+            };
+
+            // Process Mother Phone
+            if (motherPhoneRaw && isValidPhone(motherPhoneRaw)) {
+              if (phoneMap.has(motherPhoneRaw)) {
+                phoneMap.get(motherPhoneRaw)?.push(matricula);
+              } else {
+                phoneMap.set(motherPhoneRaw, [matricula]);
+              }
+
+              if (newMotherPhone !== motherPhoneRaw) {
+                newMotherPhone = motherPhoneRaw;
+                changed = true;
+              }
             }
 
-            if (parts.length < 4) continue; // Minimum required columns
+            // Process Father Phone
+            if (fatherPhoneRaw && isValidPhone(fatherPhoneRaw)) {
+              if (phoneMap.has(fatherPhoneRaw)) {
+                phoneMap.get(fatherPhoneRaw)?.push(matricula);
+              } else {
+                phoneMap.set(fatherPhoneRaw, [matricula]);
+              }
 
-            const matricula = parts[0];
-            const motherPhoneRaw = parts[3] || "";
-            const fatherPhoneRaw = parts[4] || "";
-            const responsiblePhoneRaw = parts[5] || "";
-
-            if (!matricula) continue;
-
-            const student = studentMap.get(matricula);
-
-            if (student) {
-                let changed = false;
-                let newMotherPhone = student.motherPhone;
-                let newFatherPhone = student.fatherPhone;
-
-                // Helper to validate and clean phone
-                const isValidPhone = (p: string) => {
-                    // Reject if contains any letters (avoids Names being saved as phones)
-                    if (/[a-zA-Z]/.test(p)) return false;
-                    const digits = p.replace(/\D/g, '');
-                    return digits.length >= 8;
-                };
-
-                // Process Mother Phone
-                if (motherPhoneRaw && isValidPhone(motherPhoneRaw)) {
-                     if (phoneMap.has(motherPhoneRaw)) {
-                         phoneMap.get(motherPhoneRaw)?.push(matricula);
-                     } else {
-                         phoneMap.set(motherPhoneRaw, [matricula]);
-                     }
-
-                     if (newMotherPhone !== motherPhoneRaw) {
-                         newMotherPhone = motherPhoneRaw;
-                         changed = true;
-                     }
-                }
-
-                // Process Father Phone
-                if (fatherPhoneRaw && isValidPhone(fatherPhoneRaw)) {
-                     if (phoneMap.has(fatherPhoneRaw)) {
-                         phoneMap.get(fatherPhoneRaw)?.push(matricula);
-                     } else {
-                         phoneMap.set(fatherPhoneRaw, [matricula]);
-                     }
-
-                     if (newFatherPhone !== fatherPhoneRaw) {
-                         newFatherPhone = fatherPhoneRaw;
-                         changed = true;
-                     }
-                }
-
-                // Note: We don't have a specific "Responsible Phone" field in Student type currently
-                // mapped to UI (only guardians list).
-                // For now, we prioritize Father/Mother columns.
-                // If Responsible column exists and Father is empty, we could potentially map it,
-                // but let's stick to the requested explicit mapping first.
-
-                if (changed) {
-                    studentsToUpdate.push({
-                        ...student,
-                        motherPhone: newMotherPhone,
-                        fatherPhone: newFatherPhone
-                    });
-                }
-            } else {
-                notFoundCount++;
+              if (newFatherPhone !== fatherPhoneRaw) {
+                newFatherPhone = fatherPhoneRaw;
+                changed = true;
+              }
             }
+
+            // Note: We don't have a specific "Responsible Phone" field in Student type currently
+            // mapped to UI (only guardians list).
+            // For now, we prioritize Father/Mother columns.
+            // If Responsible column exists and Father is empty, we could potentially map it,
+            // but let's stick to the requested explicit mapping first.
+
+            if (changed) {
+              studentsToUpdate.push({
+                ...student,
+                motherPhone: newMotherPhone,
+                fatherPhone: newFatherPhone
+              });
+            }
+          } else {
+            notFoundCount++;
+          }
         }
 
         // Save updates (Batched)
         if (studentsToUpdate.length > 0) {
-             const BATCH_SIZE = 50;
-             for (let i = 0; i < studentsToUpdate.length; i += BATCH_SIZE) {
-                 const chunk = studentsToUpdate.slice(i, i + BATCH_SIZE);
-                 try {
-                     const result = await api.importStudents(chunk);
-                     updatedCount += (result.successCount || 0);
-                 } catch (err) {
-                     console.error("Batch phone import error", err);
-                 }
-             }
+          const BATCH_SIZE = 50;
+          for (let i = 0; i < studentsToUpdate.length; i += BATCH_SIZE) {
+            const chunk = studentsToUpdate.slice(i, i + BATCH_SIZE);
+            try {
+              const result = await api.importStudents(chunk);
+              updatedCount += (result.successCount || 0);
+            } catch (err) {
+              console.error("Batch phone import error", err);
+            }
+          }
         }
 
         // Generate duplicate report
         phoneMap.forEach((matriculas, phone) => {
-            const uniqueMatriculas = Array.from(new Set(matriculas));
-            if (uniqueMatriculas.length > 1) {
-                duplicateReport.push(`Número ${phone} compartilhado por: ${uniqueMatriculas.join(', ')}`);
-            }
+          const uniqueMatriculas = Array.from(new Set(matriculas));
+          if (uniqueMatriculas.length > 1) {
+            duplicateReport.push(`Número ${phone} compartilhado por: ${uniqueMatriculas.join(', ')}`);
+          }
         });
 
         // Update local state
         if (studentsToUpdate.length > 0) {
-            setState(prev => {
-                const newStudentsList = prev.students.map(s => {
-                    if (!s) return s;
-                    const updated = studentsToUpdate.find(u => u && u.id === s.id);
-                    return updated || s;
-                });
-                return { ...prev, students: newStudentsList };
+          setState(prev => {
+            const newStudentsList = prev.students.map(s => {
+              if (!s) return s;
+              const updated = studentsToUpdate.find(u => u && u.id === s.id);
+              return updated || s;
             });
+            return { ...prev, students: newStudentsList };
+          });
         }
 
         let msg = `Importação de telefones concluída!\nAtualizados: ${updatedCount}\nNão encontrados (Matrícula): ${notFoundCount}`;
         if (duplicateReport.length > 0) {
-            msg += `\n\nATENÇÃO: Números repetidos encontrados:\n` + duplicateReport.slice(0, 10).join('\n') + (duplicateReport.length > 10 ? '\n... (verifique os dados)' : '');
+          msg += `\n\nATENÇÃO: Números repetidos encontrados:\n` + duplicateReport.slice(0, 10).join('\n') + (duplicateReport.length > 10 ? '\n... (verifique os dados)' : '');
         }
 
         alert(msg);
@@ -1072,20 +1080,20 @@ export default function App() {
   };
 
   const processTurnstileImportResult = (result: any) => {
-      const processed = result.processed || 0;
-      const present = result.present || 0;
-      const absent = result.absent || 0;
-      const notFound = result.notFound || 0;
-      const datesProcessed = result.datesProcessed || 0;
+    const processed = result.processed || 0;
+    const present = result.present || 0;
+    const absent = result.absent || 0;
+    const notFound = result.notFound || 0;
+    const datesProcessed = result.datesProcessed || 0;
 
-      let msg = `Importação de Catraca Concluída!\n\n` +
-                `Linhas Processadas: ${processed}\n` +
-                `Presenças Registradas: ${present}\n` +
-                `Faltas Automáticas Geradas: ${absent}\n` +
-                `Não Encontrados: ${notFound}\n` +
-                `Dias Processados: ${datesProcessed}`;
+    let msg = `Importação de Catraca Concluída!\n\n` +
+      `Linhas Processadas: ${processed}\n` +
+      `Presenças Registradas: ${present}\n` +
+      `Faltas Automáticas Geradas: ${absent}\n` +
+      `Não Encontrados: ${notFound}\n` +
+      `Dias Processados: ${datesProcessed}`;
 
-      alert(msg);
+    alert(msg);
   };
 
   const handleImportTurnstile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1095,43 +1103,43 @@ export default function App() {
     setIsImportingTurnstile(true);
 
     try {
-        const result = await api.importTurnstileFile(file, importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
-        processTurnstileImportResult(result);
-        
-        // Refresh data to show changes
-        setIsLoading(true);
-        const freshData = await api.loadAllData();
-        setState(freshData);
+      const result = await api.importTurnstileFile(file, importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
+      processTurnstileImportResult(result);
+
+      // Refresh data to show changes
+      setIsLoading(true);
+      const freshData = await api.loadAllData();
+      setState(freshData);
     } catch (error: any) {
-        console.error("Turnstile import failed", error);
-        alert("Erro na importação: " + error.message);
+      console.error("Turnstile import failed", error);
+      alert("Erro na importação: " + error.message);
     } finally {
-        setIsImportingTurnstile(false);
-        e.target.value = '';
+      setIsImportingTurnstile(false);
+      e.target.value = '';
     }
   };
 
   const handleImportTurnstileLocal = async () => {
     setIsImportingTurnstile(true);
     try {
-        const result = await api.importTurnstileFromLocal(importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
-        processTurnstileImportResult(result);
+      const result = await api.importTurnstileFromLocal(importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
+      processTurnstileImportResult(result);
 
-        // Refresh data to show changes
-        setIsLoading(true);
-        const freshData = await api.loadAllData();
-        setState(freshData);
-        setIsLoading(false);
+      // Refresh data to show changes
+      setIsLoading(true);
+      const freshData = await api.loadAllData();
+      setState(freshData);
+      setIsLoading(false);
     } catch (error: any) {
-        console.error("Local turnstile import failed", error);
-        if (error.message.includes("404")) {
-            alert("Arquivo C:\\SIETEX\\Portaria\\TopData.txt não encontrado no servidor.");
-        } else {
-            alert("Erro na importação local: " + error.message);
-        }
+      console.error("Local turnstile import failed", error);
+      if (error.message.includes("404")) {
+        alert("Arquivo C:\\SIETEX\\Portaria\\TopData.txt não encontrado no servidor.");
+      } else {
+        alert("Erro na importação local: " + error.message);
+      }
     } finally {
-        setIsImportingTurnstile(false);
-        setIsLoading(false);
+      setIsImportingTurnstile(false);
+      setIsLoading(false);
     }
   };
 
@@ -1148,63 +1156,63 @@ export default function App() {
     state.students.forEach(s => studentMap.set(s.registration, s));
 
     try {
-        const filesToProcess: File[] = [];
+      const filesToProcess: File[] = [];
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            // Security check: ensure it is an image
-            if (!file.type.startsWith('image/')) continue;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // Security check: ensure it is an image
+        if (!file.type.startsWith('image/')) continue;
 
-            // Extract registration from filename (remove extension)
-            // Example: "0001.bmp" -> "0001"
-            const fileName = file.name;
-            const lastDotIndex = fileName.lastIndexOf('.');
-            const registration = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
+        // Extract registration from filename (remove extension)
+        // Example: "0001.bmp" -> "0001"
+        const fileName = file.name;
+        const lastDotIndex = fileName.lastIndexOf('.');
+        const registration = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
 
-            // Check if student exists
-            if (studentMap.has(registration)) {
-                filesToProcess.push(file);
-            } else {
-                notFoundCount++;
-            }
+        // Check if student exists
+        if (studentMap.has(registration)) {
+          filesToProcess.push(file);
+        } else {
+          notFoundCount++;
+        }
+      }
+
+      if (filesToProcess.length > 0) {
+        // Batch processing: Send 5 files at a time to avoid server limits/timeouts
+        const BATCH_SIZE = 5;
+        const totalBatches = Math.ceil(filesToProcess.length / BATCH_SIZE);
+
+        for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
+          const chunk = filesToProcess.slice(i, i + BATCH_SIZE);
+          const formData = new FormData();
+          chunk.forEach(file => formData.append('photos[]', file));
+
+          try {
+            // Update importing state message if possible (currently bool, but could be extended)
+            // For now, console log progress
+            console.log(`Processing photo batch ${Math.floor(i / BATCH_SIZE) + 1}/${totalBatches}`);
+
+            const result = await api.batchUploadPhotos(formData);
+            successCount += (result.processed || 0);
+          } catch (batchError) {
+            console.error("Error processing batch", batchError);
+            // Continue to next batch instead of failing completely
+          }
         }
 
-        if (filesToProcess.length > 0) {
-            // Batch processing: Send 5 files at a time to avoid server limits/timeouts
-            const BATCH_SIZE = 5;
-            const totalBatches = Math.ceil(filesToProcess.length / BATCH_SIZE);
+        // Reload data to get new photo URLs
+        const refreshedData = await api.loadAllData();
+        setState(refreshedData);
+      }
 
-            for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
-                const chunk = filesToProcess.slice(i, i + BATCH_SIZE);
-                const formData = new FormData();
-                chunk.forEach(file => formData.append('photos[]', file));
-
-                try {
-                    // Update importing state message if possible (currently bool, but could be extended)
-                    // For now, console log progress
-                    console.log(`Processing photo batch ${Math.floor(i / BATCH_SIZE) + 1}/${totalBatches}`);
-
-                    const result = await api.batchUploadPhotos(formData);
-                    successCount += (result.processed || 0);
-                } catch (batchError) {
-                    console.error("Error processing batch", batchError);
-                    // Continue to next batch instead of failing completely
-                }
-            }
-
-            // Reload data to get new photo URLs
-            const refreshedData = await api.loadAllData();
-            setState(refreshedData);
-        }
-
-        alert(`Processamento de pasta concluído!\nEnviadas: ${filesToProcess.length}\nProcessadas com sucesso: ${successCount}\nFalhas/Não Encontradas: ${notFoundCount}`);
+      alert(`Processamento de pasta concluído!\nEnviadas: ${filesToProcess.length}\nProcessadas com sucesso: ${successCount}\nFalhas/Não Encontradas: ${notFoundCount}`);
 
     } catch (error: any) {
-        console.error("Batch photo import error", error);
-        alert("Erro ao importar fotos: " + error.message);
+      console.error("Batch photo import error", error);
+      alert("Erro ao importar fotos: " + error.message);
     } finally {
-        setIsImportingPhotos(false);
-        e.target.value = ''; // Reset input
+      setIsImportingPhotos(false);
+      e.target.value = ''; // Reset input
     }
   };
 
@@ -1235,14 +1243,14 @@ export default function App() {
 
       const filtered = (state.students || [])
         .filter(s => {
-            const matchClass = selectedClass === "" || s.grade === selectedClass;
-            const matchShift = selectedShift === "" || s.shift === selectedShift;
+          const matchClass = selectedClass === "" || s.grade === selectedClass;
+          const matchShift = selectedShift === "" || s.shift === selectedShift;
 
-            const record = state.attendance.find(a => a.studentId === s.id && a.date === attendanceDate);
-            const currentStatus = record ? record.status : 'Present';
-            const matchStatus = filterAttendanceStatus === "" || currentStatus === filterAttendanceStatus;
+          const record = state.attendance.find(a => a.studentId === s.id && a.date === attendanceDate);
+          const currentStatus = record ? record.status : 'Present';
+          const matchStatus = filterAttendanceStatus === "" || currentStatus === filterAttendanceStatus;
 
-            return matchClass && matchShift && matchStatus;
+          return matchClass && matchShift && matchStatus;
         })
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
@@ -1364,43 +1372,57 @@ export default function App() {
 
     // Wait for content to load then print
     printWindow.onload = () => {
-        printWindow.focus();
-        printWindow.print();
-        // Optional: printWindow.close();
+      printWindow.focus();
+      printWindow.print();
+      // Optional: printWindow.close();
     };
   };
 
   const handleExportStudents = () => {
     const headers = "Nome,Matrícula,Série,Turno,Email,Pai,Telefone Pai,Mãe,Telefone Mãe\n";
     const rows = filteredStudents.map(s =>
-        `"${s.name}","${s.registration}","${s.grade}","${s.shift}","${s.email}","${s.fatherName}","${s.fatherPhone}","${s.motherName}","${s.motherPhone}"`
+      `"${s.name}","${s.registration}","${s.grade}","${s.shift}","${s.email}","${s.fatherName}","${s.fatherPhone}","${s.motherName}","${s.motherPhone}"`
     ).join("\n");
     const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `alunos_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`);
+    link.setAttribute("download", `alunos_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const handleDownloadPhoneTemplate = () => {
-      const header = "Matrícula|-GS-|Nome|Mãe|Pai|Responsável|";
-      const example1 = "2024001|-GS-|João Silva|999999999|888888888||";
-      const example2 = "2024002|-GS-|Maria Souza||888888888||";
-      const content = [header, example1, example2].join("\n");
+    const header = "Matrícula|-GS-|Nome|Mãe|Pai|Responsável|";
+    const example1 = "2024001|-GS-|João Silva|999999999|888888888||";
+    const example2 = "2024002|-GS-|Maria Souza||888888888||";
+    const content = [header, example1, example2].join("\n");
 
-      const blob = new Blob(["\uFEFF" + content], { type: 'text/plain;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "modelo_telefones.txt");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const blob = new Blob(["\uFEFF" + content], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "modelo_telefones.txt");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
+
+  const handleGenerateReport = async () => {
+    if (!aiReportPrompt) return;
+    setIsGenerating(true);
+    try {
+      const report = await generateSmartReport(state, aiReportPrompt);
+      setAiReport(report);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao gerar relatório com IA.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // --- RENDER ---
 
@@ -1408,8 +1430,8 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="flex flex-col items-center">
-            <RefreshCw size={48} className="text-indigo-600 animate-spin mb-4" />
-            <h2 className="text-slate-600 dark:text-slate-400 font-medium">Carregando Gestor de Alunos...</h2>
+          <RefreshCw size={48} className="text-indigo-600 animate-spin mb-4" />
+          <h2 className="text-slate-600 dark:text-slate-400 font-medium">Carregando Gestor de Alunos...</h2>
         </div>
       </div>
     );
@@ -1419,65 +1441,65 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md p-8 border border-white/10">
-           <div className="text-center mb-8">
-              {appLogo ? (
-                <img src={appLogo} alt="Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
-              ) : (
-                <div className="bg-white/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-inner">
-                  <LayoutDashboard size={40} />
-                </div>
-              )}
-              <h1 className="text-3xl font-bold text-white mb-2">{appTitle}</h1>
-              <p className="text-slate-300">Gestão Escolar</p>
-           </div>
-           
-           <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                  <label className="block text-sm font-medium text-slate-200 mb-1">Email</label>
-                  <Input 
-                    type="email" 
-                    placeholder="admin@escola.com" 
-                    value={loginEmail} 
-                    onChange={e => setLoginEmail(e.target.value)} 
-                    required 
-                    autoFocus
-                    className="!bg-white/5 !border-white/10 !text-white focus:!bg-white/10 placeholder:text-slate-500"
-                  />
+          <div className="text-center mb-8">
+            {appLogo ? (
+              <img src={appLogo} alt="Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
+            ) : (
+              <div className="bg-white/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-inner">
+                <LayoutDashboard size={40} />
               </div>
-              <div>
-                  <label className="block text-sm font-medium text-slate-200 mb-1">Senha</label>
-                  <Input 
-                    type="password" 
-                    placeholder="••••••" 
-                    value={loginPass} 
-                    onChange={e => setLoginPass(e.target.value)} 
-                    required 
-                    className="!bg-white/5 !border-white/10 !text-white focus:!bg-white/10 placeholder:text-slate-500"
-                  />
-              </div>
-              
-              {loginError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-center">
-                      <AlertTriangle size={16} className="mr-2 flex-shrink-0" />
-                      {loginError}
-                  </div>
-              )}
+            )}
+            <h1 className="text-3xl font-bold text-white mb-2">{appTitle}</h1>
+            <p className="text-slate-300">Gestão Escolar</p>
+          </div>
 
-              <Button type="submit" className="w-full py-3 text-lg shadow-lg shadow-indigo-500/30">
-                  Entrar no Sistema
-              </Button>
-           </form>
-           <p className="text-center text-xs text-slate-400 mt-6">
-               Versão 2.5 • Powered by Gemini AI
-           </p>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Email</label>
+              <Input
+                type="email"
+                placeholder="admin@escola.com"
+                value={loginEmail}
+                onChange={e => setLoginEmail(e.target.value)}
+                required
+                autoFocus
+                className="!bg-white/5 !border-white/10 !text-white focus:!bg-white/10 placeholder:text-slate-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Senha</label>
+              <Input
+                type="password"
+                placeholder="••••••"
+                value={loginPass}
+                onChange={e => setLoginPass(e.target.value)}
+                required
+                className="!bg-white/5 !border-white/10 !text-white focus:!bg-white/10 placeholder:text-slate-500"
+              />
+            </div>
+
+            {loginError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-center">
+                <AlertTriangle size={16} className="mr-2 flex-shrink-0" />
+                {loginError}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full py-3 text-lg shadow-lg shadow-indigo-500/30">
+              Entrar no Sistema
+            </Button>
+          </form>
+          <p className="text-center text-xs text-slate-400 mt-6">
+            Versão 2.5 • Powered by Gemini AI
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen flex bg-slate-50 dark:bg-slate-900 transition-colors duration-200 font-sans text-slate-900 dark:text-slate-100 ${isDarkMode ? 'dark' : ''}`}>
-      <ConfirmModal 
+    <div className={`min-h-screen flex bg-slate-50 dark:bg-slate-900 transition-colors duration-200 font-sans text-slate-900 dark:text-slate-100 overflow-x-hidden ${isDarkMode ? 'dark' : ''}`}>
+      <ConfirmModal
         isOpen={confirmConfig.isOpen}
         title={confirmConfig.title}
         message={confirmConfig.message}
@@ -1493,7 +1515,7 @@ export default function App() {
 
       {/* Sidebar Mobile Overlay */}
       {isSidebarOpen && (
-          <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
       )}
 
       {/* Sidebar */}
@@ -1502,323 +1524,333 @@ export default function App() {
           transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none overflow-y-auto
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-          <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
-              <div className="flex items-center space-x-3">
-                  {appLogo ? (
-                      <img src={appLogo} alt="App Logo" className="w-10 h-10 object-contain" />
-                  ) : (
-                      <div className="bg-indigo-500 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/20">
-                          <LayoutDashboard size={24} />
-                      </div>
-                  )}
-                  <span className="font-bold text-xl text-white tracking-tight">{appTitle}</span>
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+          <div className="flex items-center space-x-3">
+            {appLogo ? (
+              <img src={appLogo} alt="App Logo" className="w-10 h-10 object-contain" />
+            ) : (
+              <div className="bg-indigo-500 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/20">
+                <LayoutDashboard size={24} />
               </div>
-              <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
-                  <X size={24} />
-              </button>
+            )}
+            <span className="font-bold text-xl text-white tracking-tight">{appTitle}</span>
           </div>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+            <X size={24} />
+          </button>
+        </div>
 
-          <div className="p-4 space-y-2">
-              <SidebarItem icon={LayoutDashboard} label="Painel Geral" active={view === 'dashboard'} onClick={() => { setView('dashboard'); setIsSidebarOpen(false); }} />
-              <SidebarItem icon={Users} label="Alunos" active={view === 'students'} onClick={() => { setView('students'); setIsSidebarOpen(false); }} />
-              <SidebarItem icon={CalendarCheck} label="Frequência" active={view === 'attendance'} onClick={() => { setView('attendance'); setIsSidebarOpen(false); }} />
-              <SidebarItem icon={FileText} label="Documentos Saúde" active={view === 'health'} onClick={() => { setView('health'); setIsSidebarOpen(false); }} />
-              <SidebarItem icon={ClipboardList} label="2ª Chamada" active={view === 'exams'} onClick={() => { setView('exams'); setIsSidebarOpen(false); }} />
-              <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
-              
-              {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
-                  <SidebarItem icon={GraduationCap} label="Coordenação" active={view === 'coordination'} onClick={() => { setView('coordination'); setIsSidebarOpen(false); }} />
-              )}
+        <div className="p-4 space-y-2">
+          <SidebarItem icon={LayoutDashboard} label="Painel Geral" active={view === 'dashboard'} onClick={() => { setView('dashboard'); setIsSidebarOpen(false); }} />
+          <SidebarItem icon={Users} label="Alunos" active={view === 'students'} onClick={() => { setView('students'); setIsSidebarOpen(false); }} />
+          <SidebarItem icon={CalendarCheck} label="Frequência" active={view === 'attendance'} onClick={() => { setView('attendance'); setIsSidebarOpen(false); }} />
+          <SidebarItem icon={FileText} label="Documentos Saúde" active={view === 'health'} onClick={() => { setView('health'); setIsSidebarOpen(false); }} />
+          <SidebarItem icon={ClipboardList} label="2ª Chamada" active={view === 'exams'} onClick={() => { setView('exams'); setIsSidebarOpen(false); }} />
+          <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
 
-              {currentUser.role === 'Admin' && (
-                  <>
-                    <div className="pt-4 pb-2">
-                        <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Administração</p>
-                    </div>
-                    <SidebarItem icon={UserCog} label="Usuários" active={view === 'users'} onClick={() => { setView('users'); setIsSidebarOpen(false); }} />
-                  </>
-              )}
+          {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
+            <SidebarItem icon={GraduationCap} label="Coordenação" active={view === 'coordination'} onClick={() => { setView('coordination'); setIsSidebarOpen(false); }} />
+          )}
+
+          {currentUser.role === 'Admin' && (
+            <>
+              <div className="pt-4 pb-2">
+                <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Administração</p>
+              </div>
+              <SidebarItem icon={UserCog} label="Usuários" active={view === 'users'} onClick={() => { setView('users'); setIsSidebarOpen(false); }} />
+            </>
+          )}
+        </div>
+
+        <div className="absolute bottom-0 left-0 w-full p-4 border-t border-slate-800 bg-slate-900">
+          <button onClick={handleResetSystem} className="flex items-center space-x-2 text-xs text-red-400 hover:text-red-300 w-full px-4 py-2 hover:bg-red-900/20 rounded transition-colors mb-2">
+            <AlertTriangle size={14} />
+            <span>Resetar Sistema</span>
+          </button>
+          <div className="text-center text-[10px] text-slate-600">
+            Gestor de Alunos v2.5 © 2024
           </div>
-          
-          <div className="absolute bottom-0 left-0 w-full p-4 border-t border-slate-800 bg-slate-900">
-               <button onClick={handleResetSystem} className="flex items-center space-x-2 text-xs text-red-400 hover:text-red-300 w-full px-4 py-2 hover:bg-red-900/20 rounded transition-colors mb-2">
-                   <AlertTriangle size={14} />
-                   <span>Resetar Sistema</span>
-               </button>
-               <div className="text-center text-[10px] text-slate-600">
-                   Gestor de Alunos v2.5 © 2024
-               </div>
-          </div>
+        </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto h-screen relative">
-          {/* Topbar */}
-          <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-between items-center print:hidden">
-              <div className="flex items-center">
-                  <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-4 text-slate-600 dark:text-slate-300">
-                      <Menu size={24} />
-                  </button>
-                  <Breadcrumbs
-                    view={view}
-                    setView={setView}
-                    selectedStudent={selectedStudent}
-                    setSelectedStudent={setSelectedStudent}
-                    isEditingStudent={isEditingStudent}
-                    setIsEditingStudent={setIsEditingStudent}
-                    isEditingUser={isEditingUser}
-                    setIsEditingUser={setIsEditingUser}
-                    tempStudent={tempStudent}
-                    tempUser={tempUser}
-                  />
-              </div>
-
-              <div className="flex items-center space-x-3 md:space-x-4">
-                  <div className={`flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
-                      syncStatus === 'online' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
-                      syncStatus === 'offline' ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700' :
-                      'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:border-red-800'
-                  }`}>
-                      {syncStatus === 'online' ? <Wifi size={14} className="mr-1.5" /> : <WifiOff size={14} className="mr-1.5" />}
-                      <span className="hidden sm:inline">
-                          {syncStatus === 'online' ? 'Online' : syncStatus === 'offline' ? 'Offline' : 'Erro de Sync'}
-                      </span>
-                  </div>
-
-                  <button 
-                    onClick={handleManualSync} 
-                    className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors ${isSyncing ? 'animate-spin text-indigo-500' : ''}`}
-                    title="Sincronizar Agora"
-                  >
-                      <RefreshCw size={20} />
-                  </button>
-
-                  <button
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
-                    title="Configurações do Sistema"
-                  >
-                      <Settings size={20} />
-                  </button>
-
-                  <button 
-                    onClick={toggleTheme} 
-                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
-                  >
-                      {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-                  </button>
-
-                  <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-                  
-                  <div className="flex items-center space-x-3">
-                      <div className="text-right hidden sm:block">
-                          <p className="text-sm font-bold text-slate-800 dark:text-white leading-none">{currentUser.name}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                              {currentUser.role === 'Admin' ? 'Administrador' : currentUser.role === 'Coordinator' ? 'Coordenador' : 'Professor'}
-                          </p>
-                      </div>
-                      <img 
-                        src={currentUser.photoUrl} 
-                        alt="Profile" 
-                        className="w-10 h-10 rounded-full border-2 border-indigo-100 dark:border-indigo-900 object-cover" 
-                      />
-                      <button 
-                        onClick={handleLogout}
-                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" 
-                        title="Sair"
-                      >
-                          <LogOut size={20} />
-                      </button>
-                  </div>
-              </div>
-          </header>
-
-          <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24">
-             {view === 'dashboard' && (
-                <DashboardView
-                    state={state}
-                    visibleStudents={getVisibleStudents}
-                    handlePrint={handlePrint}
-                    setView={setView}
-                    onSelectStudent={setSelectedStudent}
-                    onSaveOccurrence={handleSaveOccurrence}
-                />
-             )}
-
-             {view === 'students' && (
-                 <>
-                    {isEditingStudent ? (
-                        <StudentEditView
-                            student={tempStudent}
-                            setStudent={setTempStudent}
-                            visibleGradesList={visibleGradesList}
-                            isUploadingPhoto={isUploadingPhoto}
-                            onPhotoUpload={handlePhotoUpload}
-                            onSave={handleSaveStudent}
-                            onCancel={() => setIsEditingStudent(false)}
-                        />
-                    ) : selectedStudent ? (
-                        <StudentDetailView
-                            student={selectedStudent}
-                            state={state}
-                            currentUser={currentUser}
-                            onEdit={handleEditStudent}
-                            onDelete={handleDeleteStudent}
-                            onBack={() => setSelectedStudent(null)}
-                            setView={setView}
-                        />
-                    ) : (
-                        <StudentListView
-                            students={filteredStudents}
-                            searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-                            filterGrade={filterGrade} setFilterGrade={setFilterGrade}
-                            filterShift={filterShift} setFilterShift={setFilterShift}
-                            filterBookStatus={filterBookStatus} setFilterBookStatus={setFilterBookStatus}
-                            filterPEStatus={filterPEStatus} setFilterPEStatus={setFilterPEStatus}
-                            filterTurnstile={filterTurnstile} setFilterTurnstile={setFilterTurnstile}
-                            filterAgenda={filterAgenda} setFilterAgenda={setFilterAgenda}
-                            visibleGradesList={visibleGradesList}
-                            currentUser={currentUser}
-                            onNewStudent={() => { setTempStudent(createEmptyStudent()); setIsEditingStudent(true); }}
-                            onPrint={handlePrint}
-                            onExport={handleExportStudents}
-                            onImportCSV={handleImportCSV}
-                            onImportPhotos={handleBatchPhotoImport}
-                            onImportPhones={handleImportPhones}
-                            onDownloadPhoneTemplate={handleDownloadPhoneTemplate}
-                            isImporting={isImporting}
-                            isImportingPhotos={isImportingPhotos}
-                            isImportingPhones={isImportingPhones}
-                            onSelectStudent={setSelectedStudent}
-                            attendance={state.attendance}
-                            onToggleAbsence={handleToggleAbsence}
-                            onToggleBook={handleToggleBookStatus}
-                            onTogglePE={handleTogglePEStatus}
-                            onToggleTurnstile={handleToggleTurnstile}
-                            onToggleAgenda={handleToggleAgenda}
-                        />
-                    )}
-                 </>
-             )}
-
-             {view === 'attendance' && (
-                 <AttendanceView
-                    students={state.students}
-                    attendance={state.attendance}
-                    attendanceDate={attendanceDate}
-                    setAttendanceDate={setAttendanceDate}
-                    selectedClass={selectedClass}
-                    setSelectedClass={setSelectedClass}
-                    selectedShift={selectedShift}
-                    setSelectedShift={setSelectedShift}
-                    filterAttendanceStatus={filterAttendanceStatus}
-                    setFilterAttendanceStatus={setFilterAttendanceStatus}
-                    visibleGradesList={visibleGradesList}
-                    currentUser={currentUser}
-                    onPrint={handlePrint}
-                    onUpdateStatus={handleAttendanceUpdate}
-                    onUpdateObservation={handleAttendanceObservation}
-                    onImportTurnstile={handleImportTurnstile}
-                    onImportTurnstileLocal={handleImportTurnstileLocal}
-                    isImportingTurnstile={isImportingTurnstile}
-                    importMorningStart={importMorningStart}
-                    setImportMorningStart={setImportMorningStart}
-                    importMorningEnd={importMorningEnd}
-                    setImportMorningEnd={setImportMorningEnd}
-                    importAfternoonStart={importAfternoonStart}
-                    setImportAfternoonStart={setImportAfternoonStart}
-                    importAfternoonEnd={importAfternoonEnd}
-                    setImportAfternoonEnd={setImportAfternoonEnd}
-                 />
-             )}
-
-             {view === 'health' && (
-                 <HealthView
-                    students={getVisibleStudents}
-                    documents={state.documents}
-                    newDoc={newDoc}
-                    setNewDoc={setNewDoc}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    filterDocGrade={filterDocGrade}
-                    setFilterDocGrade={setFilterDocGrade}
-                    filterDocShift={filterDocShift}
-                    setFilterDocShift={setFilterDocShift}
-                    filterDocType={filterDocType}
-                    setFilterDocType={setFilterDocType}
-                    visibleGradesList={visibleGradesList}
-                    onSaveDocument={handleSaveDocument}
-                    onDeleteDocument={handleDeleteDocument}
-                    onCancelEdit={handleCancelEditDocument}
-                    onPrint={handlePrint}
-                 />
-             )}
-
-             {view === 'exams' && (
-                 <ExamView
-                    students={state.students}
-                    exams={state.exams}
-                    subjects={state.subjects}
-                    newExam={newExam}
-                    setNewExam={setNewExam}
-                    newSubjectName={newSubjectName}
-                    setNewSubjectName={setNewSubjectName}
-                    filterExamGrade={filterExamGrade}
-                    setFilterExamGrade={setFilterExamGrade}
-                    filterExamShift={filterExamShift}
-                    setFilterExamShift={setFilterExamShift}
-                    showSubjectCatalog={showSubjectCatalog}
-                    setShowSubjectCatalog={setShowSubjectCatalog}
-                    visibleGradesList={visibleGradesList}
-                    onPrint={handlePrint}
-                    onAddSubject={handleAddSubject}
-                    onRemoveSubject={handleRemoveSubject}
-                    onSaveExam={handleSaveExam}
-                    onUpdateExamStatus={handleUpdateExamStatus}
-                    onDeleteExam={handleDeleteExam}
-                 />
-             )}
-
-             {view === 'reports' && (
-                 <ReportView state={state} />
-             )}
-
-             {view === 'coordination' && (
-                 (currentUser.role === 'Admin' || currentUser.role === 'Coordinator') ? (
-                     <CoordinationView
-                        state={state}
-                        currentUser={currentUser}
-                        onRefresh={handleManualSync}
-                     />
-                 ) : (
-                     <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
-                 )
-             )}
-
-             {view === 'users' && (
-                 currentUser?.role === 'Admin' ? (
-                     isEditingUser ? (
-                        <UserEditView
-                            user={tempUser}
-                            setUser={setTempUser}
-                            onSave={handleSaveUser}
-                            onCancel={() => setIsEditingUser(false)}
-                            onPhotoUpload={handleUserPhotoUpload}
-                        />
-                     ) : (
-                        <UserManagementView
-                            users={state.users}
-                            currentUser={currentUser}
-                            onNewUser={() => { setTempUser(createEmptyUser()); setIsEditingUser(true); }}
-                            onEditUser={(u) => { setTempUser({...u}); setIsEditingUser(true); }}
-                            onDeleteUser={handleDeleteUser}
-                        />
-                     )
-                 ) : (
-                    <div className="p-8 text-center text-red-500">Acesso Negado</div>
-                 )
-             )}
+      <main className="flex-1 relative">
+        {/* Topbar */}
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-between items-center print:hidden">
+          <div className="flex items-center min-w-0">
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-3 text-slate-600 dark:text-slate-300 flex-shrink-0">
+              <Menu size={24} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <Breadcrumbs
+                view={view}
+                setView={setView}
+                selectedStudent={selectedStudent}
+                setSelectedStudent={setSelectedStudent}
+                isEditingStudent={isEditingStudent}
+                setIsEditingStudent={setIsEditingStudent}
+                isEditingUser={isEditingUser}
+                setIsEditingUser={setIsEditingUser}
+                tempStudent={tempStudent}
+                tempUser={tempUser}
+              />
+            </div>
           </div>
+
+          <div className="flex items-center space-x-1 sm:space-x-3 md:space-x-4 ml-2">
+            <div className={`hidden lg:flex items-center px-2 py-1 rounded-full text-[10px] font-bold border ${syncStatus === 'online' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
+              syncStatus === 'offline' ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700' :
+                'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+              }`}>
+              {syncStatus === 'online' ? <Wifi size={12} className="mr-1" /> : <WifiOff size={12} className="mr-1" />}
+              <span className="hidden lg:inline">
+                {syncStatus === 'online' ? 'Online' : syncStatus === 'offline' ? 'Offline' : 'Erro'}
+              </span>
+            </div>
+
+            <div className="hidden sm:flex items-center space-x-1 md:space-x-2">
+              <button
+                onClick={handleManualSync}
+                className={`p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors ${isSyncing ? 'animate-spin text-indigo-500' : ''}`}
+                title="Sincronizar Agora"
+              >
+                <RefreshCw size={18} />
+              </button>
+
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                title="Configurações"
+              >
+                <Settings size={18} />
+              </button>
+
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+              >
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+
+            <div className="flex items-center space-x-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-slate-800 dark:text-white leading-none truncate max-w-[100px]">{currentUser.name}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {currentUser.role === 'Admin' ? 'Admin' : currentUser.role === 'Coordinator' ? 'Coord' : 'Prof'}
+                </p>
+              </div>
+              <img
+                src={currentUser.photoUrl}
+                alt="Profile"
+                className="w-8 h-8 rounded-full border border-indigo-100 dark:border-indigo-900 object-cover shadow-sm"
+              />
+              <button
+                onClick={handleLogout}
+                className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                title="Sair"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24">
+          {view === 'dashboard' && (
+            <DashboardView
+              state={state}
+              visibleStudents={getVisibleStudents}
+              handlePrint={handlePrint}
+              setView={setView}
+              onSelectStudent={setSelectedStudent}
+              onSaveOccurrence={handleSaveOccurrence}
+            />
+          )}
+
+          {view === 'students' && (
+            <>
+              {isEditingStudent ? (
+                <StudentEditView
+                  student={tempStudent}
+                  setStudent={setTempStudent}
+                  visibleGradesList={visibleGradesList}
+                  isUploadingPhoto={isUploadingPhoto}
+                  onPhotoUpload={handlePhotoUpload}
+                  onSave={handleSaveStudent}
+                  onCancel={() => setIsEditingStudent(false)}
+                />
+              ) : selectedStudent ? (
+                <StudentDetailView
+                  student={selectedStudent}
+                  state={state}
+                  currentUser={currentUser}
+                  onEdit={handleEditStudent}
+                  onDelete={handleDeleteStudent}
+                  onBack={() => setSelectedStudent(null)}
+                  setView={setView}
+                />
+              ) : (
+                <StudentListView
+                  students={filteredStudents}
+                  searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                  filterGrade={filterGrade} setFilterGrade={setFilterGrade}
+                  filterShift={filterShift} setFilterShift={setFilterShift}
+                  filterBookStatus={filterBookStatus} setFilterBookStatus={setFilterBookStatus}
+                  filterPEStatus={filterPEStatus} setFilterPEStatus={setFilterPEStatus}
+                  filterTurnstile={filterTurnstile} setFilterTurnstile={setFilterTurnstile}
+                  filterAgenda={filterAgenda} setFilterAgenda={setFilterAgenda}
+                  visibleGradesList={visibleGradesList}
+                  currentUser={currentUser}
+                  onNewStudent={() => { setTempStudent(createEmptyStudent()); setIsEditingStudent(true); }}
+                  onPrint={handlePrint}
+                  onExport={handleExportStudents}
+                  onImportCSV={handleImportCSV}
+                  onImportPhotos={handleBatchPhotoImport}
+                  onImportPhones={handleImportPhones}
+                  onDownloadPhoneTemplate={handleDownloadPhoneTemplate}
+                  isImporting={isImporting}
+                  isImportingPhotos={isImportingPhotos}
+                  isImportingPhones={isImportingPhones}
+                  onSelectStudent={setSelectedStudent}
+                  attendance={state.attendance}
+                  onToggleAbsence={handleToggleAbsence}
+                  onToggleBook={handleToggleBookStatus}
+                  onTogglePE={handleTogglePEStatus}
+                  onToggleTurnstile={handleToggleTurnstile}
+                  onToggleAgenda={handleToggleAgenda}
+                />
+              )}
+            </>
+          )}
+
+          {view === 'attendance' && (
+            <AttendanceView
+              students={state.students}
+              attendance={state.attendance}
+              attendanceDate={attendanceDate}
+              setAttendanceDate={setAttendanceDate}
+              selectedClass={selectedClass}
+              setSelectedClass={setSelectedClass}
+              selectedShift={selectedShift}
+              setSelectedShift={setSelectedShift}
+              filterAttendanceStatus={filterAttendanceStatus}
+              setFilterAttendanceStatus={setFilterAttendanceStatus}
+              visibleGradesList={visibleGradesList}
+              currentUser={currentUser}
+              onPrint={handlePrint}
+              onUpdateStatus={handleAttendanceUpdate}
+              onUpdateObservation={handleAttendanceObservation}
+              onImportTurnstile={handleImportTurnstile}
+              onImportTurnstileLocal={handleImportTurnstileLocal}
+              isImportingTurnstile={isImportingTurnstile}
+              importMorningStart={importMorningStart}
+              setImportMorningStart={setImportMorningStart}
+              importMorningEnd={importMorningEnd}
+              setImportMorningEnd={setImportMorningEnd}
+              importAfternoonStart={importAfternoonStart}
+              setImportAfternoonStart={setImportAfternoonStart}
+              importAfternoonEnd={importAfternoonEnd}
+              setImportAfternoonEnd={setImportAfternoonEnd}
+            />
+          )}
+
+          {view === 'health' && (
+            <HealthView
+              students={getVisibleStudents}
+              documents={state.documents}
+              newDoc={newDoc}
+              setNewDoc={setNewDoc}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              filterDocGrade={filterDocGrade}
+              setFilterDocGrade={setFilterDocGrade}
+              filterDocShift={filterDocShift}
+              setFilterDocShift={setFilterDocShift}
+              filterDocType={filterDocType}
+              setFilterDocType={setFilterDocType}
+              visibleGradesList={visibleGradesList}
+              onSaveDocument={handleSaveDocument}
+              onDeleteDocument={handleDeleteDocument}
+              onCancelEdit={handleCancelEditDocument}
+              onPrint={handlePrint}
+            />
+          )}
+
+          {view === 'exams' && (
+            <ExamView
+              students={state.students}
+              exams={state.exams}
+              subjects={state.subjects}
+              newExam={newExam}
+              setNewExam={setNewExam}
+              newSubjectName={newSubjectName}
+              setNewSubjectName={setNewSubjectName}
+              filterExamGrade={filterExamGrade}
+              setFilterExamGrade={setFilterExamGrade}
+              filterExamShift={filterExamShift}
+              setFilterExamShift={setFilterExamShift}
+              showSubjectCatalog={showSubjectCatalog}
+              setShowSubjectCatalog={setShowSubjectCatalog}
+              visibleGradesList={visibleGradesList}
+              onPrint={handlePrint}
+              onAddSubject={handleAddSubject}
+              onRemoveSubject={handleRemoveSubject}
+              onSaveExam={handleSaveExam}
+              onUpdateExamStatus={handleUpdateExamStatus}
+              onDeleteExam={handleDeleteExam}
+            />
+          )}
+
+          {view === 'reports' && (
+            <ReportView
+              aiReport={aiReport}
+              setAiReport={setAiReport}
+              aiReportPrompt={aiReportPrompt}
+              setAiReportPrompt={setAiReportPrompt}
+              isGenerating={isGenerating}
+              onGenerateReport={handleGenerateReport}
+            />
+          )}
+
+          {view === 'coordination' && (
+            (currentUser.role === 'Admin' || currentUser.role === 'Coordinator') ? (
+              <CoordinationView
+                state={state}
+                currentUser={currentUser}
+                onRefresh={handleManualSync}
+              />
+            ) : (
+              <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>
+            )
+          )}
+
+          {view === 'users' && (
+            currentUser?.role === 'Admin' ? (
+              isEditingUser ? (
+                <UserEditView
+                  user={tempUser}
+                  setUser={setTempUser}
+                  onSave={handleSaveUser}
+                  onCancel={() => setIsEditingUser(false)}
+                  onPhotoUpload={handleUserPhotoUpload}
+                />
+              ) : (
+                <UserManagementView
+                  users={state.users}
+                  currentUser={currentUser}
+                  onNewUser={() => { setTempUser(createEmptyUser()); setIsEditingUser(true); }}
+                  onEditUser={(u) => { setTempUser({ ...u }); setIsEditingUser(true); }}
+                  onDeleteUser={handleDeleteUser}
+                />
+              )
+            ) : (
+              <div className="p-8 text-center text-red-500">Acesso Negado</div>
+            )
+          )}
+        </div>
       </main>
     </div>
   );
