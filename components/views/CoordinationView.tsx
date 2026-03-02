@@ -51,6 +51,9 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
     const [recordForm, setRecordForm] = useState<Partial<CoordinationRecord>>({
         status: 'No Prazo'
     });
+    // Checklist state for multi-discipline form
+    const [checkedSubjects, setCheckedSubjects] = useState<Record<string, string>>({}); // subject -> date
+    const [checkedDocTypes, setCheckedDocTypes] = useState<string[]>([]);
 
     // --- HANDLERS: Config ---
     const handleAddGrade = async () => {
@@ -198,7 +201,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                 teacherId: '',
                 teacherName: '',
                 observation: '',
-                // Defaults based on type
                 deadline: '',
                 deliveryDate: '',
                 grade: '',
@@ -208,6 +210,8 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                 isCompleted: false,
                 subject: ''
             });
+            setCheckedSubjects({});
+            setCheckedDocTypes([]);
         }
         setIsRecordModalOpen(true);
     };
@@ -229,27 +233,59 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
             return;
         }
 
-        // Find teacher name if not set
         const teacher = state.users.find(u => u.id === recordForm.teacherId);
-        const recordToSave: CoordinationRecord = {
-            id: editingRecord?.id || Math.random().toString(36).substr(2, 9),
-            type: recordForm.type!,
-            teacherId: recordForm.teacherId,
-            teacherName: teacher?.name || recordForm.teacherName || '?',
-            status: recordForm.status || 'No Prazo',
-            grade: recordForm.grade,
-            shift: recordForm.shift,
-            subject: recordForm.subject,
-            deadline: recordForm.deadline,
-            deliveryDate: recordForm.deliveryDate,
-            fileUrl: recordForm.fileUrl,
-            observation: recordForm.observation,
-            period: recordForm.period,
-            weekDate: recordForm.weekDate,
-            isCompleted: recordForm.isCompleted
-        };
+        const isChecklist = recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY';
 
-        await api.saveCoordinationRecord(recordToSave);
+        if (isChecklist && !editingRecord) {
+            // Save one record per checked subject
+            const subjectEntries = Object.entries(checkedSubjects);
+            if (subjectEntries.length === 0) {
+                alert("Selecione ao menos uma disciplina.");
+                return;
+            }
+            for (const [subject, deliveryDate] of subjectEntries) {
+                const record: CoordinationRecord = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    type: recordForm.type!,
+                    teacherId: recordForm.teacherId,
+                    teacherName: teacher?.name || recordForm.teacherName || '?',
+                    status: recordForm.status || 'No Prazo',
+                    grade: recordForm.grade,
+                    shift: recordForm.shift,
+                    subject,
+                    deadline: recordForm.deadline,
+                    deliveryDate: deliveryDate || recordForm.deliveryDate,
+                    fileUrl: recordForm.fileUrl,
+                    observation: checkedDocTypes.length > 0
+                        ? `[${checkedDocTypes.join(', ')}] ${recordForm.observation || ''}`.trim()
+                        : recordForm.observation,
+                    period: recordForm.period,
+                    weekDate: recordForm.weekDate,
+                    isCompleted: recordForm.isCompleted
+                };
+                await api.saveCoordinationRecord(record);
+            }
+        } else {
+            const recordToSave: CoordinationRecord = {
+                id: editingRecord?.id || Math.random().toString(36).substr(2, 9),
+                type: recordForm.type!,
+                teacherId: recordForm.teacherId,
+                teacherName: teacher?.name || recordForm.teacherName || '?',
+                status: recordForm.status || 'No Prazo',
+                grade: recordForm.grade,
+                shift: recordForm.shift,
+                subject: recordForm.subject,
+                deadline: recordForm.deadline,
+                deliveryDate: recordForm.deliveryDate,
+                fileUrl: recordForm.fileUrl,
+                observation: recordForm.observation,
+                period: recordForm.period,
+                weekDate: recordForm.weekDate,
+                isCompleted: recordForm.isCompleted
+            };
+            await api.saveCoordinationRecord(recordToSave);
+        }
+
         setIsRecordModalOpen(false);
         onRefresh();
     };
@@ -384,7 +420,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                             {type === 'DRIVE_UPDATE' ? (
                                 <>
                                     <th className="px-4 py-3">Série/Turno</th>
-                                    <th className="px-4 py-3">Semana</th>
+                                    <th className="px-4 py-3">Período</th>
                                     <th className="px-4 py-3">Concluído</th>
                                 </>
                             ) : (
@@ -415,7 +451,11 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                     {type === 'DRIVE_UPDATE' ? (
                                         <>
                                             <td className="px-4 py-3">{r.grade} - {r.shift}</td>
-                                            <td className="px-4 py-3">{r.weekDate ? new Date(r.weekDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
+                                            <td className="px-4 py-3 text-xs">
+                                                {r.deadline ? new Date(r.deadline).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
+                                                {r.deadline && r.deliveryDate ? ' → ' : ''}
+                                                {r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''}
+                                            </td>
                                             <td className="px-4 py-3">
                                                 {r.isCompleted ? <CheckCircle size={16} className="text-green-500" /> : <XCircle size={16} className="text-red-300" />}
                                             </td>
@@ -607,7 +647,6 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                     {[
                         { type: 'EXAM_DELIVERY' as const, label: 'Entrega de provas e roteiros' },
                         { type: 'PLAN_DELIVERY' as const, label: 'Entrega planos de aula' },
-                        { type: 'REPORT_MONITORING' as const, label: 'Acompanhamento dos relatórios' },
                         { type: 'DRIVE_UPDATE' as const, label: 'Atualização do Driver' },
                     ].map(section => (
                         <div key={section.type} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -778,7 +817,108 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 </div>
                             )}
 
+                            {/* Document Type Checklist (EXAM/PLAN only) */}
                             {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && (
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-3">Tipo de Documento</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            recordForm.type === 'EXAM_DELIVERY'
+                                                ? ['Prova', 'Roteiro', 'Simulado', 'Atividade Avaliativa', 'Trabalho']
+                                                : ['Plano de Aula', 'Plano Semanal', 'Plano Mensal', 'Plano Bimestral', 'Sequência Didática']
+                                        ][0].map(docType => {
+                                            const checked = checkedDocTypes.includes(docType);
+                                            return (
+                                                <button
+                                                    key={docType}
+                                                    type="button"
+                                                    onClick={() => setCheckedDocTypes(prev =>
+                                                        prev.includes(docType) ? prev.filter(d => d !== docType) : [...prev, docType]
+                                                    )}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${checked
+                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                                        }`}
+                                                >
+                                                    {checked && '✓ '}{docType}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Multi-Discipline Checklist with per-subject date (EXAM/PLAN only) */}
+                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && !editingRecord && (
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Disciplinas</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const all = getTeacherSubjects();
+                                                if (Object.keys(checkedSubjects).length === all.length) {
+                                                    setCheckedSubjects({});
+                                                } else {
+                                                    const all_obj: Record<string, string> = {};
+                                                    all.forEach(s => { all_obj[s] = checkedSubjects[s] || ''; });
+                                                    setCheckedSubjects(all_obj);
+                                                }
+                                            }}
+                                            className="text-[10px] font-bold text-indigo-500 hover:underline"
+                                        >
+                                            {Object.keys(checkedSubjects).length === getTeacherSubjects().length ? 'Desmarcar tudo' : 'Marcar tudo'}
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                        {getTeacherSubjects().length === 0 && (
+                                            <p className="text-xs text-slate-400 italic">Nenhuma disciplina disponível. Selecione um professor e série.</p>
+                                        )}
+                                        {getTeacherSubjects().map(subject => {
+                                            const isChecked = subject in checkedSubjects;
+                                            return (
+                                                <div key={subject} className={`flex items-center gap-3 p-2 rounded-lg border transition-all ${isChecked
+                                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800'
+                                                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                                                    }`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`subj-${subject}`}
+                                                        checked={isChecked}
+                                                        onChange={e => {
+                                                            setCheckedSubjects(prev => {
+                                                                const next = { ...prev };
+                                                                if (e.target.checked) next[subject] = '';
+                                                                else delete next[subject];
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="w-4 h-4 accent-indigo-600 shrink-0"
+                                                    />
+                                                    <label htmlFor={`subj-${subject}`} className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer">
+                                                        {subject}
+                                                    </label>
+                                                    {isChecked && (
+                                                        <input
+                                                            type="date"
+                                                            value={checkedSubjects[subject] || ''}
+                                                            onChange={e => setCheckedSubjects(prev => ({ ...prev, [subject]: e.target.value }))}
+                                                            className="text-xs border border-indigo-200 dark:border-indigo-800 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 w-36"
+                                                            title="Data de entrega desta disciplina"
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {Object.keys(checkedSubjects).length > 0 && (
+                                        <p className="text-[10px] text-indigo-500 font-bold mt-2">{Object.keys(checkedSubjects).length} disciplina(s) selecionada(s) — será criado um registro para cada</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Single discipline fallback when editing */}
+                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && editingRecord && (
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase">Disciplina</label>
                                     <select
@@ -810,12 +950,19 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                             )}
 
                             {recordForm.type === 'DRIVE_UPDATE' && (
-                                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <div className="mb-4">
-                                        <label className="text-xs font-bold text-slate-500 uppercase">Semana (Data Referência)</label>
-                                        <Input type="date" value={recordForm.weekDate} onChange={e => setRecordForm({ ...recordForm, weekDate: e.target.value })} />
+                                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Período de Atualização</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs text-slate-400 mb-1 block">Data Inicial</label>
+                                            <Input type="date" value={recordForm.deadline || ''} onChange={e => setRecordForm({ ...recordForm, deadline: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 mb-1 block">Data Final</label>
+                                            <Input type="date" value={recordForm.deliveryDate || ''} onChange={e => setRecordForm({ ...recordForm, deliveryDate: e.target.value })} />
+                                        </div>
                                     </div>
-                                    <label className="flex items-center gap-2 cursor-pointer">
+                                    <label className="flex items-center gap-2 cursor-pointer pt-1">
                                         <input
                                             type="checkbox"
                                             className="w-5 h-5 text-indigo-600 rounded"

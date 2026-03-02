@@ -220,9 +220,32 @@ export const StudentListView = ({
 
                                 {showActions && (
                                     <>
-                                        {/* Click-outside overlay */}
+                                        {/* Overlay to close on click-outside */}
                                         <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
-                                        <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 p-3 space-y-3 animate-in zoom-in-95 duration-150 origin-top-right">
+
+                                        {/* Bottom sheet on mobile, dropdown on sm+ */}
+                                        <div className="
+                                            fixed sm:absolute
+                                            bottom-0 sm:bottom-auto
+                                            left-0 sm:left-auto
+                                            right-0 sm:right-0
+                                            top-auto sm:top-full
+                                            sm:mt-2
+                                            w-full sm:w-72
+                                            rounded-t-2xl sm:rounded-2xl
+                                            bg-white dark:bg-slate-800
+                                            shadow-2xl sm:shadow-2xl
+                                            border-t sm:border
+                                            border-slate-200 dark:border-slate-700
+                                            z-50 p-4 sm:p-3
+                                            space-y-3
+                                            animate-in slide-in-from-bottom sm:zoom-in-95
+                                            duration-200
+                                            sm:origin-top-right
+                                        ">
+                                            {/* Mobile handle */}
+                                            <div className="sm:hidden w-10 h-1 bg-slate-200 dark:bg-slate-600 rounded-full mx-auto mb-2" />
+
                                             <div className="xl:hidden space-y-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                                                 <p className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Relatórios</p>
                                                 <div className="grid grid-cols-1 gap-1">
