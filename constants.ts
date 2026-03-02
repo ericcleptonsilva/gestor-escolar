@@ -2,9 +2,9 @@ import { Shift, AcademicPeriod } from "./types";
 
 export const GRADE_GROUPS = {
   "EDUCAÇÃO INFANTIL": ["INF II", "INF III", "INF IV", "INF V"],
-  "FUNDAMENTAL I": ["1º ANO FUND I", "2º ANO FUND I", "3º ANO FUND I", "4º ANO FUND I", "5º ANO FUND I"],
-  "FUNDAMENTAL II": ["6º ANO FUND II", "7º ANO FUND II", "8º ANO FUND II", "9º ANO FUND II"],
-  "ENSINO MÉDIO": ["1º ANO MÉDIO", "2º ANO MÉDIO", "3 ANO MÉDIO"]
+  "FUNDAMENTAL I": ["1º ANO", "2º ANO", "3º ANO", "4º ANO", "5º ANO"],
+  "FUNDAMENTAL II": ["6º ANO", "7º ANO", "8º ANO", "9º ANO"],
+  "ENSINO MÉDIO": ["1º ANO MÉDIO", "2º ANO MÉDIO", "3º ANO MÉDIO"]
 };
 
 export const GRADES_LIST = [
@@ -19,18 +19,18 @@ export const IMPORT_GRADE_MAP: Record<string, string> = {
   "3": "INF III",
   "4": "INF IV",
   "5": "INF V",
-  "11": "1º ANO FUND I",
-  "12": "2º ANO FUND I",
-  "13": "3º ANO FUND I",
-  "14": "4º ANO FUND I",
-  "15": "5º ANO FUND I",
-  "16": "6º ANO FUND II",
-  "17": "7º ANO FUND II",
-  "18": "8º ANO FUND II",
-  "19": "9º ANO FUND II",
+  "11": "1º ANO",
+  "12": "2º ANO",
+  "13": "3º ANO",
+  "14": "4º ANO",
+  "15": "5º ANO",
+  "16": "6º ANO",
+  "17": "7º ANO",
+  "18": "8º ANO",
+  "19": "9º ANO",
   "21": "1º ANO MÉDIO",
   "22": "2º ANO MÉDIO",
-  "23": "3 ANO MÉDIO"
+  "23": "3º ANO MÉDIO"
 };
 
 export const SHIFTS_LIST: Shift[] = ["Manhã", "Tarde"];
