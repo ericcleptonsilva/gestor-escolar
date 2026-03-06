@@ -210,7 +210,6 @@ export const AttendanceView = ({
                     const obs = record ? record.observation || '' : '';
 
                     return (
-                        // @ts-ignore
                         <AttendanceCard
                             key={student.id}
                             student={student}
@@ -270,7 +269,7 @@ const AttendanceCard = ({ student, status, observation, onUpdateStatus, onUpdate
                 <div className="min-w-0">
                     <div className="font-bold text-sm text-slate-800 dark:text-white truncate uppercase" title={student.name}>{student.name}</div>
                     <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
-                        <span className="text-indigo-500 dark:text-indigo-400">{student.grade}</span> • {student.shift}
+                        <span>Mat: {student.registration}</span> • <span className="text-indigo-500 dark:text-indigo-400">{student.grade}</span> • {student.shift}
                     </div>
                 </div>
             </div>
