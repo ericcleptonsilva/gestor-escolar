@@ -51,9 +51,10 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
     const [recordForm, setRecordForm] = useState<Partial<CoordinationRecord>>({
         status: 'No Prazo'
     });
-    // Checklist state for multi-discipline form
+    // Checklist state for multi-discipline / multi-grade form
     const [checkedSubjects, setCheckedSubjects] = useState<Record<string, string>>({}); // subject -> date
     const [checkedDocTypes, setCheckedDocTypes] = useState<string[]>([]);
+    const [checkedGrades, setCheckedGrades] = useState<string[]>([]);
 
     // --- HANDLERS: Config ---
     const handleAddGrade = async () => {
@@ -212,6 +213,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
             });
             setCheckedSubjects({});
             setCheckedDocTypes([]);
+            setCheckedGrades([]);
         }
         setIsRecordModalOpen(true);
     };
@@ -234,36 +236,44 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
         }
 
         const teacher = state.users.find(u => u.id === recordForm.teacherId);
-        const isChecklist = recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY';
+        const isChecklist = recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'ROADMAP_DELIVERY' || recordForm.type === 'PLAN_DELIVERY';
 
         if (isChecklist && !editingRecord) {
-            // Save one record per checked subject
+            // Save one record per grade × discipline combination
             const subjectEntries = Object.entries(checkedSubjects);
+            const gradesToUse = checkedGrades.length > 0 ? checkedGrades : [recordForm.grade || ''];
             if (subjectEntries.length === 0) {
                 alert("Selecione ao menos uma disciplina.");
                 return;
             }
-            for (const [subject, deliveryDate] of subjectEntries) {
-                const record: CoordinationRecord = {
-                    id: Math.random().toString(36).substr(2, 9),
-                    type: recordForm.type!,
-                    teacherId: recordForm.teacherId,
-                    teacherName: teacher?.name || recordForm.teacherName || '?',
-                    status: recordForm.status || 'No Prazo',
-                    grade: recordForm.grade,
-                    shift: recordForm.shift,
-                    subject,
-                    deadline: recordForm.deadline,
-                    deliveryDate: deliveryDate || recordForm.deliveryDate,
-                    fileUrl: recordForm.fileUrl,
-                    observation: checkedDocTypes.length > 0
-                        ? `[${checkedDocTypes.join(', ')}] ${recordForm.observation || ''}`.trim()
-                        : recordForm.observation,
-                    period: recordForm.period,
-                    weekDate: recordForm.weekDate,
-                    isCompleted: recordForm.isCompleted
-                };
-                await api.saveCoordinationRecord(record);
+            if (gradesToUse.filter(Boolean).length === 0) {
+                alert("Selecione ao menos uma série.");
+                return;
+            }
+            const obs = checkedDocTypes.length > 0
+                ? `[${checkedDocTypes.join(', ')}] ${recordForm.observation || ''}`.trim()
+                : recordForm.observation;
+            for (const grade of gradesToUse) {
+                for (const [subject, deliveryDate] of subjectEntries) {
+                    const record: CoordinationRecord = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        type: recordForm.type!,
+                        teacherId: recordForm.teacherId,
+                        teacherName: teacher?.name || recordForm.teacherName || '?',
+                        status: recordForm.status || 'No Prazo',
+                        grade,
+                        shift: recordForm.shift,
+                        subject,
+                        deadline: recordForm.deadline,
+                        deliveryDate: deliveryDate || recordForm.deliveryDate,
+                        fileUrl: recordForm.fileUrl,
+                        observation: obs,
+                        period: recordForm.period,
+                        weekDate: recordForm.weekDate,
+                        isCompleted: recordForm.isCompleted
+                    };
+                    await api.saveCoordinationRecord(record);
+                }
             }
         } else {
             const recordToSave: CoordinationRecord = {
@@ -645,7 +655,8 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
             {activeTab === 'drives' && (
                 <div className="space-y-4">
                     {[
-                        { type: 'EXAM_DELIVERY' as const, label: 'Entrega de provas e roteiros' },
+                        { type: 'EXAM_DELIVERY' as const, label: 'Entrega de Provas' },
+                        { type: 'ROADMAP_DELIVERY' as const, label: 'Entrega de Roteiros' },
                         { type: 'PLAN_DELIVERY' as const, label: 'Entrega planos de aula' },
                         { type: 'DRIVE_UPDATE' as const, label: 'Atualização do Driver' },
                     ].map(section => (
@@ -779,32 +790,86 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Série</label>
-                                    <select
-                                        className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
-                                        value={recordForm.grade}
-                                        onChange={e => setRecordForm({ ...recordForm, grade: e.target.value })}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {getTeacherGrades().map(g => <option key={g} value={g}>{g}</option>)}
-                                    </select>
+                            {/* Série checklist + Turno dropdown */}
+                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'ROADMAP_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && !editingRecord ? (
+                                <div className="space-y-3">
+                                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Séries</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const all = getTeacherGrades();
+                                                    setCheckedGrades(checkedGrades.length === all.length ? [] : all);
+                                                }}
+                                                className="text-[10px] font-bold text-indigo-500 hover:underline"
+                                            >
+                                                {checkedGrades.length === getTeacherGrades().length ? 'Desmarcar tudo' : 'Marcar tudo'}
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {getTeacherGrades().map(grade => {
+                                                const isChecked = checkedGrades.includes(grade);
+                                                return (
+                                                    <button
+                                                        key={grade}
+                                                        type="button"
+                                                        onClick={() => setCheckedGrades(prev =>
+                                                            prev.includes(grade) ? prev.filter(g => g !== grade) : [...prev, grade]
+                                                        )}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${isChecked
+                                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                                            }`}
+                                                    >
+                                                        {isChecked && '✓ '}{grade}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {checkedGrades.length > 0 && (
+                                            <p className="text-[10px] text-indigo-500 font-bold mt-2">{checkedGrades.length} série(s) selecionada(s)</p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Turno</label>
+                                        <select
+                                            className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
+                                            value={recordForm.shift}
+                                            onChange={e => setRecordForm({ ...recordForm, shift: e.target.value })}
+                                        >
+                                            {getTeacherShifts().map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Turno</label>
-                                    <select
-                                        className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
-                                        value={recordForm.shift}
-                                        onChange={e => setRecordForm({ ...recordForm, shift: e.target.value })}
-                                    >
-                                        {getTeacherShifts().map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Série</label>
+                                        <select
+                                            className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
+                                            value={recordForm.grade}
+                                            onChange={e => setRecordForm({ ...recordForm, grade: e.target.value })}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {getTeacherGrades().map(g => <option key={g} value={g}>{g}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Turno</label>
+                                        <select
+                                            className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mt-1"
+                                            value={recordForm.shift}
+                                            onChange={e => setRecordForm({ ...recordForm, shift: e.target.value })}
+                                        >
+                                            {getTeacherShifts().map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Dynamic Fields based on Type */}
-                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && (
+                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'ROADMAP_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase">Prazo</label>
@@ -817,16 +882,18 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 </div>
                             )}
 
-                            {/* Document Type Checklist (EXAM/PLAN only) */}
-                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && (
+                            {/* Document Type Checklist — shown only after teacher is selected */}
+                            {recordForm.teacherId && (recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'ROADMAP_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && (
                                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-3">Tipo de Documento</label>
                                     <div className="flex flex-wrap gap-2">
-                                        {[
+                                        {(
                                             recordForm.type === 'EXAM_DELIVERY'
-                                                ? ['Prova', 'Roteiro', 'Simulado', 'Atividade Avaliativa', 'Trabalho']
-                                                : ['Plano de Aula', 'Plano Semanal', 'Plano Mensal', 'Plano Bimestral', 'Sequência Didática']
-                                        ][0].map(docType => {
+                                                ? ['Prova', 'Simulado', 'Atividade Avaliativa', 'Trabalho']
+                                                : recordForm.type === 'ROADMAP_DELIVERY'
+                                                    ? ['Roteiro', 'Roteiro de Estudos', 'Ficha de Atividade', 'Apostila']
+                                                    : ['Plano de Aula', 'Plano Semanal', 'Plano Mensal', 'Plano Bimestral', 'Sequência Didática']
+                                        ).map(docType => {
                                             const checked = checkedDocTypes.includes(docType);
                                             return (
                                                 <button
@@ -848,8 +915,8 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                                 </div>
                             )}
 
-                            {/* Multi-Discipline Checklist with per-subject date (EXAM/PLAN only) */}
-                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && !editingRecord && (
+                            {/* Multi-Discipline Checklist — shown only after teacher is selected */}
+                            {recordForm.teacherId && (recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'ROADMAP_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && !editingRecord && (
                                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                                     <div className="flex justify-between items-center mb-3">
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Disciplinas</label>
@@ -918,7 +985,7 @@ export function CoordinationView({ state, currentUser, onRefresh }: Coordination
                             )}
 
                             {/* Single discipline fallback when editing */}
-                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && editingRecord && (
+                            {(recordForm.type === 'EXAM_DELIVERY' || recordForm.type === 'ROADMAP_DELIVERY' || recordForm.type === 'PLAN_DELIVERY') && editingRecord && (
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase">Disciplina</label>
                                     <select

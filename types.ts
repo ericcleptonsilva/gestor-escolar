@@ -114,33 +114,33 @@ export interface PedagogicalRecord {
 }
 
 // --- NEW COORDINATION TYPES ---
-export type CoordinationType = 'EXAM_DELIVERY' | 'PLAN_DELIVERY' | 'REPORT_MONITORING' | 'DRIVE_UPDATE';
+export type CoordinationType = 'EXAM_DELIVERY' | 'ROADMAP_DELIVERY' | 'PLAN_DELIVERY' | 'REPORT_MONITORING' | 'DRIVE_UPDATE';
 
 export interface CoordinationRecord {
-    id: string;
-    type: CoordinationType;
-    teacherId?: string;
-    teacherName: string;
-    grade?: string;
-    shift?: string;
-    subject?: string;
-    deadline?: string;
-    deliveryDate?: string;
-    status: string; // 'No Prazo' | 'Antecipado' | 'Fora do prazo' | 'Em Dias' | 'Atrasado'
-    fileUrl?: string; // Relatório em PDF ou Excel
-    observation?: string;
-    period?: string; // Bimestral or Period
-    weekDate?: string; // For Drive Update
-    isCompleted?: boolean; // For Drive Update
+  id: string;
+  type: CoordinationType;
+  teacherId?: string;
+  teacherName: string;
+  grade?: string;
+  shift?: string;
+  subject?: string;
+  deadline?: string;
+  deliveryDate?: string;
+  status: string; // 'No Prazo' | 'Antecipado' | 'Fora do prazo' | 'Em Dias' | 'Atrasado'
+  fileUrl?: string; // Relatório em PDF ou Excel
+  observation?: string;
+  period?: string; // Bimestral or Period
+  weekDate?: string; // For Drive Update
+  isCompleted?: boolean; // For Drive Update
 }
 
 export interface Occurrence {
-    id: string;
-    studentId: string;
-    type: string; // 'ConsecutiveAbsence'
-    status: string; // 'Obteve contato' | 'Não obteve contato'
-    date: string;
-    observation?: string;
+  id: string;
+  studentId: string;
+  type: string; // 'ConsecutiveAbsence'
+  status: string; // 'Obteve contato' | 'Não obteve contato'
+  date: string;
+  observation?: string;
 }
 
 export interface AppState {
