@@ -186,14 +186,14 @@ export default function App() {
   const [filterAgenda, setFilterAgenda] = useState<string>('');
 
   const [filterAttendanceStatus, setFilterAttendanceStatus] = useState<AttendanceStatus | ''>('');
-  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedClass, setSelectedClass] = useState<string[]>([]);
   const [selectedShift, setSelectedShift] = useState('');
 
   const [filterDocGrade, setFilterDocGrade] = useState<string[]>([]);
   const [filterDocShift, setFilterDocShift] = useState('');
   const [filterDocType, setFilterDocType] = useState<DocType | ''>('');
 
-  const [filterExamGrade, setFilterExamGrade] = useState('');
+  const [filterExamGrade, setFilterExamGrade] = useState<string[]>([]);
   const [filterExamShift, setFilterExamShift] = useState('');
 
   // --- EDITING STATES ---
@@ -1291,7 +1291,7 @@ export default function App() {
 
       const filtered = (state.students || [])
         .filter(s => {
-          const matchClass = selectedClass === "" || s.grade === selectedClass;
+          const matchClass = selectedClass.length > 0 ? selectedClass.includes(s.grade) : true;
           const matchShift = selectedShift === "" || s.shift === selectedShift;
 
           const record = state.attendance.find(a => a.studentId === s.id && a.date === attendanceDate);
@@ -1300,7 +1300,28 @@ export default function App() {
 
           return matchClass && matchShift && matchStatus;
         })
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        .sort((a, b) => {
+          const gradeCompare = (a.grade || '').localeCompare(b.grade || '');
+          if (gradeCompare !== 0) return gradeCompare;
+
+          const shiftCompare = (a.shift || '').localeCompare(b.shift || '');
+          if (shiftCompare !== 0) return shiftCompare;
+
+          const seqA = parseInt(a.sequenceNumber || '');
+          const seqB = parseInt(b.sequenceNumber || '');
+          const hasSeqA = !isNaN(seqA);
+          const hasSeqB = !isNaN(seqB);
+
+          if (hasSeqA && hasSeqB) {
+            if (seqA !== seqB) return seqA - seqB;
+          } else if (hasSeqA) {
+            return -1;
+          } else if (hasSeqB) {
+            return 1;
+          }
+
+          return (a.name || '').localeCompare(b.name || '');
+        });
 
       rows = filtered.map(student => {
         const record = state.attendance.find(a => a.studentId === student.id && a.date === attendanceDate);
@@ -1359,10 +1380,35 @@ export default function App() {
       const filteredExams = (state.exams || []).filter(exam => {
         const student = (state.students || []).find(s => s.id === exam.studentId);
         if (!student) return false;
-        const matchesGrade = filterExamGrade ? student.grade === filterExamGrade : true;
+        const matchesGrade = filterExamGrade.length > 0 ? filterExamGrade.includes(student.grade) : true;
         const matchesShift = filterExamShift ? student.shift === filterExamShift : true;
         const isStudentVisible = getVisibleStudents.some(s => s.id === student.id);
         return matchesGrade && matchesShift && isStudentVisible;
+      }).sort((a, b) => {
+        const studentA = state.students.find(s => s.id === a.studentId);
+        const studentB = state.students.find(s => s.id === b.studentId);
+        if (!studentA || !studentB) return 0;
+
+        const gradeCompare = studentA.grade.localeCompare(studentB.grade);
+        if (gradeCompare !== 0) return gradeCompare;
+
+        const shiftCompare = studentA.shift.localeCompare(studentB.shift);
+        if (shiftCompare !== 0) return shiftCompare;
+
+        const seqA = parseInt(studentA.sequenceNumber);
+        const seqB = parseInt(studentB.sequenceNumber);
+        const hasSeqA = !isNaN(seqA);
+        const hasSeqB = !isNaN(seqB);
+
+        if (hasSeqA && hasSeqB) {
+          if (seqA !== seqB) return seqA - seqB;
+        } else if (hasSeqA) {
+          return -1;
+        } else if (hasSeqB) {
+          return 1;
+        }
+
+        return studentA.name.localeCompare(studentB.name);
       });
 
       rows = filteredExams.map(exam => {

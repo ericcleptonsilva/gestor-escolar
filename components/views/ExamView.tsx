@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList, Plus, Filter, Trash2, Clock, CheckCircle2, XCircle, ArrowLeft, X, Edit } from 'lucide-react';
+import { ClipboardList, Plus, Filter, Trash2, Clock, CheckCircle2, XCircle, ArrowLeft, X, Edit, ChevronDown, Check } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -31,8 +31,8 @@ interface ExamViewProps {
     setEditingExam: React.Dispatch<React.SetStateAction<MakeUpExam | null>>;
     newSubjectName: string;
     setNewSubjectName: (name: string) => void;
-    filterExamGrade: string;
-    setFilterExamGrade: (grade: string) => void;
+    filterExamGrade: string[];
+    setFilterExamGrade: (grade: string[]) => void;
     filterExamShift: string;
     setFilterExamShift: (shift: string) => void;
     showSubjectCatalog: boolean;
@@ -70,6 +70,35 @@ export const ExamView = ({
     const [tempDate, setTempDate] = React.useState('');
     const [tempSubjects, setTempSubjects] = React.useState<string[]>([]);
     const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+
+    const [isGradeDropdownOpen, setIsGradeDropdownOpen] = React.useState(false);
+    const gradeDropdownRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
+                setIsGradeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleGradeFilter = (grade: string) => {
+        if (filterExamGrade.includes(grade)) {
+            setFilterExamGrade(filterExamGrade.filter(g => g !== grade));
+        } else {
+            setFilterExamGrade([...filterExamGrade, grade]);
+        }
+    };
+
+    const toggleAllGrades = () => {
+        if (filterExamGrade.length === visibleGradesList.length) {
+            setFilterExamGrade([]);
+        } else {
+            setFilterExamGrade([...visibleGradesList]);
+        }
+    };
 
     // Open Edit Modal with the selected exam
     const handleOpenEditModal = (exam: MakeUpExam) => {
@@ -167,7 +196,7 @@ export const ExamView = ({
         const student = (students || []).find(s => s.id === exam.studentId);
         if (!student) return false;
 
-        const matchesGrade = filterExamGrade ? student.grade === filterExamGrade : true;
+        const matchesGrade = filterExamGrade.length > 0 ? filterExamGrade.includes(student.grade) : true;
         const matchesShift = filterExamShift ? student.shift === filterExamShift : true;
 
         return matchesGrade && matchesShift;
@@ -282,10 +311,43 @@ export const ExamView = ({
                     <Card className="p-6">
                         <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center"><Filter size={16} className="mr-2" /> Filtros</h3>
                         <div className="space-y-3">
-                            <Select value={filterExamGrade} onChange={e => setFilterExamGrade(e.target.value)}>
-                                <option value="">Todas as Turmas</option>
-                                {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
-                            </Select>
+                            <div className="relative" ref={gradeDropdownRef}>
+                                <div
+                                    className="h-10 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
+                                    onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
+                                >
+                                    <span className={`text-sm truncate ${filterExamGrade.length === 0 ? 'text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                                        {filterExamGrade.length === 0 ? 'Todas as Turmas' : `${filterExamGrade.length} turma(s) selecionada(s)`}
+                                    </span>
+                                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isGradeDropdownOpen ? 'rotate-180' : ''}`} />
+                                </div>
+
+                                {isGradeDropdownOpen && (
+                                    <div className="absolute z-50 top-12 left-0 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-64 overflow-y-auto no-print">
+                                        <div className="p-2 sticky top-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700">
+                                            <button
+                                                onClick={toggleAllGrades}
+                                                className="w-full text-left px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
+                                            >
+                                                {filterExamGrade.length === visibleGradesList.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                                            </button>
+                                        </div>
+                                        <div className="p-1">
+                                            {visibleGradesList.map(g => (
+                                                <label key={g} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
+                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors ${filterExamGrade.includes(g)
+                                                            ? 'bg-indigo-500 border-indigo-500 text-white'
+                                                            : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
+                                                        }`}>
+                                                        {filterExamGrade.includes(g) && <Check size={12} strokeWidth={3} />}
+                                                    </div>
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">{g}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                             <Select value={filterExamShift} onChange={e => setFilterExamShift(e.target.value)}>
                                 <option value="">Todos os Turnos</option>
                                 {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
@@ -313,7 +375,41 @@ export const ExamView = ({
                                 return acc;
                             }, {} as Record<string, { studentId: string, originalDate: string, period: string, reason: string, exams: MakeUpExam[] }>);
 
-                            const groupedArray = Object.values(grouped).sort((a, b) => new Date(b.originalDate).getTime() - new Date(a.originalDate).getTime());
+                            const groupedArray = Object.values(grouped).sort((groupA, groupB) => {
+                                // 1. Reverse Chronological Date
+                                const dateA = new Date(groupA.originalDate).getTime();
+                                const dateB = new Date(groupB.originalDate).getTime();
+                                if (dateA !== dateB) return dateB - dateA;
+
+                                const studentA = (students || []).find(s => s.id === groupA.studentId);
+                                const studentB = (students || []).find(s => s.id === groupB.studentId);
+                                if (!studentA || !studentB) return 0;
+
+                                // 2. Class / Grade
+                                const gradeCompare = studentA.grade.localeCompare(studentB.grade);
+                                if (gradeCompare !== 0) return gradeCompare;
+
+                                // 3. Shift
+                                const shiftCompare = studentA.shift.localeCompare(studentB.shift);
+                                if (shiftCompare !== 0) return shiftCompare;
+
+                                // 4. Sequence Number
+                                const seqA = parseInt(studentA.sequenceNumber);
+                                const seqB = parseInt(studentB.sequenceNumber);
+                                const hasSeqA = !isNaN(seqA);
+                                const hasSeqB = !isNaN(seqB);
+
+                                if (hasSeqA && hasSeqB) {
+                                    if (seqA !== seqB) return seqA - seqB;
+                                } else if (hasSeqA) {
+                                    return -1;
+                                } else if (hasSeqB) {
+                                    return 1;
+                                }
+
+                                // 5. Name
+                                return studentA.name.localeCompare(studentB.name);
+                            });
 
                             if (groupedArray.length === 0) {
                                 return (

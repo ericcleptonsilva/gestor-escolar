@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw, ChevronDown, Check } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { PrintButton } from '@/components/features/PrintButton';
@@ -11,8 +11,8 @@ interface AttendanceViewProps {
     attendance: AppState['attendance'];
     attendanceDate: string;
     setAttendanceDate: (date: string) => void;
-    selectedClass: string;
-    setSelectedClass: (cls: string) => void;
+    selectedClass: string[];
+    setSelectedClass: (cls: string[]) => void;
     selectedShift: string;
     setSelectedShift: (shift: string) => void;
     filterAttendanceStatus: AttendanceStatus | '';
@@ -56,20 +56,68 @@ export const AttendanceView = ({
     currentUser
 }: AttendanceViewProps) => {
 
+    const [isGradeDropdownOpen, setIsGradeDropdownOpen] = useState(false);
+    const gradeDropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
+                setIsGradeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleGradeFilter = (grade: string) => {
+        if (selectedClass.includes(grade)) {
+            setSelectedClass(selectedClass.filter(g => g !== grade));
+        } else {
+            setSelectedClass([...selectedClass, grade]);
+        }
+    };
+
+    const toggleAllGrades = () => {
+        if (selectedClass.length === visibleGradesList.length) {
+            setSelectedClass([]);
+        } else {
+            setSelectedClass([...visibleGradesList]);
+        }
+    };
+
     const filteredStudents = (students || [])
         .filter(s => {
-            const matchClass = selectedClass === "" || s.grade === selectedClass;
+            const matchClass = selectedClass.length > 0 ? selectedClass.includes(s.grade) : true;
             const matchShift = selectedShift === "" || s.shift === selectedShift;
 
             const record = (attendance || []).find(a => a.studentId === s.id && a.date === attendanceDate);
             const currentStatus = record ? record.status : 'Present';
             const matchStatus = filterAttendanceStatus === "" || currentStatus === filterAttendanceStatus;
 
-            // Permission check (redundant if 'students' is already filtered by visible, but safe to keep logic consistent)
-            // Assuming 'students' passed here are already 'getVisibleStudents'
             return matchClass && matchShift && matchStatus;
         })
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => {
+            const gradeCompare = a.grade.localeCompare(b.grade);
+            if (gradeCompare !== 0) return gradeCompare;
+
+            const shiftCompare = a.shift.localeCompare(b.shift);
+            if (shiftCompare !== 0) return shiftCompare;
+
+            const seqA = parseInt(a.sequenceNumber);
+            const seqB = parseInt(b.sequenceNumber);
+            const hasSeqA = !isNaN(seqA);
+            const hasSeqB = !isNaN(seqB);
+
+            if (hasSeqA && hasSeqB) {
+                if (seqA !== seqB) return seqA - seqB;
+            } else if (hasSeqA) {
+                return -1;
+            } else if (hasSeqB) {
+                return 1;
+            }
+
+            return a.name.localeCompare(b.name);
+        });
 
     const [showSyncSettings, setShowSyncSettings] = useState(false);
 
@@ -176,12 +224,44 @@ export const AttendanceView = ({
             <div className="no-print">
                 <Card className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/20">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-1">
+                        <div className="space-y-1 relative" ref={gradeDropdownRef}>
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Turma</label>
-                            <Select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="h-11">
-                                <option value="">Todas as Turmas</option>
-                                {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
-                            </Select>
+
+                            <div
+                                className="h-11 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
+                                onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
+                            >
+                                <span className={`text-sm truncate ${selectedClass.length === 0 ? 'text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                                    {selectedClass.length === 0 ? 'Todas as Turmas' : `${selectedClass.length} turma(s) selecionada(s)`}
+                                </span>
+                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${isGradeDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+
+                            {isGradeDropdownOpen && (
+                                <div className="absolute z-50 top-[70px] left-0 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-64 overflow-y-auto no-print">
+                                    <div className="p-2 sticky top-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700">
+                                        <button
+                                            onClick={toggleAllGrades}
+                                            className="w-full text-left px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
+                                        >
+                                            {selectedClass.length === visibleGradesList.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                                        </button>
+                                    </div>
+                                    <div className="p-1">
+                                        {visibleGradesList.map(g => (
+                                            <label key={g} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
+                                                <div className={`w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors ${selectedClass.includes(g)
+                                                    ? 'bg-indigo-500 border-indigo-500 text-white'
+                                                    : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
+                                                    }`}>
+                                                    {selectedClass.includes(g) && <Check size={12} strokeWidth={3} />}
+                                                </div>
+                                                <span className="text-sm text-slate-700 dark:text-slate-300">{g}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Turno</label>
