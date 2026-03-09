@@ -189,7 +189,7 @@ export default function App() {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedShift, setSelectedShift] = useState('');
 
-  const [filterDocGrade, setFilterDocGrade] = useState('');
+  const [filterDocGrade, setFilterDocGrade] = useState<string[]>([]);
   const [filterDocShift, setFilterDocShift] = useState('');
   const [filterDocType, setFilterDocType] = useState<DocType | ''>('');
 
@@ -1322,11 +1322,23 @@ export default function App() {
       const filteredDocs = (state.documents || []).filter(doc => {
         const student = (state.students || []).find(s => s.id === doc.studentId);
         if (!student) return false;
-        const matchesGrade = filterDocGrade ? student.grade === filterDocGrade : true;
+        const matchesGrade = filterDocGrade.length > 0 ? filterDocGrade.includes(student.grade) : true;
         const matchesShift = filterDocShift ? student.shift === filterDocShift : true;
         const matchesType = filterDocType ? doc.type === filterDocType : true;
         const isStudentVisible = getVisibleStudents.some(s => s.id === student.id);
         return matchesGrade && matchesShift && matchesType && isStudentVisible;
+      }).sort((a, b) => {
+        const studentA = state.students.find(s => s.id === a.studentId);
+        const studentB = state.students.find(s => s.id === b.studentId);
+        if (!studentA || !studentB) return 0;
+
+        const gradeCompare = studentA.grade.localeCompare(studentB.grade);
+        if (gradeCompare !== 0) return gradeCompare;
+
+        const shiftCompare = studentA.shift.localeCompare(studentB.shift);
+        if (shiftCompare !== 0) return shiftCompare;
+
+        return studentA.name.localeCompare(studentB.name);
       });
 
       rows = filteredDocs.map(doc => {

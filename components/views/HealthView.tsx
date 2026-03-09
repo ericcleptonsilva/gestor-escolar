@@ -1,5 +1,5 @@
-import React from 'react';
-import { FileText, Plus, Filter, Trash2, Pencil, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { FileText, Plus, Filter, Trash2, Pencil, X, ChevronDown, Check } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -15,8 +15,8 @@ interface HealthViewProps {
     documents: HealthDocument[];
     newDoc: HealthDocument;
     setNewDoc: (doc: HealthDocument) => void;
-    filterDocGrade: string;
-    setFilterDocGrade: (grade: string) => void;
+    filterDocGrade: string[];
+    setFilterDocGrade: (grade: string[]) => void;
     filterDocShift: string;
     setFilterDocShift: (shift: string) => void;
     filterDocType: DocType | '';
@@ -44,17 +44,74 @@ export const HealthView = ({
     onDeleteDocument,
     onCancelEdit
 }: HealthViewProps) => {
+    const [isGradeDropdownOpen, setIsGradeDropdownOpen] = useState(false);
+    const gradeDropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
+                setIsGradeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleGradeFilter = (grade: string) => {
+        if (filterDocGrade.includes(grade)) {
+            setFilterDocGrade(filterDocGrade.filter(g => g !== grade));
+        } else {
+            setFilterDocGrade([...filterDocGrade, grade]);
+        }
+    };
+
+    const toggleAllGrades = () => {
+        if (filterDocGrade.length === visibleGradesList.length) {
+            setFilterDocGrade([]);
+        } else {
+            setFilterDocGrade([...visibleGradesList]);
+        }
+    };
 
     const filteredDocs = (documents || []).filter(doc => {
         const student = (students || []).find(s => s.id === doc.studentId);
         if (!student) return false;
 
         const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesGrade = filterDocGrade ? student.grade === filterDocGrade : true;
+        const matchesGrade = filterDocGrade.length > 0 ? filterDocGrade.includes(student.grade) : true;
         const matchesShift = filterDocShift ? student.shift === filterDocShift : true;
         const matchesType = filterDocType ? doc.type === filterDocType : true;
 
         return matchesSearch && matchesGrade && matchesShift && matchesType;
+    }).sort((a, b) => {
+        const studentA = (students || []).find(s => s.id === a.studentId);
+        const studentB = (students || []).find(s => s.id === b.studentId);
+        if (!studentA || !studentB) return 0;
+
+        // Sort by Grade first
+        const gradeCompare = studentA.grade.localeCompare(studentB.grade);
+        if (gradeCompare !== 0) return gradeCompare;
+
+        // Then by Shift
+        const shiftCompare = studentA.shift.localeCompare(studentB.shift);
+        if (shiftCompare !== 0) return shiftCompare;
+
+        // Then by Sequence Number
+        const seqA = parseInt(studentA.sequenceNumber);
+        const seqB = parseInt(studentB.sequenceNumber);
+        const hasSeqA = !isNaN(seqA);
+        const hasSeqB = !isNaN(seqB);
+
+        if (hasSeqA && hasSeqB) {
+            if (seqA !== seqB) return seqA - seqB;
+        } else if (hasSeqA) {
+            return -1;
+        } else if (hasSeqB) {
+            return 1;
+        }
+
+        // Then by Name
+        return studentA.name.localeCompare(studentB.name);
     });
 
     return (
@@ -129,10 +186,51 @@ export const HealthView = ({
                         <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center"><Filter size={16} className="mr-2" /> Filtros</h3>
                         <div className="space-y-3">
                             <Input placeholder="Buscar aluno..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                            <Select value={filterDocGrade} onChange={e => setFilterDocGrade(e.target.value)}>
-                                <option value="">Todas as Turmas</option>
-                                {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
-                            </Select>
+
+                            {/* Multiselect para Turmas */}
+                            <div className="relative" ref={gradeDropdownRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
+                                    className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                                >
+                                    <span className="truncate">
+                                        {filterDocGrade.length === 0
+                                            ? "Todas as Turmas"
+                                            : filterDocGrade.length === visibleGradesList.length
+                                                ? "Todas Selecionadas"
+                                                : `${filterDocGrade.length} turma(s) selecionada(s)`}
+                                    </span>
+                                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isGradeDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {isGradeDropdownOpen && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 max-h-60 overflow-auto animate-in fade-in slide-in-from-top-2">
+                                        <div
+                                            className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer border-b border-slate-100 dark:border-slate-700 font-medium"
+                                            onClick={toggleAllGrades}
+                                        >
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 ${filterDocGrade.length === visibleGradesList.length ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                {filterDocGrade.length === visibleGradesList.length && <Check size={12} />}
+                                            </div>
+                                            <span className="text-sm text-slate-700 dark:text-slate-300">Selecionar Todas</span>
+                                        </div>
+                                        {visibleGradesList.map(grade => (
+                                            <div
+                                                key={grade}
+                                                className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
+                                                onClick={() => toggleGradeFilter(grade)}
+                                            >
+                                                <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 transition-colors ${filterDocGrade.includes(grade) ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                    {filterDocGrade.includes(grade) && <Check size={12} />}
+                                                </div>
+                                                <span className="text-sm text-slate-700 dark:text-slate-300">{grade}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <Select value={filterDocShift} onChange={e => setFilterDocShift(e.target.value)}>
                                 <option value="">Todos os Turnos</option>
                                 {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
