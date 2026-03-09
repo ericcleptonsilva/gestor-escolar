@@ -3,6 +3,7 @@ import { FileText, Plus, Filter, Trash2, Pencil, X } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { PrintButton } from '../features/PrintButton';
@@ -75,15 +76,14 @@ export const HealthView = ({
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aluno</label>
-                                <Select
+                                <SearchableSelect
                                     value={newDoc.studentId}
-                                    onChange={e => setNewDoc({ ...newDoc, studentId: e.target.value })}
-                                >
-                                    <option value="">Selecione o Aluno...</option>
-                                    {(students || []).sort((a, b) => a.name.localeCompare(b.name)).map(s => (
-                                        <option key={s.id} value={s.id}>{s.name} - {s.grade}</option>
-                                    ))}
-                                </Select>
+                                    onChange={value => setNewDoc({ ...newDoc, studentId: value })}
+                                    options={(students || [])
+                                        .sort((a, b) => a.name.localeCompare(b.name))
+                                        .map(s => ({ value: s.id, label: `${s.name} - ${s.grade} - ${s.shift}` }))}
+                                    placeholder="Selecione o Aluno..."
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de Documento</label>

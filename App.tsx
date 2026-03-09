@@ -199,11 +199,24 @@ export default function App() {
   // --- EDITING STATES ---
   const [tempStudent, setTempStudent] = useState<Student>(createEmptyStudent());
   const [tempUser, setTempUser] = useState<User>(createEmptyUser());
-  const [newExam, setNewExam] = useState<MakeUpExam>({
-    id: '', studentId: '', subject: '', originalDate: '', reason: '', status: 'Pending', period: '1ª Bi'
-  });
   const [newDoc, setNewDoc] = useState<HealthDocument>({ id: '', studentId: '', type: DocType.MEDICAL_REPORT, description: '', dateIssued: '' });
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Exam Form for batch adding
+  const [examForm, setExamForm] = useState<{
+    studentId: string;
+    period: AcademicPeriod;
+    reason: string;
+    items: { subject: string, date: string }[];
+  }>({
+    studentId: '',
+    period: '1ª Bi',
+    reason: '',
+    items: []
+  });
+
+  // State for editing a specific exam
+  const [editingExam, setEditingExam] = useState<MakeUpExam | null>(null);
 
   const [newSubjectName, setNewSubjectName] = useState("");
   const [showSubjectCatalog, setShowSubjectCatalog] = useState(false);
@@ -668,14 +681,36 @@ export default function App() {
 
   // Exams
   const handleSaveExam = async () => {
-    if (!newExam.studentId || !newExam.subject || !newExam.originalDate) {
-      alert("Preencha Aluno, Matéria e Data Original da Prova.");
+    if (!examForm.studentId || examForm.items.length === 0) {
+      alert("Selecione um aluno e adicione ao menos uma prova (matéria e data) à lista.");
       return;
     }
-    const examToSave = { ...newExam, id: newExam.id || Math.random().toString(36).substr(2, 9) };
-    await api.saveExam(examToSave);
-    setState(prev => ({ ...prev, exams: [...prev.exams, examToSave] }));
-    setNewExam({ id: '', studentId: '', subject: '', originalDate: '', reason: '', status: 'Pending', period: '1ª Bi' });
+
+    setIsLoading(true);
+    try {
+      const examsToSave: MakeUpExam[] = examForm.items.map(item => ({
+        id: Math.random().toString(36).substr(2, 9),
+        studentId: examForm.studentId,
+        subject: item.subject,
+        originalDate: item.date,
+        reason: examForm.reason,
+        status: 'Pending',
+        period: examForm.period
+      }));
+
+      // In a real app we might want a batch save endpoint, but for now we loop
+      for (const exam of examsToSave) {
+        await api.saveExam(exam);
+      }
+
+      setState(prev => ({ ...prev, exams: [...prev.exams, ...examsToSave] }));
+      setExamForm({ studentId: '', period: '1ª Bi', reason: '', items: [] });
+      alert("Agendamentos salvos com sucesso.");
+    } catch (e: any) {
+      alert("Erro ao salvar agendamentos: " + e.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdateExamStatus = async (id: string, status: 'Pending' | 'Completed' | 'Cancelled') => {
@@ -693,6 +728,19 @@ export default function App() {
       setState(prev => ({ ...prev, exams: (prev.exams || []).filter(e => e.id !== id) }));
       closeConfirm();
     });
+  };
+
+  const handleUpdateExamDetails = async (updatedExam: MakeUpExam) => {
+    try {
+      await api.saveExam(updatedExam);
+      setState(prev => ({
+        ...prev,
+        exams: prev.exams.map(e => e.id === updatedExam.id ? updatedExam : e)
+      }));
+      setEditingExam(null); // Close modal
+    } catch (e: any) {
+      alert("Erro ao atualizar agendamento: " + e.message);
+    }
   };
 
   const handleAddSubject = async () => {
@@ -1784,8 +1832,10 @@ export default function App() {
               students={state.students}
               exams={state.exams}
               subjects={state.subjects}
-              newExam={newExam}
-              setNewExam={setNewExam}
+              examForm={examForm}
+              setExamForm={setExamForm}
+              editingExam={editingExam}
+              setEditingExam={setEditingExam}
               newSubjectName={newSubjectName}
               setNewSubjectName={setNewSubjectName}
               filterExamGrade={filterExamGrade}
@@ -1800,6 +1850,7 @@ export default function App() {
               onRemoveSubject={handleRemoveSubject}
               onSaveExam={handleSaveExam}
               onUpdateExamStatus={handleUpdateExamStatus}
+              onUpdateExamDetails={handleUpdateExamDetails}
               onDeleteExam={handleDeleteExam}
             />
           )}

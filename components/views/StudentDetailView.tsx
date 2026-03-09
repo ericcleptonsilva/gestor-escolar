@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Edit3, Trash2, MessageCircle, CalendarCheck, FileText, ClipboardList, Activity, BookOpen, CreditCard, Calendar } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -24,6 +24,7 @@ export const StudentDetailView = ({
     onBack,
     setView
 }: StudentDetailViewProps) => {
+    const [showAllAttendance, setShowAllAttendance] = useState(false);
     const studentAttendance = state.attendance.filter(a => a.studentId === student.id);
     const absences = studentAttendance.filter(a => a.status === 'Absent').length;
     const presents = studentAttendance.filter(a => a.status === 'Present').length;
@@ -175,9 +176,13 @@ export const StudentDetailView = ({
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-black text-sm uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center">
                                     <CalendarCheck className="mr-2 text-indigo-500" size={18} />
-                                    Histórico Recente
+                                    {showAllAttendance ? 'Histórico Completo' : 'Histórico Recente'}
                                 </h4>
-                                <button onClick={() => setView('attendance')} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:underline">Ver tudo</button>
+                                {studentAttendance.length > 5 && (
+                                    <button onClick={() => setShowAllAttendance(!showAllAttendance)} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:underline">
+                                        {showAllAttendance ? 'Ver menos' : 'Ver tudo'}
+                                    </button>
+                                )}
                             </div>
 
                             <Card className="overflow-hidden border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
@@ -193,7 +198,7 @@ export const StudentDetailView = ({
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                             {[...studentAttendance]
                                                 .sort((a, b) => b.date.localeCompare(a.date))
-                                                .slice(0, 5)
+                                                .slice(0, showAllAttendance ? undefined : 5)
                                                 .map(a => (
                                                     <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                                         <td className="p-4 font-bold text-slate-700 dark:text-slate-300">{new Date(a.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
@@ -211,7 +216,7 @@ export const StudentDetailView = ({
                                 <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-700">
                                     {[...studentAttendance]
                                         .sort((a, b) => b.date.localeCompare(a.date))
-                                        .slice(0, 5)
+                                        .slice(0, showAllAttendance ? undefined : 5)
                                         .map(a => (
                                             <div key={a.id} className="p-4 flex items-center justify-between">
                                                 <div>
