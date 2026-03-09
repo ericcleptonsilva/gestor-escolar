@@ -308,10 +308,10 @@ export const ExamView = ({
                         </div>
                     </Card>
 
-                    <Card className="p-6">
+                    <Card className="p-6 relative z-20">
                         <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center"><Filter size={16} className="mr-2" /> Filtros</h3>
                         <div className="space-y-3">
-                            <div className="relative" ref={gradeDropdownRef}>
+                            <div className="relative z-50" ref={gradeDropdownRef}>
                                 <div
                                     className="h-10 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
                                     onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
@@ -336,8 +336,8 @@ export const ExamView = ({
                                             {visibleGradesList.map(g => (
                                                 <label key={g} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
                                                     <div className={`w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors ${filterExamGrade.includes(g)
-                                                            ? 'bg-indigo-500 border-indigo-500 text-white'
-                                                            : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
+                                                        ? 'bg-indigo-500 border-indigo-500 text-white'
+                                                        : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
                                                         }`}>
                                                         {filterExamGrade.includes(g) && <Check size={12} strokeWidth={3} />}
                                                     </div>

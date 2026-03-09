@@ -221,10 +221,10 @@ export const AttendanceView = ({
                 )}
             </div>
 
-            <div className="no-print">
+            <div className="no-print relative z-20">
                 <Card className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/20">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-1 relative" ref={gradeDropdownRef}>
+                        <div className="space-y-1 relative z-50" ref={gradeDropdownRef}>
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Turma</label>
 
                             <div

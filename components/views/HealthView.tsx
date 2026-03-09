@@ -188,7 +188,7 @@ export const HealthView = ({
                             <Input placeholder="Buscar aluno..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
 
                             {/* Multiselect para Turmas */}
-                            <div className="relative" ref={gradeDropdownRef}>
+                            <div className="relative z-50" ref={gradeDropdownRef}>
                                 <button
                                     type="button"
                                     onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
