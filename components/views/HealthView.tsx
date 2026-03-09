@@ -182,7 +182,7 @@ export const HealthView = ({
                         </div>
                     </Card>
 
-                    <Card className="p-6">
+                    <Card className="p-6 relative z-20">
                         <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center"><Filter size={16} className="mr-2" /> Filtros</h3>
                         <div className="space-y-3">
                             <Input placeholder="Buscar aluno..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
