@@ -308,7 +308,7 @@ export const ExamView = ({
                         </div>
                     </Card>
 
-                    <Card className="p-6 relative z-20">
+                    <Card className="p-6 relative z-20 overflow-visible">
                         <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center"><Filter size={16} className="mr-2" /> Filtros</h3>
                         <div className="space-y-3">
                             <div className="relative z-50" ref={gradeDropdownRef}>
@@ -334,7 +334,7 @@ export const ExamView = ({
                                         </div>
                                         <div className="p-1">
                                             {visibleGradesList.map(g => (
-                                                <label key={g} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
+                                                <label key={g} onClick={(e) => { e.preventDefault(); toggleGradeFilter(g); }} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
                                                     <div className={`w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors ${filterExamGrade.includes(g)
                                                         ? 'bg-indigo-500 border-indigo-500 text-white'
                                                         : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
