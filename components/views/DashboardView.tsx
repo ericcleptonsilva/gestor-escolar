@@ -8,7 +8,8 @@ import {
     ShieldAlert,
     Phone,
     Eye,
-    Check
+    Check,
+    MessageCircle
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { PrintButton } from '@/components/features/PrintButton';
@@ -233,7 +234,7 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView, on
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
                 <Card className="p-6 border-l-4 border-l-indigo-500 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
                     <div className="flex justify-between items-start">
                         <div>
@@ -266,6 +267,18 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView, on
                         </div>
                         <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
                             <ClipboardList size={24} />
+                        </div>
+                    </div>
+                </Card>
+
+                <Card className="p-6 border-l-4 border-l-rose-500 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
+                    <div className="flex justify-between items-start cursor-pointer" onClick={() => setView('soe')}>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">S.O.E Pendentes</p>
+                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{(state.soeRecords || []).filter(s => s.status === 'Pendente').length}</h3>
+                        </div>
+                        <div className="p-2 bg-rose-50 dark:bg-rose-900/30 rounded-lg text-rose-600 dark:text-rose-400">
+                            <MessageCircle size={24} />
                         </div>
                     </div>
                 </Card>
