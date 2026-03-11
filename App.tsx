@@ -1384,17 +1384,43 @@ export default function App() {
         const matchesShift = filterExamShift ? student.shift === filterExamShift : true;
         const isStudentVisible = getVisibleStudents.some(s => s.id === student.id);
         return matchesGrade && matchesShift && isStudentVisible;
-      }).sort((a, b) => {
-        const studentA = state.students.find(s => s.id === a.studentId);
-        const studentB = state.students.find(s => s.id === b.studentId);
+      });
+
+      // Group exams exactly like in ExamView
+      const grouped = filteredExams.reduce((acc, exam) => {
+        const key = `${exam.studentId}_${exam.originalDate}_${exam.period}_${exam.reason}`;
+        if (!acc[key]) {
+          acc[key] = {
+            studentId: exam.studentId,
+            originalDate: exam.originalDate,
+            period: exam.period,
+            reason: exam.reason,
+            exams: []
+          };
+        }
+        acc[key].exams.push(exam);
+        return acc;
+      }, {} as Record<string, { studentId: string, originalDate: string, period: string, reason: string, exams: any[] }>);
+
+      const groupedArray = (Object.values(grouped) as { studentId: string, originalDate: string, period: string, reason: string, exams: MakeUpExam[] }[]).sort((groupA, groupB) => {
+        // 1. Reverse Chronological Date
+        const dateA = new Date(groupA.originalDate).getTime();
+        const dateB = new Date(groupB.originalDate).getTime();
+        if (dateA !== dateB) return dateB - dateA;
+
+        const studentA = state.students.find(s => s.id === groupA.studentId);
+        const studentB = state.students.find(s => s.id === groupB.studentId);
         if (!studentA || !studentB) return 0;
 
+        // 2. Class / Grade
         const gradeCompare = studentA.grade.localeCompare(studentB.grade);
         if (gradeCompare !== 0) return gradeCompare;
 
+        // 3. Shift
         const shiftCompare = studentA.shift.localeCompare(studentB.shift);
         if (shiftCompare !== 0) return shiftCompare;
 
+        // 4. Sequence Number
         const seqA = parseInt(studentA.sequenceNumber);
         const seqB = parseInt(studentB.sequenceNumber);
         const hasSeqA = !isNaN(seqA);
@@ -1408,20 +1434,24 @@ export default function App() {
           return 1;
         }
 
+        // 5. Name
         return studentA.name.localeCompare(studentB.name);
       });
 
-      rows = filteredExams.map(exam => {
-        const student = state.students.find(s => s.id === exam.studentId);
-        const statusMap: any = { 'Pending': 'Pendente', 'Completed': 'Concluída', 'Cancelled': 'Cancelada' };
-        return [
-          student?.name || '?',
-          student?.grade || '?',
-          exam.subject,
-          exam.period || '-',
-          new Date(exam.originalDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
-          statusMap[exam.status]
-        ];
+      rows = [];
+      const statusMap: any = { 'Pending': 'Pendente', 'Completed': 'Concluída', 'Cancelled': 'Cancelada' };
+      groupedArray.forEach(group => {
+        const student = state.students.find(s => s.id === group.studentId);
+        group.exams.forEach(exam => {
+          rows.push([
+            student?.name || '?',
+            student?.grade || '?',
+            exam.subject,
+            exam.period || '-',
+            new Date(exam.originalDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+            statusMap[exam.status]
+          ]);
+        });
       });
     } else {
       // Dashboard or other views -> Default browser print
