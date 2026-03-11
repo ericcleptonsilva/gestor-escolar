@@ -143,6 +143,15 @@ export interface Occurrence {
   observation?: string;
 }
 
+export interface SoeRecord {
+  id: string;
+  studentId: string;
+  date: string;
+  reason: string;
+  status: 'Pendente' | 'Em Andamento' | 'Concluído';
+  observation?: string;
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
@@ -156,6 +165,7 @@ export interface AppState {
   grades: string[];
   coordinationRecords: CoordinationRecord[];
   occurrences: Occurrence[];
+  soeRecords: SoeRecord[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination' | 'soe';

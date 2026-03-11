@@ -17,7 +17,8 @@ import {
   AlertTriangle,
   X,
   Settings,
-  GraduationCap
+  GraduationCap,
+  MessageCircle
 } from 'lucide-react';
 
 import {
@@ -67,6 +68,7 @@ import { ReportView } from '@/components/views/ReportView';
 import { CoordinationView } from '@/components/views/CoordinationView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
+import { SoeView } from '@/components/views/SoeView';
 
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -114,7 +116,8 @@ const EMPTY_STATE: AppState = {
   pedagogicalRecords: [],
   grades: [],
   coordinationRecords: [],
-  occurrences: []
+  occurrences: [],
+  soeRecords: []
 };
 
 export default function App() {
@@ -1682,6 +1685,7 @@ export default function App() {
           <SidebarItem icon={CalendarCheck} label="Frequência" active={view === 'attendance'} onClick={() => { setView('attendance'); setIsSidebarOpen(false); }} />
           <SidebarItem icon={FileText} label="Documentos Saúde" active={view === 'health'} onClick={() => { setView('health'); setIsSidebarOpen(false); }} />
           <SidebarItem icon={ClipboardList} label="2ª Chamada" active={view === 'exams'} onClick={() => { setView('exams'); setIsSidebarOpen(false); }} />
+          <SidebarItem icon={MessageCircle} label="S.O.E." active={view === 'soe'} onClick={() => { setView('soe'); setIsSidebarOpen(false); }} />
           <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
 
           {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
@@ -1940,6 +1944,13 @@ export default function App() {
               onUpdateExamStatus={handleUpdateExamStatus}
               onUpdateExamDetails={handleUpdateExamDetails}
               onDeleteExam={handleDeleteExam}
+            />
+          )}
+
+          {view === 'soe' && (
+            <SoeView
+              state={state}
+              setState={setState}
             />
           )}
 

@@ -7,7 +7,8 @@ import {
   HealthDocument,
   PedagogicalRecord,
   CoordinationRecord,
-  Occurrence
+  Occurrence,
+  SoeRecord
 } from "../types";
 
 // --- CONFIGURATION ---
@@ -75,6 +76,10 @@ interface ApiService {
   // Occurrences (Consecutive Absences)
   saveOccurrence(occurrence: Occurrence): Promise<Occurrence>;
   deleteOccurrence(id: string): Promise<void>;
+
+  // S.O.E.
+  saveSoeRecord(record: SoeRecord): Promise<SoeRecord>;
+  deleteSoeRecord(id: string): Promise<void>;
 
   // Imports
   importStudents(students: Student[]): Promise<any>;
@@ -159,7 +164,8 @@ class HttpApi implements ApiService {
             pedagogicalRecords,
             grades,
             coordinationRecords,
-            occurrences
+            occurrences,
+            soeRecords
         ] = await Promise.all([
             this.request('/students.php'),
             this.request('/users.php'),
@@ -170,7 +176,8 @@ class HttpApi implements ApiService {
             this.request('/pedagogical.php').catch(() => []),
             this.request('/grades.php').catch(() => []),
             this.request('/coordination.php').catch(() => []),
-            this.request('/occurrences.php').catch(() => [])
+            this.request('/occurrences.php').catch(() => []),
+            this.request('/soe.php').catch(() => [])
         ]);
 
         this.notifyStatus('online');
@@ -184,7 +191,8 @@ class HttpApi implements ApiService {
             pedagogicalRecords,
             grades,
             coordinationRecords,
-            occurrences
+            occurrences,
+            soeRecords
         };
     } catch (e: any) {
         this.notifyStatus('offline');
@@ -228,6 +236,10 @@ class HttpApi implements ApiService {
   // Occurrences
   async saveOccurrence(occurrence: Occurrence): Promise<Occurrence> { return this.request('/occurrences.php', 'POST', occurrence); }
   async deleteOccurrence(id: string): Promise<void> { return this.request(`/occurrences.php?id=${id}`, 'DELETE'); }
+
+  // S.O.E.
+  async saveSoeRecord(record: SoeRecord): Promise<SoeRecord> { return this.request('/soe.php', 'POST', record); }
+  async deleteSoeRecord(id: string): Promise<void> { return this.request(`/soe.php?id=${id}`, 'DELETE'); }
 
   // Imports
   async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }
