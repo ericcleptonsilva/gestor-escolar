@@ -1456,6 +1456,29 @@ export default function App() {
           ]);
         });
       });
+    } else if (view === 'soe') {
+      title = 'Serviço de Orientação Educacional (S.O.E.)';
+      headers = ['Data', 'Aluno', 'Turma', 'Turno', 'Status', 'Motivo'];
+
+      const filteredRecords = (state.soeRecords || []).filter(record => {
+        const student = (state.students || []).find(s => s.id === record.studentId);
+        if (!student) return false;
+        // In SoeView we don't have access to the exact filter states of SoeView here in App.tsx without lifting them up.
+        // But for print, usually they want the full visible list or we'll just print out all of them ordered.
+        return true; 
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      rows = filteredRecords.map(record => {
+        const student = state.students.find(s => s.id === record.studentId);
+        return [
+          new Date(record.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+          student?.name || '?',
+          student?.grade || '?',
+          student?.shift || '?',
+          record.status,
+          record.reason
+        ];
+      });
     } else {
       // Dashboard or other views -> Default browser print
       window.print();
