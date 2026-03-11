@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, Plus, Filter, MessageCircle, Edit2, Trash2, Calendar, User as UserIcon, Check, ChevronDown, X } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { PrintButton } from '../features/PrintButton';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { Select } from '../ui/Select';
@@ -11,9 +12,10 @@ import { api } from '../../services/api';
 interface SoeViewProps {
     state: AppState;
     setState: React.Dispatch<React.SetStateAction<AppState>>;
+    onPrint: () => void;
 }
 
-export const SoeView = ({ state, setState }: SoeViewProps) => {
+export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterGrade, setFilterGrade] = useState<string[]>([]);
     const [filterStatus, setFilterStatus] = useState<SoeRecord['status'] | ''>('');
@@ -174,9 +176,12 @@ export const SoeView = ({ state, setState }: SoeViewProps) => {
                         <MessageCircle className="mr-3 text-indigo-600 dark:text-indigo-400" size={28} />
                         S.O.E. (Serviço de Orientação Educacional)
                     </h2>
-                    <Button onClick={() => handleOpenModal()}>
-                        <Plus size={20} className="mr-2" /> Novo Atendimento
-                    </Button>
+                    <div className="flex gap-2">
+                        <PrintButton onClick={onPrint} />
+                        <Button onClick={() => handleOpenModal()}>
+                            <Plus size={20} className="mr-2" /> Novo Atendimento
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 no-print relative z-20 overflow-visible">

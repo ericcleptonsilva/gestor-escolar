@@ -1974,6 +1974,7 @@ export default function App() {
             <SoeView
               state={state}
               setState={setState}
+              onPrint={handlePrint}
             />
           )}
 
