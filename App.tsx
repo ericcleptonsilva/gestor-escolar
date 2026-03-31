@@ -66,6 +66,7 @@ import { HealthView } from '@/components/views/HealthView';
 import { ExamView } from '@/components/views/ExamView';
 import { ReportView } from '@/components/views/ReportView';
 import { CoordinationView } from '@/components/views/CoordinationView';
+import { TeacherDetailView } from '@/components/views/TeacherDetailView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
 import { SoeView } from '@/components/views/SoeView';
@@ -168,6 +169,7 @@ export default function App() {
 
   const [view, setView] = useState<ViewState>('dashboard');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1133,16 +1135,17 @@ export default function App() {
   const processTurnstileImportResult = (result: any) => {
     const processed = result.processed || 0;
     const present = result.present || 0;
-    const absent = result.absent || 0;
+    const absent = result.autoAbsences || 0;
     const notFound = result.notFound || 0;
-    const datesProcessed = result.datesProcessed || 0;
+    const datesProcessed = result.skippedDates || 0;
+    const cleaned = result.cleanedAbsences || 0;
 
     let msg = `Importação de Catraca Concluída!\n\n` +
       `Linhas Processadas: ${processed}\n` +
       `Presenças Registradas: ${present}\n` +
       `Faltas Automáticas Geradas: ${absent}\n` +
-      `Não Encontrados: ${notFound}\n` +
-      `Dias Processados: ${datesProcessed}`;
+      `Faltas Retroativas Removidas: ${cleaned}\n` +
+      `Não Encontrados: ${notFound}`;
 
     alert(msg);
   };
@@ -1892,6 +1895,8 @@ export default function App() {
           {view === 'attendance' && (
             <AttendanceView
               students={state.students}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
               attendance={state.attendance}
               attendanceDate={attendanceDate}
               setAttendanceDate={setAttendanceDate}
@@ -1995,6 +2000,8 @@ export default function App() {
                 state={state}
                 currentUser={currentUser}
                 onRefresh={handleManualSync}
+                onSelectTeacher={setSelectedTeacher}
+                selectedTeacher={selectedTeacher}
               />
             ) : (
               <div className="p-8 text-center text-red-500">Acesso Restrito à Coordenação</div>

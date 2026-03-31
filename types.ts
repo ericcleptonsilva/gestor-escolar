@@ -26,6 +26,13 @@ export interface TeacherClass {
   grade: string;
   subject: string;
   shift?: Shift; // Turno
+  schedules?: TeacherSchedule[]; // Horários por dia da semana
+}
+
+export interface TeacherSchedule {
+  dayOfWeek: 'Segunda' | 'Terça' | 'Quarta' | 'Quinta' | 'Sexta' | 'Sábado' | 'Domingo';
+  startTime: string; // HH:MM
+  endTime: string;   // HH:MM
 }
 
 export interface Guardian {
@@ -114,7 +121,7 @@ export interface PedagogicalRecord {
 }
 
 // --- NEW COORDINATION TYPES ---
-export type CoordinationType = 'EXAM_DELIVERY' | 'ROADMAP_DELIVERY' | 'PLAN_DELIVERY' | 'REPORT_MONITORING' | 'DRIVE_UPDATE';
+export type CoordinationType = 'EXAM_DELIVERY' | 'ROADMAP_DELIVERY' | 'PLAN_DELIVERY' | 'REPORT_MONITORING' | 'DRIVE_UPDATE' | 'TEACHER_ABSENCE';
 
 export interface CoordinationRecord {
   id: string;

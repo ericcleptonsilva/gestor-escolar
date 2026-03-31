@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw, ChevronDown, Check } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw, ChevronDown, Check, Search } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { PrintButton } from '@/components/features/PrintButton';
@@ -8,6 +8,8 @@ import { SHIFTS_LIST } from '@/constants';
 
 interface AttendanceViewProps {
     students: Student[]; // All visible students
+    searchTerm: string;
+    setSearchTerm: (term: string) => void;
     attendance: AppState['attendance'];
     attendanceDate: string;
     setAttendanceDate: (date: string) => void;
@@ -37,6 +39,7 @@ interface AttendanceViewProps {
 
 export const AttendanceView = ({
     students,
+    searchTerm, setSearchTerm,
     attendance,
     attendanceDate, setAttendanceDate,
     selectedClass, setSelectedClass,
@@ -87,6 +90,9 @@ export const AttendanceView = ({
 
     const filteredStudents = (students || [])
         .filter(s => {
+            const matchSearch = searchTerm === "" || 
+                s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                s.registration.includes(searchTerm);
             const matchClass = selectedClass.length > 0 ? selectedClass.includes(s.grade) : true;
             const matchShift = selectedShift === "" || s.shift === selectedShift;
 
@@ -94,7 +100,7 @@ export const AttendanceView = ({
             const currentStatus = record ? record.status : 'Present';
             const matchStatus = filterAttendanceStatus === "" || currentStatus === filterAttendanceStatus;
 
-            return matchClass && matchShift && matchStatus;
+            return matchSearch && matchClass && matchShift && matchStatus;
         })
         .sort((a, b) => {
             const gradeCompare = a.grade.localeCompare(b.grade);
@@ -223,7 +229,20 @@ export const AttendanceView = ({
 
             <div className="no-print relative z-20">
                 <Card className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/20 overflow-visible">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Busca</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    className="w-full pl-9 pr-3 h-11 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all hover:border-indigo-300 dark:hover:border-indigo-600"
+                                    placeholder="Nome ou matrícula..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
                         <div className="space-y-1 relative z-50" ref={gradeDropdownRef}>
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Turma</label>
 
@@ -270,7 +289,7 @@ export const AttendanceView = ({
                                 {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
                             </Select>
                         </div>
-                        <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                        <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Status</label>
                             <Select value={filterAttendanceStatus} onChange={e => setFilterAttendanceStatus(e.target.value as AttendanceStatus | '')} className="h-11">
                                 <option value="">Todos os Status</option>

@@ -53,27 +53,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit();
     }
 
-    // 1. Fetch All Students for Lookup
+    // 1. Fetch All Students and Teachers for Lookup
     try {
-        $stmt = $conn->query("SELECT id, registration, shift FROM students");
+        $stmt = $conn->query("SELECT id, registration, shift, turnstileRegistered, createdAt FROM students");
         $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmtT = $conn->query("SELECT id, name, registration, classes FROM users WHERE role = 'teacher'");
+        $teachers = $stmtT->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(["error" => "Database error fetching students: " . $e->getMessage()]);
+        echo json_encode(["error" => "Database error fetching data: " . $e->getMessage()]);
         exit();
     }
 
     // Normalize Student Map: normalized_reg -> student
     $studentMap = [];
     foreach ($students as $student) {
-        $reg = trim($student['registration']);
-        // Store exact match
+        $reg = trim($student['registration'] ?? '');
+        $student['turnstileRegistered'] = ($student['turnstileRegistered'] == 1 || $student['turnstileRegistered'] === true);
+        
         $studentMap[$reg] = $student;
-
-        // Store normalized integer match (remove leading zeros)
         if (ctype_digit($reg)) {
-            $regInt = (int)$reg;
-            $studentMap[(string)$regInt] = $student;
+            $studentMap[(string)(int)$reg] = $student;
+        }
+    }
+
+    // Normalize Teacher Map
+    $teacherMap = [];
+    foreach ($teachers as $teacher) {
+        $reg = trim($teacher['registration'] ?? '');
+        if ($reg) {
+            $teacherMap[$reg] = $teacher;
+            if (ctype_digit($reg)) {
+                $teacherMap[(string)(int)$reg] = $teacher;
+            }
         }
     }
 
@@ -101,6 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // We track presence per date to determine absences later
     // Date (YYYY-MM-DD) -> Set of Student IDs present
     $presentStudentsByDate = [];
+    $presentTeachersByDate = [];
+
 
     // Track which shifts had activity on which date
     // Date (YYYY-MM-DD) -> ['morning' => bool, 'afternoon' => bool]
@@ -123,18 +138,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $dateRaw = trim($cols[3]);
         $timeRaw = trim($cols[4]);
 
-        // Find Student
-        $student = null;
+        // Find Student OR Teacher
+        $target = null;
+        $isTeacher = false;
+
         if (isset($studentMap[$matriculaRaw])) {
-            $student = $studentMap[$matriculaRaw];
+            $target = $studentMap[$matriculaRaw];
+        } elseif (isset($teacherMap[$matriculaRaw])) {
+            $target = $teacherMap[$matriculaRaw];
+            $isTeacher = true;
         } elseif (ctype_digit($matriculaRaw)) {
              $matriculaInt = (int)$matriculaRaw;
              if (isset($studentMap[(string)$matriculaInt])) {
-                 $student = $studentMap[(string)$matriculaInt];
+                 $target = $studentMap[(string)$matriculaInt];
+             } elseif (isset($teacherMap[(string)$matriculaInt])) {
+                 $target = $teacherMap[(string)$matriculaInt];
+                 $isTeacher = true;
              }
         }
 
-        if (!$student) {
+        if (!$target) {
             $notFoundCount++;
             continue;
         }
@@ -161,8 +184,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $shiftActivityByDate[$dateISO] = ['morning' => false, 'afternoon' => false];
         }
 
+        // Determine Shift Activity from Time
+        // HHMM or HH:MM
+        $cleanTime = str_replace(':', '', $timeRaw);
+        $timeInt = (int)$cleanTime;
+        
+        $hours = floor($timeInt / 100);
+        $mins = $timeInt % 100;
+        $totalMins = ($hours * 60) + $mins;
+
         // Mark present
-        $presentStudentsByDate[$dateISO][$student['id']] = true;
+        if ($isTeacher) {
+            if (!isset($presentTeachersByDate[$dateISO])) $presentTeachersByDate[$dateISO] = [];
+            if (!isset($presentTeachersByDate[$dateISO][$target['id']])) {
+                $presentTeachersByDate[$dateISO][$target['id']] = [];
+            }
+            $presentTeachersByDate[$dateISO][$target['id']][] = $totalMins;
+        } else {
+            $presentStudentsByDate[$dateISO][$target['id']] = true;
+        }
 
         // Determine Shift Activity from Time
         // HHMM or HH:MM
@@ -209,22 +249,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $timeFormatted = substr($timeRaw, 0, 2) . ':' . substr($timeRaw, 2, 2);
         }
 
-        $key = $student['id'] . '_' . $dateISO;
+        if (!$isTeacher) {
+            $key = $target['id'] . '_' . $dateISO;
 
-        if (!isset($recordsToSave[$key])) {
-            $recordsToSave[$key] = [
-                'id' => uniqid(),
-                'studentId' => $student['id'],
-                'date' => $dateISO,
-                'status' => 'Present',
-                'observation' => "Catraca ($code) $timeFormatted"
-            ];
-            $successCount++;
-        } else {
-            // Append observation if not duplicate
-            if (strpos($recordsToSave[$key]['observation'], $timeFormatted) === false) {
-                $recordsToSave[$key]['observation'] .= " | Catraca ($code) $timeFormatted";
+            if (!isset($recordsToSave[$key])) {
+                $recordsToSave[$key] = [
+                    'id' => uniqid(),
+                    'studentId' => $target['id'],
+                    'date' => $dateISO,
+                    'status' => 'Present',
+                    'observation' => "Catraca ($code) $timeFormatted"
+                ];
+                $successCount++;
+            } else {
+                // Append observation if not duplicate
+                if (strpos($recordsToSave[$key]['observation'], $timeFormatted) === false) {
+                    $recordsToSave[$key]['observation'] .= " | Catraca ($code) $timeFormatted";
+                }
             }
+        } else {
+            // Optional: Log teacher presence somewhere if desired?
+            // User requested "associação da sua matricula" for absences.
+            // We just need them in $presentTeachersByDate for now.
+            $successCount++;
         }
         $processedCount++;
     }
@@ -266,7 +313,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
 
-            if ($shouldProcess && !isset($presentSet[$student['id']])) {
+            if ($shouldProcess && $student['turnstileRegistered'] && !isset($presentSet[$student['id']])) {
+                
+                // Checar se a data da falta é anterior à matrícula/criação do aluno no BD
+                if (!empty($student['createdAt'])) {
+                    $createdDateOnly = substr($student['createdAt'], 0, 10); // get YYYY-MM-DD
+                    // IGNORAR a data da migração (2026-03-30) pois todos os alunos antigos receberam ela:
+                    if ($createdDateOnly !== '2026-03-30') {
+                        if ($dateISO < $createdDateOnly) {
+                            continue; // não gerar falta para dias anteriores à criação no BD
+                        }
+                    }
+                }
+
                 $key = $student['id'] . '_' . $dateISO;
 
                 // Only add absence if we haven't already processed a presence for this student (which we haven't, by definition of presentSet check, but good to be safe)
@@ -370,13 +429,141 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
+    // --- LÓGICA DE LIMPEZA DE FALTAS ANTERIORES À MATRÍCULA ---
+    // Limpa faltas que foram geradas para alunos antes da sua data de matrícula no sistema
+    $cleanedAbsences = 0;
+    try {
+        $cleanupSql = "DELETE a FROM attendance a
+                       JOIN students s ON a.studentId = s.id
+                       WHERE a.status = 'Absent' 
+                         AND s.createdAt IS NOT NULL 
+                         AND s.createdAt != ''
+                         AND DATE(s.createdAt) != '2026-03-30'
+                         AND a.date < DATE(s.createdAt)";
+        $stmtCleanup = $conn->prepare($cleanupSql);
+        $stmtCleanup->execute();
+        $cleanedAbsences = $stmtCleanup->rowCount();
+    } catch (PDOException $e) {
+        // Log error but continue
+        error_log("Erro ao limpar faltas antigas: " . $e->getMessage());
+    }
+
+    // --- TEACHER AUTOMATIC ABSENCE LOGIC ---
+    $daysOfWeekMap = [
+        0 => 'Domingo',
+        1 => 'Segunda',
+        2 => 'Terça',
+        3 => 'Quarta',
+        4 => 'Quinta',
+        5 => 'Sexta',
+        6 => 'Sábado'
+    ];
+
+    foreach ($shiftActivityByDate as $dateISO => $activity) {
+        $dayOfWeekNum = (int)date('w', strtotime($dateISO));
+        $dayName = $daysOfWeekMap[$dayOfWeekNum];
+        $presentTeachers = $presentTeachersByDate[$dateISO] ?? [];
+
+        foreach ($teachers as $teacher) {
+            $classesStr = $teacher['classes'] ?? '[]';
+            $classes = json_decode($classesStr, true);
+            if (!$classes || !is_array($classes)) continue;
+
+            // Total de aulas que ele deveria dar no dia
+            $scheduledClassesCount = 0;
+            foreach ($classes as $cls) {
+                if (isset($cls['schedules']) && is_array($cls['schedules'])) {
+                    foreach ($cls['schedules'] as $sch) {
+                        if ($sch['dayOfWeek'] === $dayName) {
+                            $scheduledClassesCount++;
+                        }
+                    }
+                }
+            }
+
+            if ($scheduledClassesCount == 0) continue;
+
+            $givenClasses = 0;
+
+            if (isset($presentTeachers[$teacher['id']])) {
+                $punches = $presentTeachers[$teacher['id']];
+                sort($punches);
+
+                $firstPunch = $punches[0];
+                $lastPunch = $punches[count($punches) - 1];
+
+                if (count($punches) == 1) {
+                    $givenClasses = 1; // Pelo menos 1 aula
+                } else {
+                    $durationMins = $lastPunch - $firstPunch;
+                    // Desconta 60 mins de almoço se ficou mais de 6 hrs
+                    if ($durationMins > 360) {
+                        $durationMins -= 60;
+                    }
+                    if ($durationMins < 0) $durationMins = 0;
+
+                    // Cada aula tem 50 minutos, com tolerância de 10 min
+                    $givenClasses = floor(($durationMins + 10) / 50);
+                }
+            }
+
+            // Não contabilizar mais aulas dadas do que o programado
+            if ($givenClasses > $scheduledClassesCount) {
+                $givenClasses = $scheduledClassesCount;
+            }
+
+            $missedClasses = $scheduledClassesCount - $givenClasses;
+
+            // Se perdeu alguma aula
+            if ($missedClasses > 0) {
+                $recordId = 'ABS_' . $teacher['id'] . '_' . str_replace('-', '', $dateISO);
+                $statusStr = ($missedClasses == $scheduledClassesCount) ? "Falta Injustificada" : "Falta Parcial";
+
+                $obsData = [
+                    "msg" => "Faltou $missedClasses aula(s) de $scheduledClassesCount previstas.",
+                    "scheduled" => $scheduledClassesCount,
+                    "given" => $givenClasses,
+                    "missed" => $missedClasses,
+                    "manualOverride" => false // Flag para o Frontend saber se foi editado
+                ];
+                $obsJson = json_encode($obsData, JSON_UNESCAPED_UNICODE);
+
+                try {
+                    // Usamos INSERT IGNORE ou Update Condicional para não sobrescrever edições manuais no Frontend
+                    $sqlAbs = "INSERT INTO coordination_records (id, type, teacherId, teacherName, deliveryDate, status, observation)
+                               VALUES (:id, 'TEACHER_ABSENCE', :tId, :tName, :date, :status, :obs)
+                               ON DUPLICATE KEY UPDATE 
+                               status = IF(observation NOT LIKE '%\"manualOverride\":true%', :status, status),
+                               observation = IF(observation NOT LIKE '%\"manualOverride\":true%', :obs, observation)";
+                    $stmtAbs = $conn->prepare($sqlAbs);
+                    $stmtAbs->execute([
+                        ':id' => $recordId,
+                        ':tId' => $teacher['id'],
+                        ':tName' => $teacher['name'],
+                        ':date' => $dateISO,
+                        ':status' => $statusStr,
+                        ':obs' => $obsJson
+                    ]);
+                    $autoAbsenceCount++;
+                } catch (PDOException $e) {
+                    error_log("Erro inserindo falta de professor: " . $e->getMessage());
+                }
+            }
+        }
+    }
+
     echo json_encode([
         "success" => true,
         "processed" => $processedCount,
-        "present" => $successCount,
-        "absent" => $autoAbsenceCount,
+        "inserted" => $successCount,
         "notFound" => $notFoundCount,
-        "datesProcessed" => count($shiftActivityByDate)
+        "autoAbsences" => $autoAbsenceCount,
+        "skippedDates" => $skippedDateCount,
+        "cleanedAbsences" => $cleanedAbsences
     ]);
+
+} else {
+    http_response_code(405);
+    echo json_encode(["error" => "Método não permitido."]);
 }
 ?>

@@ -19,6 +19,12 @@ try {
         logError("Migrating table students: Adding hasAgenda column");
         $conn->exec("ALTER TABLE students ADD COLUMN hasAgenda TINYINT(1) DEFAULT 0");
     }
+
+    $stmtCreated = $conn->query("SHOW COLUMNS FROM students LIKE 'createdAt'");
+    if ($stmtCreated->rowCount() == 0) {
+        logError("Migrating table students: Adding createdAt column");
+        $conn->exec("ALTER TABLE students ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP");
+    }
 } catch (PDOException $e) {
     // Fallback or log if SHOW COLUMNS fails (e.g. permissions)
     logError("Migration Check Failed: " . $e->getMessage());

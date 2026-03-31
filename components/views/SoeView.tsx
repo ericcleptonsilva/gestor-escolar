@@ -6,6 +6,7 @@ import { PrintButton } from '../features/PrintButton';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { Select } from '../ui/Select';
+import { SearchableSelect } from '../ui/SearchableSelect';
 import { AppState, SoeRecord, Student } from '../../types';
 import { api } from '../../services/api';
 
@@ -18,6 +19,7 @@ interface SoeViewProps {
 export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterGrade, setFilterGrade] = useState<string[]>([]);
+    const [filterShift, setFilterShift] = useState<string>('');
     const [filterStatus, setFilterStatus] = useState<SoeRecord['status'] | ''>('');
     const [isGradeDropdownOpen, setIsGradeDropdownOpen] = useState(false);
     const gradeDropdownRef = useRef<HTMLDivElement>(null);
@@ -70,11 +72,12 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
             }
 
             if (filterGrade.length > 0 && !filterGrade.includes(student.grade)) return false;
+            if (filterShift && student.shift !== filterShift) return false;
             if (filterStatus && record.status !== filterStatus) return false;
 
             return true;
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [state.soeRecords, state.students, searchTerm, filterGrade, filterStatus]);
+    }, [state.soeRecords, state.students, searchTerm, filterGrade, filterShift, filterStatus]);
 
     const handleOpenModal = (record?: SoeRecord) => {
         if (record) {
@@ -185,7 +188,7 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 no-print relative z-20 overflow-visible">
-                    <div className="md:col-span-4 relative flex items-center">
+                    <div className="md:col-span-3 relative flex items-center">
                         <Search className="absolute left-3 text-slate-400" size={18} />
                         <input
                             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
@@ -195,7 +198,7 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                         />
                     </div>
                     
-                    <div className="md:col-span-4 relative z-50" ref={gradeDropdownRef}>
+                    <div className="md:col-span-3 relative z-50" ref={gradeDropdownRef}>
                         <div
                             className="h-full min-h-[42px] w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
                             onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
@@ -233,7 +236,20 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                         )}
                     </div>
 
-                    <div className="md:col-span-4">
+                    <div className="md:col-span-3">
+                        <Select 
+                            value={filterShift} 
+                            onChange={(e) => setFilterShift(e.target.value)}
+                            className="w-full h-full min-h-[42px]"
+                        >
+                            <option value="">Todos os Turnos</option>
+                            <option value="Manhã">Manhã</option>
+                            <option value="Tarde">Tarde</option>
+                            <option value="Noite">Noite</option>
+                        </Select>
+                    </div>
+
+                    <div className="md:col-span-3">
                         <Select 
                             value={filterStatus} 
                             onChange={(e) => setFilterStatus(e.target.value as SoeRecord['status'] | '')}
@@ -342,17 +358,16 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                         <div className="p-6 space-y-4 overflow-y-auto">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Aluno Responsável *</label>
-                                <Select 
-                                    value={formData.studentId} 
-                                    onChange={(e) => setFormData(prev => ({ ...prev, studentId: e.target.value }))}
+                                <SearchableSelect
+                                    value={formData.studentId}
+                                    onChange={(value) => setFormData(prev => ({ ...prev, studentId: value }))}
+                                    options={state.students.slice().sort((a, b) => a.name.localeCompare(b.name)).map(s => ({
+                                        value: s.id,
+                                        label: `${s.name} (${s.grade} - ${s.shift})`
+                                    }))}
+                                    placeholder="Selecione um aluno..."
                                     className="w-full"
-                                    disabled={!!editingRecord}
-                                >
-                                    <option value="">Selecione um aluno...</option>
-                                    {state.students.slice().sort((a,b) => a.name.localeCompare(b.name)).map(s => (
-                                        <option key={s.id} value={s.id}>{s.name} ({s.grade} - {s.shift})</option>
-                                    ))}
-                                </Select>
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
