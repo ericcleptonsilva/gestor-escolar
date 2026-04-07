@@ -154,6 +154,7 @@ export interface SoeRecord {
   id: string;
   studentId: string;
   date: string;
+  returnDate?: string;
   reason: string;
   status: 'Pendente' | 'Em Andamento' | 'Concluído';
   observation?: string;

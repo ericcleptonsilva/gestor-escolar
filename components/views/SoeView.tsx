@@ -7,6 +7,7 @@ import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { Select } from '../ui/Select';
 import { SearchableSelect } from '../ui/SearchableSelect';
+import { MultiSelect } from '../ui/MultiSelect';
 import { AppState, SoeRecord, Student } from '../../types';
 import { api } from '../../services/api';
 
@@ -19,10 +20,8 @@ interface SoeViewProps {
 export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterGrade, setFilterGrade] = useState<string[]>([]);
-    const [filterShift, setFilterShift] = useState<string>('');
-    const [filterStatus, setFilterStatus] = useState<SoeRecord['status'] | ''>('');
-    const [isGradeDropdownOpen, setIsGradeDropdownOpen] = useState(false);
-    const gradeDropdownRef = useRef<HTMLDivElement>(null);
+    const [filterShift, setFilterShift] = useState<string[]>([]);
+    const [filterStatus, setFilterStatus] = useState<string[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -31,36 +30,20 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
     const [formData, setFormData] = useState({
         studentId: '',
         date: new Date().toISOString().split('T')[0],
+        returnDate: '',
         reason: '',
         status: 'Pendente' as SoeRecord['status'],
         observation: ''
     });
 
-    // Close dropdown on outside click
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
-                setIsGradeDropdownOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+
 
     const visibleGradesList = useMemo(() => {
         const grades = new Set(state.students.map(s => s.grade));
         return Array.from(grades).sort();
     }, [state.students]);
 
-    const toggleGradeFilter = (grade: string) => {
-        setFilterGrade(prev =>
-            prev.includes(grade) ? prev.filter(g => g !== grade) : [...prev, grade]
-        );
-    };
 
-    const toggleAllGrades = () => {
-        setFilterGrade(prev => prev.length === visibleGradesList.length ? [] : [...visibleGradesList]);
-    };
 
     const filteredRecords = useMemo(() => {
         return (state.soeRecords || []).filter(record => {
@@ -72,8 +55,8 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
             }
 
             if (filterGrade.length > 0 && !filterGrade.includes(student.grade)) return false;
-            if (filterShift && student.shift !== filterShift) return false;
-            if (filterStatus && record.status !== filterStatus) return false;
+            if (filterShift.length > 0 && !filterShift.includes(student.shift)) return false;
+            if (filterStatus.length > 0 && !filterStatus.includes(record.status)) return false;
 
             return true;
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -85,6 +68,7 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
             setFormData({
                 studentId: record.studentId,
                 date: record.date,
+                returnDate: record.returnDate || '',
                 reason: record.reason,
                 status: record.status,
                 observation: record.observation || ''
@@ -94,6 +78,7 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
             setFormData({
                 studentId: '',
                 date: new Date().toISOString().split('T')[0],
+                returnDate: '',
                 reason: '',
                 status: 'Pendente',
                 observation: ''
@@ -198,68 +183,39 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                         />
                     </div>
                     
-                    <div className="md:col-span-3 relative z-50" ref={gradeDropdownRef}>
-                        <div
-                            className="h-full min-h-[42px] w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
-                            onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
-                        >
-                            <span className={`text-sm truncate ${filterGrade.length === 0 ? 'text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
-                                {filterGrade.length === 0 ? 'Todas as Turmas' : `${filterGrade.length} turma(s) selecionada(s)`}
-                            </span>
-                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${isGradeDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-
-                        {isGradeDropdownOpen && (
-                            <div className="absolute z-50 top-12 left-0 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-64 overflow-y-auto no-print">
-                                <div className="p-2 sticky top-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700">
-                                    <button
-                                        onClick={toggleAllGrades}
-                                        className="w-full text-left px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
-                                    >
-                                        {filterGrade.length === visibleGradesList.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
-                                    </button>
-                                </div>
-                                <div className="p-1">
-                                    {visibleGradesList.map(g => (
-                                        <label key={g} onClick={(e) => { e.preventDefault(); toggleGradeFilter(g); }} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors ${filterGrade.includes(g)
-                                                ? 'bg-indigo-500 border-indigo-500 text-white'
-                                                : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
-                                                }`}>
-                                                {filterGrade.includes(g) && <Check size={12} strokeWidth={3} />}
-                                            </div>
-                                            <span className="text-sm text-slate-700 dark:text-slate-300">{g}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                    <div className="md:col-span-3">
+                        <MultiSelect
+                            options={visibleGradesList.map(g => ({ label: g, value: g }))}
+                            selectedValues={filterGrade}
+                            onChange={setFilterGrade}
+                            placeholder="Todas as Turmas"
+                        />
                     </div>
 
                     <div className="md:col-span-3">
-                        <Select 
-                            value={filterShift} 
-                            onChange={(e) => setFilterShift(e.target.value)}
-                            className="w-full h-full min-h-[42px]"
-                        >
-                            <option value="">Todos os Turnos</option>
-                            <option value="Manhã">Manhã</option>
-                            <option value="Tarde">Tarde</option>
-                            <option value="Noite">Noite</option>
-                        </Select>
+                        <MultiSelect
+                            options={[
+                                { label: 'Manhã', value: 'Manhã' },
+                                { label: 'Tarde', value: 'Tarde' },
+                                { label: 'Noite', value: 'Noite' }
+                            ]}
+                            selectedValues={filterShift}
+                            onChange={setFilterShift}
+                            placeholder="Todos os Turnos"
+                        />
                     </div>
 
                     <div className="md:col-span-3">
-                        <Select 
-                            value={filterStatus} 
-                            onChange={(e) => setFilterStatus(e.target.value as SoeRecord['status'] | '')}
-                            className="w-full h-full min-h-[42px]"
-                        >
-                            <option value="">Todos os Status</option>
-                            <option value="Pendente">Pendente</option>
-                            <option value="Em Andamento">Em Andamento</option>
-                            <option value="Concluído">Concluído</option>
-                        </Select>
+                        <MultiSelect
+                            options={[
+                                { label: 'Pendente', value: 'Pendente' },
+                                { label: 'Em Andamento', value: 'Em Andamento' },
+                                { label: 'Concluído', value: 'Concluído' }
+                            ]}
+                            selectedValues={filterStatus}
+                            onChange={setFilterStatus}
+                            placeholder="Todos os Status"
+                        />
                     </div>
                 </div>
             </div>
@@ -281,8 +237,10 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                                     />
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-bold text-slate-800 dark:text-white truncate" title={student.name}>{student.name}</h3>
-                                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate gap-2 flex">
+                                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate gap-2 flex items-center">
                                             <span>{student.grade} - {student.shift}</span>
+                                            <span>•</span>
+                                            <span>Matrícula: {student.registration}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -307,11 +265,19 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                             <div className="flex items-center justify-between mt-auto">
                                 <Badge color={getStatusBadgeColor(record.status)}>{record.status}</Badge>
                                 
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-slate-400 flex items-center mr-2">
+                                <div className="flex flex-col gap-1 items-start mr-2">
+                                    <span className="text-xs text-slate-400 flex items-center">
                                         <Calendar size={12} className="mr-1" />
                                         {new Date(record.date).toLocaleDateString('pt-BR', { timeZone: 'UTC'})}
                                     </span>
+                                    {record.returnDate && (
+                                        <span className="text-xs text-indigo-500 font-medium flex items-center" title="Data de Retorno">
+                                            <Calendar size={12} className="mr-1" />
+                                            {new Date(record.returnDate).toLocaleDateString('pt-BR', { timeZone: 'UTC'})}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
                                     <button 
                                         onClick={() => handleOpenModal(record)}
                                         className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -370,13 +336,23 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Data *</label>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Data da Ocorrência *</label>
                                     <Input 
                                         type="date" 
                                         value={formData.date} 
                                         onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Data de Retorno</label>
+                                    <Input 
+                                        type="date" 
+                                        value={formData.returnDate} 
+                                        onChange={(e) => setFormData(prev => ({ ...prev, returnDate: e.target.value }))}
+                                        className="w-full"
                                     />
                                 </div>
                                 <div>
@@ -384,7 +360,7 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                                     <Select 
                                         value={formData.status} 
                                         onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as SoeRecord['status'] }))}
-                                        className="w-full"
+                                        className="w-full h-full min-h-[42px]"
                                     >
                                         <option value="Pendente">Pendente</option>
                                         <option value="Em Andamento">Em Andamento</option>
