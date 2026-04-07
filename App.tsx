@@ -183,23 +183,23 @@ export default function App() {
 
   // --- FILTER STATE ---
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterGrade, setFilterGrade] = useState('');
-  const [filterShift, setFilterShift] = useState('');
-  const [filterBookStatus, setFilterBookStatus] = useState<BookStatus | ''>('');
-  const [filterPEStatus, setFilterPEStatus] = useState<PEStatus | ''>('');
-  const [filterTurnstile, setFilterTurnstile] = useState<string>('');
-  const [filterAgenda, setFilterAgenda] = useState<string>('');
+  const [filterGrade, setFilterGrade] = useState<string[]>([]);
+  const [filterShift, setFilterShift] = useState<string[]>([]);
+  const [filterBookStatus, setFilterBookStatus] = useState<string[]>([]);
+  const [filterPEStatus, setFilterPEStatus] = useState<string[]>([]);
+  const [filterTurnstile, setFilterTurnstile] = useState<string[]>([]);
+  const [filterAgenda, setFilterAgenda] = useState<string[]>([]);
 
-  const [filterAttendanceStatus, setFilterAttendanceStatus] = useState<AttendanceStatus | ''>('');
+  const [filterAttendanceStatus, setFilterAttendanceStatus] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string[]>([]);
-  const [selectedShift, setSelectedShift] = useState('');
+  const [selectedShift, setSelectedShift] = useState<string[]>([]);
 
   const [filterDocGrade, setFilterDocGrade] = useState<string[]>([]);
-  const [filterDocShift, setFilterDocShift] = useState('');
-  const [filterDocType, setFilterDocType] = useState<DocType | ''>('');
+  const [filterDocShift, setFilterDocShift] = useState<string[]>([]);
+  const [filterDocType, setFilterDocType] = useState<string[]>([]);
 
   const [filterExamGrade, setFilterExamGrade] = useState<string[]>([]);
-  const [filterExamShift, setFilterExamShift] = useState('');
+  const [filterExamShift, setFilterExamShift] = useState<string[]>([]);
 
   // --- EDITING STATES ---
   const [tempStudent, setTempStudent] = useState<Student>(createEmptyStudent());
@@ -344,15 +344,15 @@ export default function App() {
     return (getVisibleStudents || []).filter(student => {
       const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.registration.includes(searchTerm);
-      const matchesGrade = filterGrade ? student.grade === filterGrade : true;
-      const matchesShift = filterShift ? student.shift === filterShift : true;
-      const matchesBook = filterBookStatus ? student.bookStatus === filterBookStatus : true;
-      const matchesPE = filterPEStatus ? student.peStatus === filterPEStatus : true;
-      const matchesTurnstile = filterTurnstile !== ''
-        ? (filterTurnstile === 'true' ? student.turnstileRegistered : !student.turnstileRegistered)
+      const matchesGrade = filterGrade.length > 0 ? filterGrade.includes(student.grade) : true;
+      const matchesShift = filterShift.length > 0 ? filterShift.includes(student.shift) : true;
+      const matchesBook = filterBookStatus.length > 0 ? filterBookStatus.includes(student.bookStatus) : true;
+      const matchesPE = filterPEStatus.length > 0 ? filterPEStatus.includes(student.peStatus) : true;
+      const matchesTurnstile = filterTurnstile.length > 0
+        ? filterTurnstile.includes(student.turnstileRegistered.toString())
         : true;
-      const matchesAgenda = filterAgenda !== ''
-        ? (filterAgenda === 'true' ? student.hasAgenda : !student.hasAgenda)
+      const matchesAgenda = filterAgenda.length > 0
+        ? filterAgenda.includes(student.hasAgenda.toString())
         : true;
 
       return matchesSearch && matchesGrade && matchesShift && matchesBook && matchesPE && matchesTurnstile && matchesAgenda;
@@ -1298,11 +1298,11 @@ export default function App() {
       const filtered = (state.students || [])
         .filter(s => {
           const matchClass = selectedClass.length > 0 ? selectedClass.includes(s.grade) : true;
-          const matchShift = selectedShift === "" || s.shift === selectedShift;
+          const matchShift = selectedShift.length === 0 || selectedShift.includes(s.shift);
 
           const record = state.attendance.find(a => a.studentId === s.id && a.date === attendanceDate);
           const currentStatus = record ? record.status : 'Present';
-          const matchStatus = filterAttendanceStatus === "" || currentStatus === filterAttendanceStatus;
+          const matchStatus = filterAttendanceStatus.length === 0 || filterAttendanceStatus.includes(currentStatus);
 
           return matchClass && matchShift && matchStatus;
         })
@@ -1350,8 +1350,8 @@ export default function App() {
         const student = (state.students || []).find(s => s.id === doc.studentId);
         if (!student) return false;
         const matchesGrade = filterDocGrade.length > 0 ? filterDocGrade.includes(student.grade) : true;
-        const matchesShift = filterDocShift ? student.shift === filterDocShift : true;
-        const matchesType = filterDocType ? doc.type === filterDocType : true;
+        const matchesShift = filterDocShift.length > 0 ? filterDocShift.includes(student.shift) : true;
+        const matchesType = filterDocType.length > 0 ? filterDocType.includes(doc.type) : true;
         const isStudentVisible = getVisibleStudents.some(s => s.id === student.id);
         return matchesGrade && matchesShift && matchesType && isStudentVisible;
       }).sort((a, b) => {
@@ -1387,7 +1387,7 @@ export default function App() {
         const student = (state.students || []).find(s => s.id === exam.studentId);
         if (!student) return false;
         const matchesGrade = filterExamGrade.length > 0 ? filterExamGrade.includes(student.grade) : true;
-        const matchesShift = filterExamShift ? student.shift === filterExamShift : true;
+        const matchesShift = filterExamShift.length > 0 ? filterExamShift.includes(student.shift) : true;
         const isStudentVisible = getVisibleStudents.some(s => s.id === student.id);
         return matchesGrade && matchesShift && isStudentVisible;
       });

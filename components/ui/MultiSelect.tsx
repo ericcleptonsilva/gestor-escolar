@@ -62,7 +62,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 top-[calc(100%+4px)] left-0 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+        <div className="absolute z-50 top-[calc(100%+4px)] left-0 w-full min-w-[240px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
           <div className="p-2 sticky top-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700 z-10">
             <button
               onClick={handleToggleAll}

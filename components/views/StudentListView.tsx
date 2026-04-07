@@ -3,6 +3,7 @@ import { Users, Search, Plus, BookOpen, Activity, CreditCard, Phone, MessageCirc
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
+import { MultiSelect } from '../ui/MultiSelect';
 import { Badge } from '../ui/Badge';
 import { PrintButton } from '../features/PrintButton';
 import { ExportButton, ImportButton, PhotoImportButton, PhoneImportButton } from '../features/ImportButtons';
@@ -13,18 +14,18 @@ interface StudentListViewProps {
     students: Student[]; // The filtered list
     searchTerm: string;
     setSearchTerm: (term: string) => void;
-    filterGrade: string;
-    setFilterGrade: (grade: string) => void;
-    filterShift: string;
-    setFilterShift: (shift: string) => void;
-    filterBookStatus: BookStatus | '';
-    setFilterBookStatus: (status: BookStatus | '') => void;
-    filterPEStatus: PEStatus | '';
-    setFilterPEStatus: (status: PEStatus | '') => void;
-    filterTurnstile: string;
-    setFilterTurnstile: (val: string) => void;
-    filterAgenda: string;
-    setFilterAgenda: (val: string) => void;
+    filterGrade: string[];
+    setFilterGrade: (grade: string[]) => void;
+    filterShift: string[];
+    setFilterShift: (shift: string[]) => void;
+    filterBookStatus: string[];
+    setFilterBookStatus: (status: string[]) => void;
+    filterPEStatus: string[];
+    setFilterPEStatus: (status: string[]) => void;
+    filterTurnstile: string[];
+    setFilterTurnstile: (val: string[]) => void;
+    filterAgenda: string[];
+    setFilterAgenda: (val: string[]) => void;
     visibleGradesList: string[];
     currentUser: User | null;
     onNewStudent: () => void;
@@ -84,10 +85,10 @@ export const StudentListView = ({
 
     const handleFilterTypeChange = (type: string) => {
         setActiveFilterType(type);
-        setFilterBookStatus('');
-        setFilterPEStatus('');
-        setFilterTurnstile('');
-        setFilterAgenda('');
+        setFilterBookStatus([]);
+        setFilterPEStatus([]);
+        setFilterTurnstile([]);
+        setFilterAgenda([]);
     };
 
     const formatWhatsAppLink = (phone: string) => {
@@ -141,18 +142,24 @@ export const StudentListView = ({
                     {/* Filters Container */}
                     <div className={`${showFilters ? 'flex' : 'hidden'} md:flex flex-1 flex-col md:flex-row gap-3 items-start md:items-center`}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 w-full">
-                            <Select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="!w-full h-11">
-                                <option value="">Série...</option>
-                                {visibleGradesList.map(g => <option key={g} value={g}>{g}</option>)}
-                            </Select>
+                            <MultiSelect 
+                                options={visibleGradesList.map(g => ({ label: g, value: g }))}
+                                selectedValues={filterGrade} 
+                                onChange={setFilterGrade} 
+                                placeholder="Série..."
+                                className="!w-full h-11"
+                            />
 
-                            <Select value={filterShift} onChange={e => setFilterShift(e.target.value)} className="!w-full h-11">
-                                <option value="">Turno...</option>
-                                {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                            </Select>
+                            <MultiSelect 
+                                options={SHIFTS_LIST.map(s => ({ label: s, value: s }))}
+                                selectedValues={filterShift} 
+                                onChange={setFilterShift} 
+                                placeholder="Turno..."
+                                className="!w-full h-11"
+                            />
 
                             <Select
-                                className="!w-full h-11"
+                                className="!w-full h-11 border-slate-200"
                                 value={activeFilterType}
                                 onChange={e => handleFilterTypeChange(e.target.value)}
                             >
@@ -166,36 +173,56 @@ export const StudentListView = ({
                             {activeFilterType && (
                                 <div className="animate-in fade-in slide-in-from-top-1 duration-200">
                                     {activeFilterType === 'book' && (
-                                        <Select className="!w-full h-11" value={filterBookStatus} onChange={e => setFilterBookStatus(e.target.value as BookStatus)}>
-                                            <option value="">Todos Status</option>
-                                            <option value="Comprou">Comprou</option>
-                                            <option value="Nao Comprou">Não Comprou</option>
-                                            <option value="Copia">Cópia</option>
-                                            <option value="Livro Antigo">Livro Antigo</option>
-                                        </Select>
+                                        <MultiSelect 
+                                            options={[
+                                                { label: 'Comprou', value: 'Comprou' },
+                                                { label: 'Não Comprou', value: 'Nao Comprou' },
+                                                { label: 'Cópia', value: 'Copia' },
+                                                { label: 'Livro Antigo', value: 'Livro Antigo' }
+                                            ]}
+                                            selectedValues={filterBookStatus} 
+                                            onChange={setFilterBookStatus}
+                                            placeholder="Todos Status Livro"
+                                            className="!w-full h-11"
+                                        />
                                     )}
                                     {activeFilterType === 'pe' && (
-                                        <Select className="!w-full h-11" value={filterPEStatus} onChange={e => setFilterPEStatus(e.target.value as PEStatus)}>
-                                            <option value="">Todos Status</option>
-                                            <option value="Pendente">Pendente</option>
-                                            <option value="Em Análise">Em Análise</option>
-                                            <option value="Aprovado">Aprovado</option>
-                                            <option value="Reprovado">Reprovado</option>
-                                        </Select>
+                                        <MultiSelect 
+                                            options={[
+                                                { label: 'Pendente', value: 'Pendente' },
+                                                { label: 'Em Análise', value: 'Em Análise' },
+                                                { label: 'Aprovado', value: 'Aprovado' },
+                                                { label: 'Reprovado', value: 'Reprovado' }
+                                            ]}
+                                            selectedValues={filterPEStatus} 
+                                            onChange={setFilterPEStatus}
+                                            placeholder="Todos Status Ed.Fí"
+                                            className="!w-full h-11"
+                                        />
                                     )}
                                     {activeFilterType === 'turnstile' && (
-                                        <Select className="!w-full h-11" value={filterTurnstile} onChange={e => setFilterTurnstile(e.target.value)}>
-                                            <option value="">Todos</option>
-                                            <option value="true">Com Cadastro</option>
-                                            <option value="false">Sem Cadastro</option>
-                                        </Select>
+                                        <MultiSelect 
+                                            options={[
+                                                { label: 'Com Cadastro', value: 'true' },
+                                                { label: 'Sem Cadastro', value: 'false' }
+                                            ]}
+                                            selectedValues={filterTurnstile} 
+                                            onChange={setFilterTurnstile}
+                                            placeholder="Catraca"
+                                            className="!w-full h-11"
+                                        />
                                     )}
                                     {activeFilterType === 'agenda' && (
-                                        <Select className="!w-full h-11" value={filterAgenda} onChange={e => setFilterAgenda(e.target.value)}>
-                                            <option value="">Todos</option>
-                                            <option value="true">Com Agenda</option>
-                                            <option value="false">Sem Agenda</option>
-                                        </Select>
+                                        <MultiSelect 
+                                            options={[
+                                                { label: 'Com Agenda', value: 'true' },
+                                                { label: 'Sem Agenda', value: 'false' }
+                                            ]}
+                                            selectedValues={filterAgenda} 
+                                            onChange={setFilterAgenda}
+                                            placeholder="Agenda"
+                                            className="!w-full h-11"
+                                        />
                                     )}
                                 </div>
                             )}

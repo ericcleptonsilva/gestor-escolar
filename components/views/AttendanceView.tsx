@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CalendarCheck, CheckCircle2, XCircle, AlertCircle, Loader2, UploadCloud, RefreshCw, ChevronDown, Check, Search } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { PrintButton } from '@/components/features/PrintButton';
 import { AppState, Student, AttendanceStatus, User } from '@/types';
 import { SHIFTS_LIST } from '@/constants';
@@ -15,10 +16,10 @@ interface AttendanceViewProps {
     setAttendanceDate: (date: string) => void;
     selectedClass: string[];
     setSelectedClass: (cls: string[]) => void;
-    selectedShift: string;
-    setSelectedShift: (shift: string) => void;
-    filterAttendanceStatus: AttendanceStatus | '';
-    setFilterAttendanceStatus: (status: AttendanceStatus | '') => void;
+    selectedShift: string[];
+    setSelectedShift: (shift: string[]) => void;
+    filterAttendanceStatus: string[];
+    setFilterAttendanceStatus: (status: string[]) => void;
     visibleGradesList: string[];
     onPrint: () => void;
     onUpdateStatus: (studentId: string, status: AttendanceStatus) => void;
@@ -59,34 +60,7 @@ export const AttendanceView = ({
     currentUser
 }: AttendanceViewProps) => {
 
-    const [isGradeDropdownOpen, setIsGradeDropdownOpen] = useState(false);
-    const gradeDropdownRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
-                setIsGradeDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const toggleGradeFilter = (grade: string) => {
-        if (selectedClass.includes(grade)) {
-            setSelectedClass(selectedClass.filter(g => g !== grade));
-        } else {
-            setSelectedClass([...selectedClass, grade]);
-        }
-    };
-
-    const toggleAllGrades = () => {
-        if (selectedClass.length === visibleGradesList.length) {
-            setSelectedClass([]);
-        } else {
-            setSelectedClass([...visibleGradesList]);
-        }
-    };
+    const [showSyncSettings, setShowSyncSettings] = useState(false);
 
     const filteredStudents = (students || [])
         .filter(s => {
@@ -94,11 +68,11 @@ export const AttendanceView = ({
                 s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 s.registration.includes(searchTerm);
             const matchClass = selectedClass.length > 0 ? selectedClass.includes(s.grade) : true;
-            const matchShift = selectedShift === "" || s.shift === selectedShift;
+            const matchShift = selectedShift.length === 0 || selectedShift.includes(s.shift);
 
             const record = (attendance || []).find(a => a.studentId === s.id && a.date === attendanceDate);
             const currentStatus = record ? record.status : 'Present';
-            const matchStatus = filterAttendanceStatus === "" || currentStatus === filterAttendanceStatus;
+            const matchStatus = filterAttendanceStatus.length === 0 || filterAttendanceStatus.includes(currentStatus);
 
             return matchSearch && matchClass && matchShift && matchStatus;
         })
@@ -124,8 +98,6 @@ export const AttendanceView = ({
 
             return a.name.localeCompare(b.name);
         });
-
-    const [showSyncSettings, setShowSyncSettings] = useState(false);
 
     return (
         <div className="space-y-6">
@@ -243,60 +215,39 @@ export const AttendanceView = ({
                             </div>
                         </div>
 
-                        <div className="space-y-1 relative z-50" ref={gradeDropdownRef}>
+                        <div className="space-y-1 relative z-50">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Turma</label>
-
-                            <div
-                                className="h-11 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors"
-                                onClick={() => setIsGradeDropdownOpen(!isGradeDropdownOpen)}
-                            >
-                                <span className={`text-sm truncate ${selectedClass.length === 0 ? 'text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
-                                    {selectedClass.length === 0 ? 'Todas as Turmas' : `${selectedClass.length} turma(s) selecionada(s)`}
-                                </span>
-                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${isGradeDropdownOpen ? 'rotate-180' : ''}`} />
-                            </div>
-
-                            {isGradeDropdownOpen && (
-                                <div className="absolute z-50 top-[70px] left-0 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-64 overflow-y-auto no-print">
-                                    <div className="p-2 sticky top-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700">
-                                        <button
-                                            onClick={toggleAllGrades}
-                                            className="w-full text-left px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
-                                        >
-                                            {selectedClass.length === visibleGradesList.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
-                                        </button>
-                                    </div>
-                                    <div className="p-1">
-                                        {visibleGradesList.map(g => (
-                                            <label key={g} onClick={(e) => { e.preventDefault(); toggleGradeFilter(g); }} className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md cursor-pointer group">
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors ${selectedClass.includes(g)
-                                                    ? 'bg-indigo-500 border-indigo-500 text-white'
-                                                    : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
-                                                    }`}>
-                                                    {selectedClass.includes(g) && <Check size={12} strokeWidth={3} />}
-                                                </div>
-                                                <span className="text-sm text-slate-700 dark:text-slate-300">{g}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            <MultiSelect 
+                                options={visibleGradesList.map(g => ({ label: g, value: g }))}
+                                selectedValues={selectedClass} 
+                                onChange={setSelectedClass} 
+                                placeholder="Turma..."
+                                className="!w-full h-11"
+                            />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Turno</label>
-                            <Select value={selectedShift} onChange={e => setSelectedShift(e.target.value)} className="h-11">
-                                <option value="">Todos os Turnos</option>
-                                {SHIFTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                            </Select>
+                            <MultiSelect 
+                                options={SHIFTS_LIST.map(s => ({ label: s, value: s }))}
+                                selectedValues={selectedShift} 
+                                onChange={setSelectedShift} 
+                                placeholder="Todos os Turnos"
+                                className="!w-full h-11"
+                            />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Status</label>
-                            <Select value={filterAttendanceStatus} onChange={e => setFilterAttendanceStatus(e.target.value as AttendanceStatus | '')} className="h-11">
-                                <option value="">Todos os Status</option>
-                                <option value="Present">Presente</option>
-                                <option value="Absent">Falta</option>
-                                <option value="Excused">Justificado</option>
-                            </Select>
+                            <MultiSelect 
+                                options={[
+                                    { label: 'Presente', value: 'Present' },
+                                    { label: 'Falta', value: 'Absent' },
+                                    { label: 'Justificado', value: 'Excused' }
+                                ]}
+                                selectedValues={filterAttendanceStatus} 
+                                onChange={setFilterAttendanceStatus}
+                                placeholder="Todos os Status"
+                                className="!w-full h-11"
+                            />
                         </div>
                     </div>
                 </Card>
@@ -331,6 +282,7 @@ export const AttendanceView = ({
 };
 
 interface AttendanceCardProps {
+    key?: React.Key;
     student: Student;
     status: AttendanceStatus;
     observation: string;
