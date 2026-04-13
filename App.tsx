@@ -200,6 +200,7 @@ export default function App() {
 
   const [filterExamGrade, setFilterExamGrade] = useState<string[]>([]);
   const [filterExamShift, setFilterExamShift] = useState<string[]>([]);
+  const [filterExamPeriod, setFilterExamPeriod] = useState<string[]>([]);
 
   // --- EDITING STATES ---
   const [tempStudent, setTempStudent] = useState<Student>(createEmptyStudent());
@@ -1388,8 +1389,9 @@ export default function App() {
         if (!student) return false;
         const matchesGrade = filterExamGrade.length > 0 ? filterExamGrade.includes(student.grade) : true;
         const matchesShift = filterExamShift.length > 0 ? filterExamShift.includes(student.shift) : true;
+        const matchesPeriod = filterExamPeriod.length > 0 ? filterExamPeriod.includes(exam.period) : true;
         const isStudentVisible = getVisibleStudents.some(s => s.id === student.id);
-        return matchesGrade && matchesShift && isStudentVisible;
+        return matchesGrade && matchesShift && matchesPeriod && isStudentVisible;
       });
 
       // Group exams exactly like in ExamView
@@ -1962,6 +1964,8 @@ export default function App() {
               setFilterExamGrade={setFilterExamGrade}
               filterExamShift={filterExamShift}
               setFilterExamShift={setFilterExamShift}
+              filterExamPeriod={filterExamPeriod}
+              setFilterExamPeriod={setFilterExamPeriod}
               showSubjectCatalog={showSubjectCatalog}
               setShowSubjectCatalog={setShowSubjectCatalog}
               visibleGradesList={visibleGradesList}

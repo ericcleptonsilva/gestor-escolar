@@ -36,6 +36,8 @@ interface ExamViewProps {
     setFilterExamGrade: (grade: string[]) => void;
     filterExamShift: string[];
     setFilterExamShift: (shift: string[]) => void;
+    filterExamPeriod: string[];
+    setFilterExamPeriod: (period: string[]) => void;
     showSubjectCatalog: boolean;
     setShowSubjectCatalog: (show: boolean) => void;
     visibleGradesList: string[];
@@ -57,6 +59,7 @@ export const ExamView = ({
     newSubjectName, setNewSubjectName,
     filterExamGrade, setFilterExamGrade,
     filterExamShift, setFilterExamShift,
+    filterExamPeriod, setFilterExamPeriod,
     showSubjectCatalog, setShowSubjectCatalog,
     visibleGradesList,
     onPrint,
@@ -172,8 +175,9 @@ export const ExamView = ({
 
         const matchesGrade = filterExamGrade.length > 0 ? filterExamGrade.includes(student.grade) : true;
         const matchesShift = filterExamShift.length === 0 || filterExamShift.includes(student.shift);
+        const matchesPeriod = filterExamPeriod.length === 0 || filterExamPeriod.includes(exam.period);
 
-        return matchesGrade && matchesShift;
+        return matchesGrade && matchesShift && matchesPeriod;
     });
 
     return (
@@ -299,6 +303,13 @@ export const ExamView = ({
                                 selectedValues={filterExamShift} 
                                 onChange={setFilterExamShift} 
                                 placeholder="Todos os Turnos"
+                                className="!w-full h-11"
+                            />
+                            <MultiSelect 
+                                options={ACADEMIC_PERIODS.map(p => ({ label: p, value: p }))}
+                                selectedValues={filterExamPeriod} 
+                                onChange={setFilterExamPeriod} 
+                                placeholder="Todas as Etapas"
                                 className="!w-full h-11"
                             />
                         </div>
