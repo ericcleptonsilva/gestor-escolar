@@ -253,6 +253,12 @@ export const AttendanceView = ({
                 </Card>
             </div>
 
+            <div className="flex items-center px-1">
+                <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    Listando <span className="text-indigo-600 dark:text-indigo-400 font-bold">{filteredStudents.length}</span> {filteredStudents.length === 1 ? 'aluno' : 'alunos'}
+                </span>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredStudents.map(student => {
                     const record = (attendance || []).find(a => a.studentId === student.id && a.date === attendanceDate);
