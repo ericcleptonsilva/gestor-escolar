@@ -18,7 +18,8 @@ import {
   X,
   Settings,
   GraduationCap,
-  MessageCircle
+  MessageCircle,
+  CalendarDays
 } from 'lucide-react';
 
 import {
@@ -70,6 +71,7 @@ import { TeacherDetailView } from '@/components/views/TeacherDetailView';
 import { UserManagementView } from '@/components/views/UserManagementView';
 import { UserEditView } from '@/components/views/UserEditView';
 import { SoeView } from '@/components/views/SoeView';
+import { CalendarView } from '@/components/views/CalendarView';
 
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -118,7 +120,8 @@ const EMPTY_STATE: AppState = {
   grades: [],
   coordinationRecords: [],
   occurrences: [],
-  soeRecords: []
+  soeRecords: [],
+  calendarEvents: []
 };
 
 export default function App() {
@@ -1717,7 +1720,10 @@ export default function App() {
           <SidebarItem icon={Bot} label="Relatórios IA" active={view === 'reports'} onClick={() => { setView('reports'); setIsSidebarOpen(false); }} />
 
           {(currentUser.role === 'Admin' || currentUser.role === 'Coordinator') && (
-            <SidebarItem icon={GraduationCap} label="Coordenação" active={view === 'coordination'} onClick={() => { setView('coordination'); setIsSidebarOpen(false); }} />
+            <>
+              <SidebarItem icon={CalendarDays} label="Calendário" active={view === 'calendar'} onClick={() => { setView('calendar'); setIsSidebarOpen(false); }} />
+              <SidebarItem icon={GraduationCap} label="Coordenação" active={view === 'coordination'} onClick={() => { setView('coordination'); setIsSidebarOpen(false); }} />
+            </>
           )}
 
           {currentUser.role === 'Admin' && (
@@ -1984,6 +1990,13 @@ export default function App() {
               state={state}
               setState={setState}
               onPrint={handlePrint}
+            />
+          )}
+
+          {view === 'calendar' && (
+            <CalendarView
+              state={state}
+              setState={setState}
             />
           )}
 

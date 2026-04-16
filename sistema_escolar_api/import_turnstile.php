@@ -3,6 +3,64 @@ error_reporting(E_ERROR | E_PARSE);
 include_once 'logger.php';
 include 'db.php';
 
+function isBrazilianHoliday($dateStr) {
+    if (!$dateStr) return false;
+    $year = (int)date('Y', strtotime($dateStr));
+    $dateObj = new DateTime($dateStr);
+    $dateFormatted = $dateObj->format('m-d');
+
+    $fixedHolidays = [
+        '01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'
+    ];
+
+    if (in_array($dateFormatted, $fixedHolidays)) {
+        return true;
+    }
+
+    $a = $year % 19;
+    $b = floor($year / 100);
+    $c = $year % 100;
+    $d = floor($b / 4);
+    $e = $b % 4;
+    $f = floor(($b + 8) / 25);
+    $g = floor(($b - $f + 1) / 3);
+    $h = (19 * $a + $b - $d - $g + 15) % 30;
+    $i = floor($c / 4);
+    $k = $c % 4;
+    $l = (32 + 2 * $e + 2 * $i - $h - $k) % 7;
+    $m = floor(($a + 11 * $h + 22 * $l) / 451);
+    $month = floor(($h + $l - 7 * $m + 114) / 31);
+    $day = (($h + $l - 7 * $m + 114) % 31) + 1;
+    
+    $easterStr = sprintf("%04d-%02d-%02d", $year, $month, $day);
+    $easterObj = new DateTime($easterStr);
+
+    $goodFriday = clone $easterObj;
+    $goodFriday->modify('-2 days');
+
+    $carnival = clone $easterObj;
+    $carnival->modify('-47 days');
+
+    $carnivalMonday = clone $easterObj;
+    $carnivalMonday->modify('-48 days');
+
+    $corpusChristi = clone $easterObj;
+    $corpusChristi->modify('+60 days');
+
+    $movingHolidays = [
+        $goodFriday->format('m-d'),
+        $carnival->format('m-d'),
+        $carnivalMonday->format('m-d'),
+        $corpusChristi->format('m-d')
+    ];
+
+    if (in_array($dateFormatted, $movingHolidays)) {
+        return true;
+    }
+
+    return false;
+}
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
@@ -88,6 +146,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $teacherMap[(string)(int)$reg] = $teacher;
             }
         }
+    }
+
+    try {
+        $stmtC = $conn->query("SELECT date FROM school_calendar WHERE type IN ('Feriado', 'Imprensado', 'Recesso Escolar')");
+        $calendarEvents = $stmtC->fetchAll(PDO::FETCH_ASSOC);
+        $customHolidays = array_map(function($e) { return $e['date']; }, $calendarEvents);
+    } catch (PDOException $e) {
+        // Table might not exist yet, treat as empty
+        $customHolidays = [];
     }
 
     $processedCount = 0;
@@ -280,6 +347,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // --- AUTOMATIC ABSENCE LOGIC ---
     foreach ($shiftActivityByDate as $dateISO => $activity) {
+        $dayOfWeek = (int)date('w', strtotime($dateISO));
+        // Ignore automatic absences on Sundays (0) and explicitly holidays
+        if ($dayOfWeek == 0 || isBrazilianHoliday($dateISO) || in_array($dateISO, $customHolidays)) {
+            continue;
+        }
+
         $presentSet = $presentStudentsByDate[$dateISO] ?? [];
 
         foreach ($students as $student) {
@@ -461,6 +534,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     foreach ($shiftActivityByDate as $dateISO => $activity) {
         $dayOfWeekNum = (int)date('w', strtotime($dateISO));
+        if ($dayOfWeekNum == 0 || isBrazilianHoliday($dateISO) || in_array($dateISO, $customHolidays)) {
+            continue;
+        }
+        
         $dayName = $daysOfWeekMap[$dayOfWeekNum];
         $presentTeachers = $presentTeachersByDate[$dateISO] ?? [];
 

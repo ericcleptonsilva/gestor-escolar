@@ -160,6 +160,14 @@ export interface SoeRecord {
   observation?: string;
 }
 
+export interface SchoolCalendarEvent {
+  id: string;
+  date: string;
+  type: string;
+  description?: string;
+  created_at?: string;
+}
+
 export interface AppState {
   users: User[];
   students: Student[];
@@ -174,6 +182,7 @@ export interface AppState {
   coordinationRecords: CoordinationRecord[];
   occurrences: Occurrence[];
   soeRecords: SoeRecord[];
+  calendarEvents: SchoolCalendarEvent[];
 }
 
-export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination' | 'soe';
+export type ViewState = 'dashboard' | 'students' | 'attendance' | 'health' | 'exams' | 'reports' | 'users' | 'pedagogical' | 'coordination' | 'soe' | 'calendar';
