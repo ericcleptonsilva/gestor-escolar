@@ -103,7 +103,7 @@ export const AttendanceView = ({
         <div className="space-y-6">
             <div className="flex flex-col gap-4">
                 {/* Header Area */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center">
                         <CalendarCheck className="mr-3 text-indigo-600 dark:text-indigo-400" size={28} />
                         Frequência
