@@ -26,6 +26,19 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editingRecord, setEditingRecord] = useState<SoeRecord | null>(null);
+    const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (id: string) => {
+        setExpandedRecords(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
 
     const [formData, setFormData] = useState({
         studentId: '',
@@ -251,14 +264,22 @@ export const SoeView = ({ state, setState, onPrint }: SoeViewProps) => {
                                     <MessageCircle size={14} className="mr-1.5 opacity-70" />
                                     Motivo do Encaminhamento
                                 </div>
-                                <p className="text-sm text-slate-600 dark:text-slate-400 break-words line-clamp-2" title={record.reason}>
+                                <p className={`text-sm text-slate-600 dark:text-slate-400 break-words ${expandedRecords.has(record.id) ? '' : 'line-clamp-2'}`} title={record.reason}>
                                     {record.reason}
                                 </p>
                                 {record.observation && (
                                     <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Observações</div>
-                                         <p className="text-xs text-slate-500 dark:text-slate-500 italic line-clamp-2" title={record.observation}>{record.observation}</p>
+                                         <p className={`text-xs text-slate-500 dark:text-slate-500 italic ${expandedRecords.has(record.id) ? '' : 'line-clamp-2'}`} title={record.observation}>{record.observation}</p>
                                     </div>
+                                )}
+                                {(record.reason.length > 80 || (record.observation && record.observation.length > 80)) && (
+                                    <button 
+                                        onClick={() => toggleExpand(record.id)}
+                                        className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 hover:underline font-medium focus:outline-none"
+                                    >
+                                        {expandedRecords.has(record.id) ? 'Ver menos' : 'Ver mais'}
+                                    </button>
                                 )}
                             </div>
 
