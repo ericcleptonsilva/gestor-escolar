@@ -34,10 +34,21 @@ if ($method == 'POST') {
         $conn->exec("ALTER TABLE users ADD COLUMN classes TEXT"); // JSON array of TeacherClass
     }
 
-    $sql = "INSERT INTO users (id, name, email, password, role, photoUrl, allowedGrades, registration, classes)
-            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades, :registration, :classes)
+    try {
+        $conn->query("SELECT createdAt FROM users LIMIT 1");
+    } catch (PDOException $e) {
+        // Coluna createdAt não existe ainda – criar e preencher com a data atual para registros antigos
+        $conn->exec("ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT NULL");
+        $conn->exec("UPDATE users SET createdAt = NOW() WHERE createdAt IS NULL");
+    }
+
+    $isNew = empty($data['id']) || !$conn->query("SELECT id FROM users WHERE id = '{$data['id']}' LIMIT 1")->fetch();
+
+    $sql = "INSERT INTO users (id, name, email, password, role, photoUrl, allowedGrades, registration, classes, createdAt)
+            VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades, :registration, :classes, NOW())
             ON DUPLICATE KEY UPDATE
-            name=:name, email=:email, password=:password, role=:role, photoUrl=:photoUrl, allowedGrades=:allowedGrades, registration=:registration, classes=:classes";
+            name=:name, email=:email, password=:password, role=:role, photoUrl=:photoUrl, allowedGrades=:allowedGrades, registration=:registration, classes=:classes,
+            createdAt=COALESCE(createdAt, NOW())";
     $stmt = $conn->prepare($sql);
     $stmt->execute([
         ':id' => $data['id'],

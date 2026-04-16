@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt = $conn->query("SELECT id, registration, shift, turnstileRegistered, createdAt FROM students");
         $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmtT = $conn->query("SELECT id, name, registration, classes FROM users WHERE role = 'teacher'");
+        $stmtT = $conn->query("SELECT id, name, registration, classes, createdAt FROM users WHERE role = 'teacher'");
         $teachers = $stmtT->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -560,6 +560,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             if ($scheduledClassesCount == 0) continue;
 
+            // Não gerar falta antes da data de cadastro do professor no sistema
+            if (!empty($teacher['createdAt'])) {
+                $teacherCreatedDate = substr($teacher['createdAt'], 0, 10); // YYYY-MM-DD
+                if ($dateISO < $teacherCreatedDate) {
+                    continue; // Ignorar datas anteriores ao cadastro do professor
+                }
+            }
+
             $givenClasses = 0;
 
             if (isset($presentTeachers[$teacher['id']])) {
@@ -629,6 +637,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
+    // --- LIMPEZA DE FALTAS RETROATIVAS DE PROFESSORES ---
+    // Remove faltas geradas antes da data de cadastro do professor no sistema
+    $cleanedTeacherAbsences = 0;
+    try {
+        $cleanupTeacherSql = "DELETE cr FROM coordination_records cr
+                              JOIN users u ON cr.teacherId = u.id
+                              WHERE cr.type = 'TEACHER_ABSENCE'
+                                AND u.createdAt IS NOT NULL
+                                AND u.createdAt != ''
+                                AND cr.deliveryDate < DATE(u.createdAt)";
+        $stmtCleanupTeacher = $conn->prepare($cleanupTeacherSql);
+        $stmtCleanupTeacher->execute();
+        $cleanedTeacherAbsences = $stmtCleanupTeacher->rowCount();
+    } catch (PDOException $e) {
+        error_log("Erro ao limpar faltas retroativas de professores: " . $e->getMessage());
+    }
+
     echo json_encode([
         "success" => true,
         "processed" => $processedCount,
@@ -636,7 +661,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         "notFound" => $notFoundCount,
         "autoAbsences" => $autoAbsenceCount,
         "skippedDates" => $skippedDateCount,
-        "cleanedAbsences" => $cleanedAbsences
+        "cleanedAbsences" => $cleanedAbsences,
+        "cleanedTeacherAbsences" => $cleanedTeacherAbsences
     ]);
 
 } else {
