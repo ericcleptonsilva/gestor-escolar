@@ -1748,7 +1748,7 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 relative">
+      <main className="flex-1 relative min-w-0 max-w-full">
         {/* Topbar */}
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-between items-center print:hidden">
           <div className="flex items-center min-w-0">
