@@ -1,9 +1,9 @@
-import { 
-  AppState, 
-  Student, 
-  User, 
-  AttendanceRecord, 
-  MakeUpExam, 
+import {
+  AppState,
+  Student,
+  User,
+  AttendanceRecord,
+  MakeUpExam,
   HealthDocument,
   PedagogicalRecord,
   CoordinationRecord,
@@ -47,15 +47,15 @@ interface ApiService {
   // Students
   saveStudent(student: Student): Promise<Student>;
   deleteStudent(id: string): Promise<void>;
-  
+
   // Users
   saveUser(user: User): Promise<User>;
   deleteUser(id: string): Promise<void>;
-  
+
   // Attendance
   saveAttendance(record: AttendanceRecord): Promise<AttendanceRecord>;
   deleteAttendance(studentId: string, date: string): Promise<void>;
-  
+
   // Exams
   saveExam(exam: MakeUpExam): Promise<MakeUpExam>;
   deleteExam(id: string): Promise<void>;
@@ -100,119 +100,119 @@ interface ApiService {
 // --- HTTP IMPLEMENTATION (XAMPP ONLY) ---
 class HttpApi implements ApiService {
   private notifyStatus(status: 'online' | 'offline' | 'error') {
-      window.dispatchEvent(new CustomEvent('api-sync-status', { detail: { status } }));
+    window.dispatchEvent(new CustomEvent('api-sync-status', { detail: { status } }));
   }
 
   private async request(endpoint: string, method: string = 'GET', body?: any) {
     const headers: any = { 'Accept': 'application/json' };
     if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json; charset=utf-8';
-    
+
     const controller = new AbortController();
     // Increased timeout to 30s to handle larger file uploads and imports
     const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
+
     try {
-        const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-            method,
-            headers,
-            mode: 'cors',
-            body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+      const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
+        method,
+        headers,
+        mode: 'cors',
+        body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            this.notifyStatus('error');
-            throw new Error(`Erro do servidor (${response.status})`);
-        }
+      if (!response.ok) {
+        this.notifyStatus('error');
+        throw new Error(`Erro do servidor (${response.status})`);
+      }
 
-        const data = await response.json();
-        this.notifyStatus('online');
-        return data;
+      const data = await response.json();
+      this.notifyStatus('online');
+      return data;
     } catch (networkError: any) {
-        clearTimeout(timeoutId);
-        this.notifyStatus('offline');
-        const url = `${getApiBaseUrl()}${endpoint}`;
-        throw new Error(`Falha ao conectar ao servidor (${url}). Verifique se o XAMPP está rodando.`);
+      clearTimeout(timeoutId);
+      this.notifyStatus('offline');
+      const url = `${getApiBaseUrl()}${endpoint}`;
+      throw new Error(`Falha ao conectar ao servidor (${url}). Verifique se o XAMPP está rodando.`);
     }
   }
 
   async sync(): Promise<void> {
-      // In online mode, sync is just checking connection
-      try {
-          await this.request('/students.php?limit=1'); // Ping
-          this.notifyStatus('online');
-      } catch (e) {
-          this.notifyStatus('offline');
-          throw e;
-      }
+    // In online mode, sync is just checking connection
+    try {
+      await this.request('/students.php?limit=1'); // Ping
+      this.notifyStatus('online');
+    } catch (e) {
+      this.notifyStatus('offline');
+      throw e;
+    }
   }
 
   async uploadPhoto(file: File, type: 'student' | 'user', id: string): Promise<string> {
-      const formData = new FormData();
-      formData.append('photo', file);
-      formData.append('type', type);
-      formData.append('id', id);
-      const response = await this.request('/upload.php', 'POST', formData);
-      return response.url;
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('type', type);
+    formData.append('id', id);
+    const response = await this.request('/upload.php', 'POST', formData);
+    return response.url;
   }
 
   async loadAllData(): Promise<AppState> {
     try {
-        const [
-            students,
-            users,
-            attendance,
-            documents,
-            exams,
-            subjects,
-            pedagogicalRecords,
-            grades,
-            coordinationRecords,
-            occurrences,
-            soeRecords,
-            calendarEvents
-        ] = await Promise.all([
-            this.request('/students.php'),
-            this.request('/users.php'),
-            this.request('/attendance.php'),
-            this.request('/documents.php'),
-            this.request('/exams.php'),
-            this.request('/subjects.php'),
-            this.request('/pedagogical.php').catch(() => []),
-            this.request('/grades.php').catch(() => []),
-            this.request('/coordination.php').catch(() => []),
-            this.request('/occurrences.php').catch(() => []),
-            this.request('/soe.php').catch(() => []),
-            this.request('/calendar.php').catch(() => [])
-        ]);
+      const [
+        students,
+        users,
+        attendance,
+        documents,
+        exams,
+        subjects,
+        pedagogicalRecords,
+        grades,
+        coordinationRecords,
+        occurrences,
+        soeRecords,
+        calendarEvents
+      ] = await Promise.all([
+        this.request('/students.php'),
+        this.request('/users.php'),
+        this.request('/attendance.php'),
+        this.request('/documents.php'),
+        this.request('/exams.php'),
+        this.request('/subjects.php'),
+        this.request('/pedagogical.php').catch(() => []),
+        this.request('/grades.php').catch(() => []),
+        this.request('/coordination.php').catch(() => []),
+        this.request('/occurrences.php').catch(() => []),
+        this.request('/soe.php').catch(() => []),
+        this.request('/calendar.php').catch(() => [])
+      ]);
 
-        this.notifyStatus('online');
-        return {
-            students,
-            users,
-            attendance,
-            documents,
-            exams,
-            subjects,
-            pedagogicalRecords,
-            grades,
-            coordinationRecords,
-            occurrences,
-            soeRecords,
-            calendarEvents
-        };
+      this.notifyStatus('online');
+      return {
+        students,
+        users,
+        attendance,
+        documents,
+        exams,
+        subjects,
+        pedagogicalRecords,
+        grades,
+        coordinationRecords,
+        occurrences,
+        soeRecords,
+        calendarEvents
+      };
     } catch (e: any) {
-        this.notifyStatus('offline');
-        throw e;
+      this.notifyStatus('offline');
+      throw e;
     }
   }
 
   async login(email: string, password: string): Promise<User | null> {
     try {
-        return await this.request('/login.php', 'POST', { email, password });
+      return await this.request('/login.php', 'POST', { email, password });
     } catch {
-        return null;
+      return null;
     }
   }
 
@@ -257,23 +257,23 @@ class HttpApi implements ApiService {
   async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }
   async importAttendance(records: AttendanceRecord[]): Promise<any> { return this.request('/import_attendance.php', 'POST', records); }
   async importTurnstileFile(file: File, morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string): Promise<any> {
-      const formData = new FormData();
-      formData.append('file', file);
-      if (morningStart) formData.append('morning_start', morningStart);
-      if (morningEnd) formData.append('morning_end', morningEnd);
-      if (afternoonStart) formData.append('afternoon_start', afternoonStart);
-      if (afternoonEnd) formData.append('afternoon_end', afternoonEnd);
-      return this.request('/import_turnstile.php', 'POST', formData);
+    const formData = new FormData();
+    formData.append('file', file);
+    if (morningStart) formData.append('morning_start', morningStart);
+    if (morningEnd) formData.append('morning_end', morningEnd);
+    if (afternoonStart) formData.append('afternoon_start', afternoonStart);
+    if (afternoonEnd) formData.append('afternoon_end', afternoonEnd);
+    return this.request('/import_turnstile.php', 'POST', formData);
   }
 
   async importTurnstileFromLocal(morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string): Promise<any> {
-      const formData = new FormData();
-      formData.append('source', 'local');
-      if (morningStart) formData.append('morning_start', morningStart);
-      if (morningEnd) formData.append('morning_end', morningEnd);
-      if (afternoonStart) formData.append('afternoon_start', afternoonStart);
-      if (afternoonEnd) formData.append('afternoon_end', afternoonEnd);
-      return this.request('/import_turnstile.php', 'POST', formData);
+    const formData = new FormData();
+    formData.append('source', 'local');
+    if (morningStart) formData.append('morning_start', morningStart);
+    if (morningEnd) formData.append('morning_end', morningEnd);
+    if (afternoonStart) formData.append('afternoon_start', afternoonStart);
+    if (afternoonEnd) formData.append('afternoon_end', afternoonEnd);
+    return this.request('/import_turnstile.php', 'POST', formData);
   }
   async batchUploadPhotos(formData: FormData): Promise<any> { return this.request('/batch_upload.php', 'POST', formData); }
 

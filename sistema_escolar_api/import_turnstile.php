@@ -74,42 +74,58 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $filePath = '';
 
+    logSeparator('NOVA IMPORTAÇÃO');
+    logInfo('Requisição recebida', [
+        'ip'     => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido',
+        'source' => $_POST['source'] ?? 'upload',
+        'morning_start' => $_POST['morning_start'] ?? null,
+        'morning_end'   => $_POST['morning_end'] ?? null,
+        'afternoon_start' => $_POST['afternoon_start'] ?? null,
+        'afternoon_end'   => $_POST['afternoon_end'] ?? null,
+    ]);
+
     // Check if we are reading from local file path or upload
     if (isset($_POST['source']) && $_POST['source'] === 'local') {
         // Windows Path (Double backslashes for escaping)
         $localPath = 'C:\\SIETEX\\Portaria\\TopData.txt';
+        logInfo('Modo LOCAL — tentando abrir arquivo', ['path' => $localPath]);
 
         if (!file_exists($localPath)) {
-            // Fallback for testing/dev environments (optional, but good for debugging if C: doesn't exist)
-            // $localPath = 'TopData.txt';
-
-            if (!file_exists($localPath)) {
-                http_response_code(404);
-                echo json_encode(["error" => "Arquivo local não encontrado: $localPath"]);
-                exit();
-            }
+            logError('Arquivo local NÃO encontrado', ['path' => $localPath]);
+            http_response_code(404);
+            echo json_encode(["error" => "Arquivo local não encontrado: $localPath"]);
+            exit();
         }
+        logInfo('Arquivo local encontrado', ['size_bytes' => filesize($localPath)]);
         $filePath = $localPath;
     } else {
         // Default: File Upload
+        $uploadError = $_FILES['file']['error'] ?? 'SEM_ARQUIVO';
+        logInfo('Modo UPLOAD', ['error_code' => $uploadError, 'name' => $_FILES['file']['name'] ?? null, 'size' => $_FILES['file']['size'] ?? null]);
+
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            logError('Falha no upload do arquivo', ['code' => $uploadError]);
             http_response_code(400);
-            echo json_encode(["error" => "Nenhum arquivo enviado ou erro no upload."]);
+            echo json_encode(["error" => "Nenhum arquivo enviado ou erro no upload. Código: $uploadError"]);
             exit();
         }
         $filePath = $_FILES['file']['tmp_name'];
+        logInfo('Upload recebido com sucesso', ['tmp_name' => $filePath]);
     }
 
     // Set script execution time limit to 5 minutes to allow for large files
     set_time_limit(300);
+    logInfo('Limite de execução: 300s');
 
     // Open file handle for line-by-line reading (memory efficient)
     $handle = fopen($filePath, "r");
     if (!$handle) {
+        logError('Falha ao abrir arquivo', ['path' => $filePath]);
         http_response_code(500);
         echo json_encode(["error" => "Falha ao abrir arquivo: $filePath"]);
         exit();
     }
+    logInfo('Arquivo aberto com sucesso');
 
     // 1. Fetch All Students and Teachers for Lookup
     try {
@@ -118,7 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $stmtT = $conn->query("SELECT id, name, registration, classes, createdAt FROM users WHERE role = 'teacher'");
         $teachers = $stmtT->fetchAll(PDO::FETCH_ASSOC);
+        logInfo('Banco de dados consultado', ['alunos' => count($students), 'professores' => count($teachers)]);
     } catch (PDOException $e) {
+        logError('Erro ao consultar banco de dados', ['msg' => $e->getMessage()]);
         http_response_code(500);
         echo json_encode(["error" => "Database error fetching data: " . $e->getMessage()]);
         exit();
@@ -344,6 +362,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     fclose($handle);
+    logInfo('Leitura do arquivo concluída', [
+        'linhas_processadas' => $processedCount,
+        'presencas'  => $successCount,
+        'nao_encontrados' => $notFoundCount,
+        'datas_distintas' => count($shiftActivityByDate),
+    ]);
 
     // --- AUTOMATIC ABSENCE LOGIC ---
     foreach ($shiftActivityByDate as $dateISO => $activity) {
@@ -496,11 +520,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         } catch (PDOException $e) {
             $conn->rollBack();
+            logError('Falha na transação do banco', ['msg' => $e->getMessage()]);
             http_response_code(500);
             echo json_encode(["error" => "Database Transaction Failed: " . $e->getMessage()]);
             exit();
         }
     }
+    logInfo('Registros salvos no banco', ['presencas' => count($presentRecords ?? []), 'faltas' => count($absentRecords ?? [])]);
 
     // --- LÓGICA DE LIMPEZA DE FALTAS ANTERIORES À MATRÍCULA ---
     // Limpa faltas que foram geradas para alunos antes da sua data de matrícula no sistema
@@ -654,6 +680,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         error_log("Erro ao limpar faltas retroativas de professores: " . $e->getMessage());
     }
 
+    logInfo('Importação finalizada', [
+        'processados'    => $processedCount,
+        'inseridos'      => $successCount,
+        'nao_encontrados' => $notFoundCount,
+        'faltas_auto'    => $autoAbsenceCount,
+        'faltas_limpas'  => $cleanedAbsences,
+        'faltas_prof_limpas' => $cleanedTeacherAbsences,
+    ]);
+
     echo json_encode([
         "success" => true,
         "processed" => $processedCount,
@@ -666,6 +701,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     ]);
 
 } else {
+    logWarning('Método não permitido', ['method' => $_SERVER['REQUEST_METHOD']]);
     http_response_code(405);
     echo json_encode(["error" => "Método não permitido."]);
 }
