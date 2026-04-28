@@ -289,7 +289,7 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
     };
 
     const handleSaveRecord = async () => {
-        if (!recordForm.teacherId) {
+        if (!recordForm.teacherId && (!isChecklist || checkedTeachers.length === 0)) {
             alert("Selecione um professor.");
             return;
         }
@@ -1145,7 +1145,7 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                         <div className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">Professores</label>
-                                {!editingRecord ? (
+                                {!editingRecord && isChecklist ? (
                                     <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 max-h-40 overflow-y-auto space-y-1 custom-scrollbar">
                                         {teachers.map(t => (
                                             <label key={t.id} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer transition-colors group">

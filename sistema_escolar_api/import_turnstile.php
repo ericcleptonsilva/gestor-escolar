@@ -578,7 +578,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (isset($cls['schedules']) && is_array($cls['schedules'])) {
                     foreach ($cls['schedules'] as $sch) {
                         if ($sch['dayOfWeek'] === $dayName) {
-                            $scheduledClassesCount++;
+                            if (isset($sch['periods']) && is_array($sch['periods'])) {
+                                $scheduledClassesCount += count($sch['periods']);
+                            } else {
+                                $scheduledClassesCount++;
+                            }
                         }
                     }
                 }
@@ -589,8 +593,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Não gerar falta antes da data de cadastro do professor no sistema
             if (!empty($teacher['createdAt'])) {
                 $teacherCreatedDate = substr($teacher['createdAt'], 0, 10); // YYYY-MM-DD
-                if ($dateISO < $teacherCreatedDate) {
-                    continue; // Ignorar datas anteriores ao cadastro do professor
+                // IGNORAR a data da migração (2026-03-30) pois todos os professores antigos receberam ela:
+                if ($teacherCreatedDate !== '2026-03-30') {
+                    if ($dateISO < $teacherCreatedDate) {
+                        continue; // Ignorar datas anteriores ao cadastro do professor
+                    }
                 }
             }
 
@@ -672,6 +679,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                               WHERE cr.type = 'TEACHER_ABSENCE'
                                 AND u.createdAt IS NOT NULL
                                 AND u.createdAt != ''
+                                AND DATE(u.createdAt) != '2026-03-30'
                                 AND cr.deliveryDate < DATE(u.createdAt)";
         $stmtCleanupTeacher = $conn->prepare($cleanupTeacherSql);
         $stmtCleanupTeacher->execute();
