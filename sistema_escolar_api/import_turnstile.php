@@ -278,26 +278,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mins = $timeInt % 100;
         $totalMins = ($hours * 60) + $mins;
 
-        // Mark present
-        if ($isTeacher) {
-            if (!isset($presentTeachersByDate[$dateISO])) $presentTeachersByDate[$dateISO] = [];
-            if (!isset($presentTeachersByDate[$dateISO][$target['id']])) {
-                $presentTeachersByDate[$dateISO][$target['id']] = [];
-            }
-            $presentTeachersByDate[$dateISO][$target['id']][] = $totalMins;
-        } else {
-            $presentStudentsByDate[$dateISO][$target['id']] = true;
-        }
-
-        // Determine Shift Activity from Time
-        // HHMM or HH:MM
-        $cleanTime = str_replace(':', '', $timeRaw);
-        $timeInt = (int)$cleanTime;
-
         // Apply Time Filter (if set)
         // We only process the record if it falls within EITHER the morning range OR the afternoon range.
         // If NO filters are set, we process everything.
-
         $inMorningRange = false;
         $inAfternoonRange = false;
 
@@ -316,6 +299,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Skip if filters exist but record doesn't match any
         if (($hasMorningFilter || $hasAfternoonFilter) && !$inMorningRange && !$inAfternoonRange) {
             continue;
+        }
+
+        // Mark present (only if it passed the filter!)
+        if ($isTeacher) {
+            if (!isset($presentTeachersByDate[$dateISO])) $presentTeachersByDate[$dateISO] = [];
+            if (!isset($presentTeachersByDate[$dateISO][$target['id']])) {
+                $presentTeachersByDate[$dateISO][$target['id']] = [];
+            }
+            $presentTeachersByDate[$dateISO][$target['id']][] = $totalMins;
+        } else {
+            $presentStudentsByDate[$dateISO][$target['id']] = true;
         }
 
         // Determine Shift Activity
@@ -575,6 +569,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Total de aulas que ele deveria dar no dia
             $scheduledClassesCount = 0;
             foreach ($classes as $cls) {
+                $classShift = mb_strtolower(trim($cls['shift'] ?? ''), 'UTF-8');
+                $isMorningClass = ($classShift === 'manhã' || $classShift === 'manha');
+                $isAfternoonClass = ($classShift === 'tarde' || $classShift === 'vespertino');
+
+                $countThisClass = true;
+                if ($hasMorningFilter || $hasAfternoonFilter) {
+                    $countThisClass = false;
+                    if ($hasMorningFilter && $isMorningClass) $countThisClass = true;
+                    if ($hasAfternoonFilter && $isAfternoonClass) $countThisClass = true;
+                }
+
+                if (!$countThisClass) continue;
+
                 if (isset($cls['schedules']) && is_array($cls['schedules'])) {
                     foreach ($cls['schedules'] as $sch) {
                         if ($sch['dayOfWeek'] === $dayName) {
@@ -611,7 +618,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $lastPunch = $punches[count($punches) - 1];
 
                 if (count($punches) == 1) {
-                    $givenClasses = 1; // Pelo menos 1 aula
+                    // Se o professor passou apenas 1 vez (entrada), consideramos que ele deu todas as aulas programadas para o turno
+                    $givenClasses = $scheduledClassesCount;
                 } else {
                     $durationMins = $lastPunch - $firstPunch;
                     // Desconta 60 mins de almoço se ficou mais de 6 hrs
