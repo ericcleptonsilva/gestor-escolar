@@ -89,8 +89,8 @@ interface ApiService {
   // Imports
   importStudents(students: Student[]): Promise<any>;
   importAttendance(records: AttendanceRecord[]): Promise<any>;
-  importTurnstileFile(file: File, morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string): Promise<any>;
-  importTurnstileFromLocal(morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string): Promise<any>;
+  importTurnstileFile(file: File, morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string, importDate?: string): Promise<any>;
+  importTurnstileFromLocal(morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string, importDate?: string): Promise<any>;
   batchUploadPhotos(formData: FormData): Promise<any>;
 
   // System
@@ -256,23 +256,25 @@ class HttpApi implements ApiService {
   // Imports
   async importStudents(students: Student[]): Promise<any> { return this.request('/import_students.php', 'POST', students); }
   async importAttendance(records: AttendanceRecord[]): Promise<any> { return this.request('/import_attendance.php', 'POST', records); }
-  async importTurnstileFile(file: File, morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string): Promise<any> {
+  async importTurnstileFile(file: File, morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string, importDate?: string): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
     if (morningStart) formData.append('morning_start', morningStart);
     if (morningEnd) formData.append('morning_end', morningEnd);
     if (afternoonStart) formData.append('afternoon_start', afternoonStart);
     if (afternoonEnd) formData.append('afternoon_end', afternoonEnd);
+    if (importDate) formData.append('import_date', importDate);
     return this.request('/import_turnstile.php', 'POST', formData);
   }
 
-  async importTurnstileFromLocal(morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string): Promise<any> {
+  async importTurnstileFromLocal(morningStart?: string, morningEnd?: string, afternoonStart?: string, afternoonEnd?: string, importDate?: string): Promise<any> {
     const formData = new FormData();
     formData.append('source', 'local');
     if (morningStart) formData.append('morning_start', morningStart);
     if (morningEnd) formData.append('morning_end', morningEnd);
     if (afternoonStart) formData.append('afternoon_start', afternoonStart);
     if (afternoonEnd) formData.append('afternoon_end', afternoonEnd);
+    if (importDate) formData.append('import_date', importDate);
     return this.request('/import_turnstile.php', 'POST', formData);
   }
   async batchUploadPhotos(formData: FormData): Promise<any> { return this.request('/batch_upload.php', 'POST', formData); }

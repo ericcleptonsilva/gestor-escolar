@@ -1161,7 +1161,7 @@ export default function App() {
     setIsImportingTurnstile(true);
 
     try {
-      const result = await api.importTurnstileFile(file, importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
+      const result = await api.importTurnstileFile(file, importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd, attendanceDate);
       processTurnstileImportResult(result);
 
       // Refresh data to show changes
@@ -1180,7 +1180,7 @@ export default function App() {
   const handleImportTurnstileLocal = async () => {
     setIsImportingTurnstile(true);
     try {
-      const result = await api.importTurnstileFromLocal(importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd);
+      const result = await api.importTurnstileFromLocal(importMorningStart, importMorningEnd, importAfternoonStart, importAfternoonEnd, attendanceDate);
       processTurnstileImportResult(result);
 
       // Refresh data to show changes

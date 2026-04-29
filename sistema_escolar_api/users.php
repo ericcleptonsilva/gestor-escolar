@@ -42,7 +42,29 @@ if ($method == 'POST') {
         $conn->exec("UPDATE users SET createdAt = NOW() WHERE createdAt IS NULL");
     }
 
+    try {
+        $conn->query("SELECT 1 FROM teacher_schedule_history LIMIT 1");
+    } catch (PDOException $e) {
+        $conn->exec("CREATE TABLE teacher_schedule_history (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            teacherId VARCHAR(255) NOT NULL,
+            classes TEXT,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_teacher_date (teacherId, createdAt)
+        )");
+    }
+
     $isNew = empty($data['id']) || !$conn->query("SELECT id FROM users WHERE id = '{$data['id']}' LIMIT 1")->fetch();
+
+    $oldClasses = null;
+    if (!$isNew && $data['role'] === 'Teacher') {
+        $stmtOld = $conn->prepare("SELECT classes FROM users WHERE id = :id");
+        $stmtOld->execute([':id' => $data['id']]);
+        $row = $stmtOld->fetch();
+        if ($row) {
+            $oldClasses = $row['classes'];
+        }
+    }
 
     $sql = "INSERT INTO users (id, name, email, password, role, photoUrl, allowedGrades, registration, classes, createdAt)
             VALUES (:id, :name, :email, :password, :role, :photoUrl, :allowedGrades, :registration, :classes, NOW())
@@ -61,6 +83,19 @@ if ($method == 'POST') {
         ':registration' => $data['registration'] ?? '',
         ':classes' => json_encode($data['classes'] ?? [])
     ]);
+
+    // Handle Teacher Schedule History
+    if ($data['role'] === 'Teacher') {
+        $newClassesStr = json_encode($data['classes'] ?? []);
+        if ($isNew || $newClassesStr !== $oldClasses) {
+            $stmtHist = $conn->prepare("INSERT INTO teacher_schedule_history (teacherId, classes, createdAt) VALUES (:tid, :classes, NOW())");
+            $stmtHist->execute([
+                ':tid' => $data['id'],
+                ':classes' => $newClassesStr
+            ]);
+        }
+    }
+
     echo json_encode($data);
 }
 

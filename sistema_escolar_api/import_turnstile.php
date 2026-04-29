@@ -263,6 +263,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         if (!$dateISO) continue;
 
+        // Filtro opcional: importar apenas os registros que correspondem à data selecionada no painel
+        if (!empty($_POST['import_date']) && $dateISO !== $_POST['import_date']) {
+            continue;
+        }
+
         // Initialize tracking for this date
         if (!isset($presentStudentsByDate[$dateISO])) {
             $presentStudentsByDate[$dateISO] = []; // Use array as set
@@ -563,6 +568,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         foreach ($teachers as $teacher) {
             $classesStr = $teacher['classes'] ?? '[]';
+
+            // Lógica de Histórico: buscar a grade que estava valendo na data da catraca
+            try {
+                $histStmt = $conn->prepare("SELECT classes FROM teacher_schedule_history WHERE teacherId = :tid AND createdAt <= :d ORDER BY createdAt DESC LIMIT 1");
+                $histStmt->execute([':tid' => $teacher['id'], ':d' => $dateISO . ' 23:59:59']);
+                $histRow = $histStmt->fetch();
+                if ($histRow && !empty($histRow['classes'])) {
+                    $classesStr = $histRow['classes'];
+                }
+            } catch (PDOException $e) {
+                // Silencioso. Se a tabela não existir ou der erro, usa a grade atual.
+            }
+
             $classes = json_decode($classesStr, true);
             if (!$classes || !is_array($classes)) continue;
 
@@ -580,8 +598,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $isMorningClass = ($classShift === 'manhã' || $classShift === 'manha');
                     $isAfternoonClass = ($classShift === 'tarde' || $classShift === 'vespertino');
                     
-                    if ($hasMorningFilter && $isMorningClass) $countThisClass = true;
-                    if ($hasAfternoonFilter && $isAfternoonClass) $countThisClass = true;
+                    if (!$hasMorningFilter && !$hasAfternoonFilter) {
+                        // Se não tem nenhum filtro definido, processa a turma independente do turno
+                        $countThisClass = true;
+                    } else {
+                        if ($hasMorningFilter && $isMorningClass) $countThisClass = true;
+                        if ($hasAfternoonFilter && $isAfternoonClass) $countThisClass = true;
+                    }
                 }
 
                 if (!$countThisClass) continue;
