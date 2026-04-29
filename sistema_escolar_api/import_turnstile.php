@@ -568,14 +568,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             // Total de aulas que ele deveria dar no dia
             $scheduledClassesCount = 0;
-            foreach ($classes as $cls) {
-                $classShift = mb_strtolower(trim($cls['shift'] ?? ''), 'UTF-8');
-                $isMorningClass = ($classShift === 'manhã' || $classShift === 'manha');
-                $isAfternoonClass = ($classShift === 'tarde' || $classShift === 'vespertino');
+            $todaysSchedule = [];
 
-                $countThisClass = true;
-                if ($hasMorningFilter || $hasAfternoonFilter) {
-                    $countThisClass = false;
+            foreach ($classes as $cls) {
+                // Checa se a turma tem aulas no período de filtro (Manhã / Tarde)
+                $countThisClass = false;
+                if (!isset($cls['shift']) || $cls['shift'] == '') {
+                    $countThisClass = true; 
+                } else {
+                    $classShift = mb_strtolower(trim($cls['shift']), 'UTF-8');
+                    $isMorningClass = ($classShift === 'manhã' || $classShift === 'manha');
+                    $isAfternoonClass = ($classShift === 'tarde' || $classShift === 'vespertino');
+                    
                     if ($hasMorningFilter && $isMorningClass) $countThisClass = true;
                     if ($hasAfternoonFilter && $isAfternoonClass) $countThisClass = true;
                 }
@@ -585,10 +589,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (isset($cls['schedules']) && is_array($cls['schedules'])) {
                     foreach ($cls['schedules'] as $sch) {
                         if ($sch['dayOfWeek'] === $dayName) {
+                            $scheduleEntry = [
+                                'grade' => $cls['grade'],
+                                'subject' => $cls['subject'],
+                                'startTime' => isset($sch['startTime']) ? $sch['startTime'] : '',
+                                'endTime' => isset($sch['endTime']) ? $sch['endTime'] : ''
+                            ];
+                            
                             if (isset($sch['periods']) && is_array($sch['periods'])) {
                                 $scheduledClassesCount += count($sch['periods']);
+                                for($i=0; $i<count($sch['periods']); $i++){
+                                    $todaysSchedule[] = $scheduleEntry;
+                                }
                             } else {
                                 $scheduledClassesCount++;
+                                $todaysSchedule[] = $scheduleEntry;
                             }
                         }
                     }
@@ -596,6 +611,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             if ($scheduledClassesCount == 0) continue;
+
+            usort($todaysSchedule, function($a, $b) {
+                return strcmp($a['startTime'], $b['startTime']);
+            });
 
             // Não gerar falta antes da data de cadastro do professor no sistema
             if (!empty($teacher['createdAt'])) {
@@ -609,15 +628,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             $givenClasses = 0;
+            $teacherPunches = [];
 
             if (isset($presentTeachers[$teacher['id']])) {
-                $punches = $presentTeachers[$teacher['id']];
-                sort($punches);
+                $teacherPunches = $presentTeachers[$teacher['id']];
+                sort($teacherPunches);
 
-                $firstPunch = $punches[0];
-                $lastPunch = $punches[count($punches) - 1];
+                $firstPunch = $teacherPunches[0];
+                $lastPunch = $teacherPunches[count($teacherPunches) - 1];
 
-                if (count($punches) == 1) {
+                if (count($teacherPunches) == 1) {
                     // Se o professor passou apenas 1 vez (entrada), consideramos que ele deu todas as aulas programadas para o turno
                     $givenClasses = $scheduledClassesCount;
                 } else {
@@ -650,6 +670,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     "scheduled" => $scheduledClassesCount,
                     "given" => $givenClasses,
                     "missed" => $missedClasses,
+                    "schedule" => $todaysSchedule,
+                    "punchTimes" => $teacherPunches,
                     "manualOverride" => false // Flag para o Frontend saber se foi editado
                 ];
                 $obsJson = json_encode($obsData, JSON_UNESCAPED_UNICODE);

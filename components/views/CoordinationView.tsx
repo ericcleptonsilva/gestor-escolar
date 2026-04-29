@@ -69,6 +69,7 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
     const [checkedPeriods, setCheckedPeriods] = useState<string[]>([]);
     const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
     const [groupBy, setGroupBy] = useState<'teacher' | 'grade' | 'none'>('none');
+    const [selectedAbsenceDetails, setSelectedAbsenceDetails] = useState<any>(null);
 
     // --- HANDLERS: Config ---
     const handleAddGrade = async () => {
@@ -424,7 +425,7 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
             <thead>
               <tr>
                 <th>Professor</th>
-                ${type === 'DRIVE_UPDATE' ? '<th>Série/Turno</th><th>Semana</th><th>Concluído</th>' : '<th>Prazo</th><th>Entrega</th>'}
+                ${type === 'DRIVE_UPDATE' ? '<th>Série/Turno</th><th>Semana</th><th>Concluído</th>' : type === 'TEACHER_ABSENCE' ? '<th>Data da Falta</th><th>Aulas</th>' : '<th>Prazo</th><th>Entrega</th>'}
                 ${type === 'REPORT_MONITORING' ? '<th>Bimestre</th>' : ''}
                 ${type === 'EXAM_DELIVERY' || type === 'PLAN_DELIVERY' ? '<th>Série</th><th>Disciplina</th>' : ''}
                 <th>Status</th>
@@ -445,6 +446,17 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                   <td>${r.teacherName}</td>
                   ${type === 'DRIVE_UPDATE'
                 ? `<td>${r.grade || '-'} / ${r.shift || '-'}</td><td>${r.weekDate ? new Date(r.weekDate).toLocaleDateString('pt-BR') : '-'}</td><td>${r.isCompleted ? 'Sim' : 'Não'}</td>`
+                : type === 'TEACHER_ABSENCE'
+                ? `<td>${r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR') : '-'}</td><td>${(() => {
+                    if (!r.observation) return '-';
+                    try {
+                        const parsed = JSON.parse(r.observation);
+                        if (parsed && typeof parsed.scheduled !== 'undefined') {
+                            return `Previstas: ${parsed.scheduled} <br> Dadas: ${parsed.given} <br> Faltas: ${parsed.missed}`;
+                        }
+                    } catch(e) {}
+                    return '-';
+                })()}</td>`
                 : `<td>${r.deadline ? new Date(r.deadline).toLocaleDateString('pt-BR') : '-'}</td><td>${r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR') : '-'}</td>`
             }
                   ${type === 'REPORT_MONITORING' ? `<td>${r.period || '-'}</td>` : ''}
@@ -602,7 +614,10 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                                     <th className="px-4 py-3">Concluído</th>
                                 </>
                             ) : type === 'TEACHER_ABSENCE' ? (
-                                <th className="px-4 py-3">Data da Falta</th>
+                                <>
+                                    <th className="px-4 py-3">Data da Falta</th>
+                                    <th className="px-4 py-3">Aulas</th>
+                                </>
                             ) : (
                                 <>
                                     <th className="px-4 py-3">Prazo</th>
@@ -669,9 +684,37 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                                                     </td>
                                                 </>
                                             ) : type === 'TEACHER_ABSENCE' ? (
-                                                <td className="px-4 py-3 text-slate-700 font-bold">
-                                                    {r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
-                                                </td>
+                                                <>
+                                                    <td className="px-4 py-3 text-slate-700 font-bold">
+                                                        {r.deliveryDate ? new Date(r.deliveryDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {(() => {
+                                                            if (!r.observation) return <span className="text-slate-400 italic text-xs">-</span>;
+                                                            try {
+                                                                const parsed = JSON.parse(r.observation);
+                                                                if (parsed && typeof parsed.scheduled !== 'undefined') {
+                                                                    return (
+                                                                        <div className="flex flex-col gap-0.5 text-[11px]">
+                                                                            <span className="text-slate-600 dark:text-slate-400">Previstas: <strong>{parsed.scheduled}</strong></span>
+                                                                            <span className="text-green-600 dark:text-green-400">Dadas: <strong>{parsed.given}</strong></span>
+                                                                            <span className="text-red-600 dark:text-red-400">Faltas: <strong>{parsed.missed}</strong></span>
+                                                                            {(parsed.schedule && parsed.schedule.length > 0) && (
+                                                                                <button 
+                                                                                    onClick={() => setSelectedAbsenceDetails(parsed)}
+                                                                                    className="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold mt-1 text-left uppercase"
+                                                                                >
+                                                                                    Ver Detalhes
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                            } catch(e) {}
+                                                            return <span className="text-slate-400 italic text-[11px] block max-w-[150px] truncate" title={r.observation}>{r.observation}</span>;
+                                                        })()}
+                                                    </td>
+                                                </>
                                             ) : (
                                                 <>
                                                     <td className="px-4 py-3 text-slate-500">{r.deadline ? new Date(r.deadline).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
@@ -1451,6 +1494,56 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                             })()}
 
                             <Button className="w-full" onClick={handleSaveRecord}>Salvar Registro</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* --- MODAL: ABSENCE DETAILS --- */}
+            {selectedAbsenceDetails && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold">Detalhes do Dia</h3>
+                            <button onClick={() => setSelectedAbsenceDetails(null)}><X size={20} className="text-slate-400 hover:text-slate-600" /></button>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Batidas na Catraca</h4>
+                                {selectedAbsenceDetails.punchTimes && selectedAbsenceDetails.punchTimes.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedAbsenceDetails.punchTimes.map((p: number, i: number) => {
+                                            const timeString = new Date(p * 60000).toISOString().substring(11, 16);
+                                            return (
+                                                <span key={i} className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                    {timeString}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-slate-400 italic">Nenhuma batida registrada no turno.</span>
+                                )}
+                            </div>
+
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Grade do Dia</h4>
+                                <div className="space-y-2">
+                                    {selectedAbsenceDetails.schedule && selectedAbsenceDetails.schedule.map((cls: any, i: number) => (
+                                        <div key={i} className="flex justify-between items-center p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                                            <div>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">{cls.subject}</span>
+                                                <span className="text-[10px] text-slate-500 font-medium uppercase">{cls.grade}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded">
+                                                    {cls.startTime} - {cls.endTime}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
