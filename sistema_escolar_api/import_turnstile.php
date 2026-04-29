@@ -616,16 +616,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 return strcmp($a['startTime'], $b['startTime']);
             });
 
-            // Não gerar falta antes da data de cadastro do professor no sistema
-            if (!empty($teacher['createdAt'])) {
-                $teacherCreatedDate = substr($teacher['createdAt'], 0, 10); // YYYY-MM-DD
-                // IGNORAR a data da migração (2026-03-30) pois todos os professores antigos receberam ela:
-                if ($teacherCreatedDate !== '2026-03-30') {
-                    if ($dateISO < $teacherCreatedDate) {
-                        continue; // Ignorar datas anteriores ao cadastro do professor
-                    }
-                }
-            }
+            // Removido o bloqueio de data de criação para professores (eles podem ter começado a dar aula antes de serem registrados no sistema)
 
             $givenClasses = 0;
             $teacherPunches = [];
