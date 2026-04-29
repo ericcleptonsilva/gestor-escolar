@@ -15,7 +15,8 @@ import {
     Settings,
     BookOpen,
     GraduationCap,
-    Printer
+    Printer,
+    Clock
 } from 'lucide-react';
 import { AppState, User as UserType, CoordinationRecord, CoordinationType, TeacherClass, Shift } from '@/types';
 import { api } from '@/services/api';
@@ -70,7 +71,9 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
     const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
     const [groupBy, setGroupBy] = useState<'teacher' | 'grade' | 'none'>('none');
     const [selectedAbsenceDetails, setSelectedAbsenceDetails] = useState<any>(null);
-
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [teacherHistory, setTeacherHistory] = useState<any[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     // --- HANDLERS: Config ---
     const handleAddGrade = async () => {
         if (!newGrade) return;
@@ -128,6 +131,20 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
         setTeacherSubjectsChecked([]);
         setTeacherShiftsChecked([]);
         setIsTeacherModalOpen(true);
+    };
+
+    const handleViewTeacherHistory = async (teacherId: string) => {
+        setIsLoadingHistory(true);
+        setIsHistoryModalOpen(true);
+        try {
+            const history = await api.getTeacherHistory(teacherId);
+            setTeacherHistory(history);
+        } catch (error) {
+            console.error("Erro ao carregar histórico", error);
+            alert("Erro ao carregar o histórico de horários.");
+        } finally {
+            setIsLoadingHistory(false);
+        }
     };
 
     const handleAddTeacherClass = () => {
@@ -1001,7 +1018,14 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold">{editingTeacher ? 'Editar Professor' : 'Novo Professor'}</h3>
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-lg font-bold">{editingTeacher ? 'Editar Professor' : 'Novo Professor'}</h3>
+                                {editingTeacher && (
+                                    <Button size="sm" variant="outline" onClick={() => handleViewTeacherHistory(editingTeacher.id)} className="flex items-center gap-1 text-xs px-2 py-1 h-auto">
+                                        <Clock size={14} /> Ver Histórico
+                                    </Button>
+                                )}
+                            </div>
                             <button onClick={() => setIsTeacherModalOpen(false)}><X size={20} className="text-slate-400 hover:text-slate-600" /></button>
                         </div>
                         <div className="space-y-4">
@@ -1544,6 +1568,78 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* --- MODAL: TEACHER HISTORY --- */}
+            {isHistoryModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:absolute print:inset-0">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-4xl p-6 border border-slate-200 dark:border-slate-700 max-h-[90vh] flex flex-col print:shadow-none print:border-none print:max-w-full print:p-0 print:h-auto print:max-h-none">
+                        <div className="flex justify-between items-center mb-6 print:hidden shrink-0">
+                            <div>
+                                <h3 className="text-lg font-bold">Histórico de Horários: {editingTeacher?.name}</h3>
+                                <p className="text-xs text-slate-500">Registro de todas as grades passadas deste professor.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button onClick={() => window.print()} className="flex items-center gap-2" variant="outline">
+                                    <Printer size={16} /> Imprimir
+                                </Button>
+                                <button onClick={() => setIsHistoryModalOpen(false)}><X size={20} className="text-slate-400 hover:text-slate-600" /></button>
+                            </div>
+                        </div>
+
+                        {/* Print Header */}
+                        <div className="hidden print:block mb-8 text-center border-b pb-4">
+                            <h1 className="text-2xl font-bold text-slate-800">Histórico de Grade - {editingTeacher?.name}</h1>
+                            <p className="text-slate-500">Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
+                        </div>
+
+                        <div className="overflow-y-auto pr-2 custom-scrollbar flex-1 print:overflow-visible">
+                            {isLoadingHistory ? (
+                                <div className="text-center py-8 text-slate-500">Carregando histórico...</div>
+                            ) : teacherHistory.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500">Nenhum histórico encontrado. A grade atual é a única registrada.</div>
+                            ) : (
+                                <div className="space-y-8">
+                                    {teacherHistory.map((historyRecord, index) => (
+                                        <div key={index} className="relative pl-6 border-l-2 border-slate-200 dark:border-slate-700 print:border-l-0 print:pl-0 print:mb-8">
+                                            <div className="absolute w-3 h-3 bg-indigo-500 rounded-full -left-[7px] top-1.5 print:hidden"></div>
+                                            <div className="mb-4">
+                                                <h4 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                                                    <Clock size={14} className="print:hidden" />
+                                                    Válido a partir de: {new Date(historyRecord.createdAt).toLocaleString('pt-BR')}
+                                                </h4>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {historyRecord.classes && historyRecord.classes.map((cls: any, i: number) => (
+                                                    <div key={i} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 print:bg-white print:border-slate-300">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{cls.subject}</span>
+                                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{cls.grade}</span>
+                                                        </div>
+                                                        {cls.schedules && cls.schedules.length > 0 ? (
+                                                            <div className="space-y-1">
+                                                                {cls.schedules.map((schedule: any, j: number) => (
+                                                                    <div key={j} className="flex justify-between items-center text-xs text-slate-500 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-100 dark:border-slate-700/50">
+                                                                        <span className="font-medium text-indigo-600 dark:text-indigo-400">{schedule.dayOfWeek}</span>
+                                                                        <span>{schedule.startTime} - {schedule.endTime}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[10px] text-slate-400 italic mt-1">Sem horários definidos</div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {(!historyRecord.classes || historyRecord.classes.length === 0) && (
+                                                    <div className="text-xs text-slate-500 italic col-span-full">Nenhuma aula registrada nesta versão.</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

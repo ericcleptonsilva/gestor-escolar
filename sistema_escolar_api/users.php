@@ -9,6 +9,22 @@ if ($method == 'OPTIONS') {
 }
 
 if ($method == 'GET') {
+    if (isset($_GET['action']) && $_GET['action'] === 'history') {
+        $teacherId = $_GET['teacherId'] ?? '';
+        if (!$teacherId) {
+            echo json_encode([]);
+            exit();
+        }
+        $stmt = $conn->prepare("SELECT * FROM teacher_schedule_history WHERE teacherId = :tid ORDER BY createdAt DESC");
+        $stmt->execute([':tid' => $teacherId]);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($results as &$row) {
+            $row['classes'] = isset($row['classes']) && $row['classes'] ? json_decode($row['classes']) : [];
+        }
+        echo json_encode($results);
+        exit();
+    }
+
     $stmt = $conn->prepare("SELECT * FROM users");
     $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);

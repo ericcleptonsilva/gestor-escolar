@@ -51,6 +51,7 @@ interface ApiService {
   // Users
   saveUser(user: User): Promise<User>;
   deleteUser(id: string): Promise<void>;
+  getTeacherHistory(teacherId: string): Promise<any[]>;
 
   // Attendance
   saveAttendance(record: AttendanceRecord): Promise<AttendanceRecord>;
@@ -221,6 +222,7 @@ class HttpApi implements ApiService {
 
   async saveUser(user: User): Promise<User> { return this.request('/users.php', 'POST', user); }
   async deleteUser(id: string): Promise<void> { return this.request(`/users.php?id=${id}`, 'DELETE'); }
+  async getTeacherHistory(teacherId: string): Promise<any[]> { return this.request(`/users.php?action=history&teacherId=${teacherId}`); }
 
   async saveAttendance(record: AttendanceRecord): Promise<AttendanceRecord> { return this.request('/attendance.php', 'POST', record); }
   async deleteAttendance(studentId: string, date: string): Promise<void> { return this.request(`/attendance.php?studentId=${studentId}&date=${date}`, 'DELETE'); }
