@@ -382,29 +382,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $studentShift = mb_strtolower(trim($student['shift']), 'UTF-8');
             $shouldProcess = false;
 
-            // Determine if we should check this student for absence
-            // Logic:
-            // 1. If Morning Filter is set -> ONLY check morning students if file has activity in that range (implied by $activity['morning'] being true from filtered records).
-            //    Actually, if filter is set, we force check.
+            // Determine if we should check this student for absence.
+            // Regra: o aluno só recebe falta se o SEU turno teve atividade real naquela data.
+            // Isso evita que alunos do tarde recebam falta quando o arquivo só tem registros da manhã.
 
             // Morning check
             if ($studentShift === 'manhã' || $studentShift === 'manha') {
-                if ($hasMorningFilter) {
-                    // If user specifically asked to filter Morning, we check all morning students
-                    $shouldProcess = true;
-                } elseif (!$hasAfternoonFilter && $activity['morning']) {
-                    // If NO filters set (default mode), rely on file activity
+                if ($activity['morning']) {
+                    // Houve atividade real no turno da manhã nessa data
                     $shouldProcess = true;
                 }
             }
 
             // Afternoon check
             if ($studentShift === 'tarde' || $studentShift === 'vespertino') {
-                 if ($hasAfternoonFilter) {
-                    // If user specifically asked to filter Afternoon, we check all afternoon students
-                    $shouldProcess = true;
-                } elseif (!$hasMorningFilter && $activity['afternoon']) {
-                    // If NO filters set (default mode), rely on file activity
+                if ($activity['afternoon']) {
+                    // Houve atividade real no turno da tarde nessa data
                     $shouldProcess = true;
                 }
             }

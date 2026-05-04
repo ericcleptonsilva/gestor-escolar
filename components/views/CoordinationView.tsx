@@ -16,7 +16,11 @@ import {
     BookOpen,
     GraduationCap,
     Printer,
-    Clock
+    Clock,
+    Filter,
+    Search,
+    AlertTriangle,
+    RotateCcw
 } from 'lucide-react';
 import { AppState, User as UserType, CoordinationRecord, CoordinationType, TeacherClass, Shift } from '@/types';
 import { api } from '@/services/api';
@@ -74,6 +78,14 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [teacherHistory, setTeacherHistory] = useState<any[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // --- STATE: Filtros de Faltas ---
+    const [absenceFilterTeacher, setAbsenceFilterTeacher] = useState('');
+    const [absenceFilterMonth, setAbsenceFilterMonth] = useState('');
+    const [absenceFilterYear, setAbsenceFilterYear] = useState('');
+    const [absenceFilterStatus, setAbsenceFilterStatus] = useState('');
+    const [absenceFilterShift, setAbsenceFilterShift] = useState('');
+    const [absenceSearchName, setAbsenceSearchName] = useState('');
     // --- HANDLERS: Config ---
     const handleAddGrade = async () => {
         if (!newGrade) return;
@@ -419,8 +431,8 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
         }
     };
 
-    const handlePrintSection = (type: CoordinationType, title: string) => {
-        const records = (state.coordinationRecords || []).filter(r => r.type === type);
+    const handlePrintSection = (type: CoordinationType, title: string, overrideRecords?: CoordinationRecord[]) => {
+        const records = overrideRecords ?? (state.coordinationRecords || []).filter(r => r.type === type);
 
         let html = `
         <html>
@@ -996,22 +1008,331 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
             )}
 
             {/* --- TAB: ABSENCES --- */}
-            {activeTab === 'absences' && (
-                <div className="space-y-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Faltas de Professores</h3>
-                                <p className="text-xs text-slate-500">Registre e monitore as ausências do corpo docente.</p>
+            {activeTab === 'absences' && (() => {
+                // Calcular faltas filtradas
+                const allAbsences = (state.coordinationRecords || []).filter(r => r.type === 'TEACHER_ABSENCE');
+
+                const filteredAbsences = allAbsences.filter(r => {
+                    // Filtro por nome/busca
+                    if (absenceSearchName && !r.teacherName.toLowerCase().includes(absenceSearchName.toLowerCase())) return false;
+                    // Filtro por professor específico
+                    if (absenceFilterTeacher && r.teacherId !== absenceFilterTeacher) return false;
+                    // Filtro por status
+                    if (absenceFilterStatus && r.status !== absenceFilterStatus) return false;
+                    // Filtro por turno
+                    if (absenceFilterShift && r.shift !== absenceFilterShift) return false;
+                    // Filtro por mês/ano
+                    if (absenceFilterMonth || absenceFilterYear) {
+                        if (!r.deliveryDate) return false;
+                        const d = new Date(r.deliveryDate + 'T00:00:00');
+                        if (absenceFilterMonth && String(d.getMonth() + 1).padStart(2, '0') !== absenceFilterMonth) return false;
+                        if (absenceFilterYear && String(d.getFullYear()) !== absenceFilterYear) return false;
+                    }
+                    return true;
+                });
+
+                const hasActiveFilters = absenceSearchName || absenceFilterTeacher || absenceFilterStatus || absenceFilterShift || absenceFilterMonth || absenceFilterYear;
+
+                // Stats dos registros filtrados
+                const totalFaltas = filteredAbsences.reduce((acc, r) => {
+                    if (!r.observation) return acc;
+                    try { const p = JSON.parse(r.observation); return acc + (p.missed || 0); } catch { return acc; }
+                }, 0);
+                const countInjustificada = filteredAbsences.filter(r => r.status === 'Falta Injustificada').length;
+                const countJustificada = filteredAbsences.filter(r => r.status === 'Falta Justificada').length;
+
+                // Anos disponíveis
+                const availableYears = Array.from(new Set(
+                    allAbsences
+                        .filter(r => r.deliveryDate)
+                        .map(r => new Date(r.deliveryDate! + 'T00:00:00').getFullYear())
+                )).sort((a, b) => b - a);
+
+                return (
+                    <div className="space-y-4">
+                        {/* Painel de Filtros */}
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/30 flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                                    <Filter size={16} />
+                                    <span className="text-xs font-black uppercase tracking-widest">Filtros</span>
+                                </div>
+
+                                {/* Busca por nome */}
+                                <div className="relative flex-1 min-w-[160px] max-w-[240px]">
+                                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar professor..."
+                                        value={absenceSearchName}
+                                        onChange={e => setAbsenceSearchName(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                                    />
+                                </div>
+
+                                {/* Filtro Professor */}
+                                <select
+                                    value={absenceFilterTeacher}
+                                    onChange={e => setAbsenceFilterTeacher(e.target.value)}
+                                    className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 min-w-[150px]"
+                                >
+                                    <option value="">Todos os professores</option>
+                                    {teachers.sort((a, b) => a.name.localeCompare(b.name)).map(t => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                </select>
+
+                                {/* Filtro Mês */}
+                                <select
+                                    value={absenceFilterMonth}
+                                    onChange={e => setAbsenceFilterMonth(e.target.value)}
+                                    className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                                >
+                                    <option value="">Todos os meses</option>
+                                    {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                                        <option key={m} value={m}>{['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][i]}</option>
+                                    ))}
+                                </select>
+
+                                {/* Filtro Ano */}
+                                <select
+                                    value={absenceFilterYear}
+                                    onChange={e => setAbsenceFilterYear(e.target.value)}
+                                    className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                                >
+                                    <option value="">Todos os anos</option>
+                                    {availableYears.map(y => (
+                                        <option key={y} value={String(y)}>{y}</option>
+                                    ))}
+                                </select>
+
+                                {/* Filtro Status */}
+                                <select
+                                    value={absenceFilterStatus}
+                                    onChange={e => setAbsenceFilterStatus(e.target.value)}
+                                    className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                                >
+                                    <option value="">Todos os status</option>
+                                    <option value="Falta Injustificada">Injustificada</option>
+                                    <option value="Falta Justificada">Justificada</option>
+                                </select>
+
+                                {/* Filtro Turno */}
+                                <select
+                                    value={absenceFilterShift}
+                                    onChange={e => setAbsenceFilterShift(e.target.value)}
+                                    className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                                >
+                                    <option value="">Todos os turnos</option>
+                                    <option value="Manhã">Manhã</option>
+                                    <option value="Tarde">Tarde</option>
+                                </select>
+
+                                {/* Limpar filtros */}
+                                {hasActiveFilters && (
+                                    <button
+                                        onClick={() => {
+                                            setAbsenceSearchName('');
+                                            setAbsenceFilterTeacher('');
+                                            setAbsenceFilterMonth('');
+                                            setAbsenceFilterYear('');
+                                            setAbsenceFilterStatus('');
+                                            setAbsenceFilterShift('');
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-900/40 transition-colors"
+                                    >
+                                        <RotateCcw size={12} /> Limpar
+                                    </button>
+                                )}
                             </div>
-                            <Button onClick={() => handleOpenRecordModal('TEACHER_ABSENCE')} className="flex items-center gap-2">
-                                <Plus size={16} /> Novo Registro
-                            </Button>
+
+                            {/* Cards de Resumo */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-slate-100 dark:divide-slate-700 border-b border-slate-100 dark:border-slate-700">
+                                <div className="p-4 text-center">
+                                    <p className="text-2xl font-black text-slate-800 dark:text-slate-200">{filteredAbsences.length}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Registros</p>
+                                </div>
+                                <div className="p-4 text-center">
+                                    <p className="text-2xl font-black text-red-600 dark:text-red-400">{countInjustificada}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Injustificadas</p>
+                                </div>
+                                <div className="p-4 text-center">
+                                    <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{countJustificada}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Justificadas</p>
+                                </div>
+                                <div className="p-4 text-center">
+                                    <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{totalFaltas}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Aulas Faltadas</p>
+                                </div>
+                            </div>
                         </div>
-                        {renderRecordTable('TEACHER_ABSENCE', 'Faltas de Professores')}
+
+                        {/* Tabela */}
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Faltas de Professores</h3>
+                                    <p className="text-xs text-slate-500">
+                                        {hasActiveFilters
+                                            ? <span className="text-indigo-600 font-bold">{filteredAbsences.length} de {allAbsences.length} registros (filtrado)</span>
+                                            : 'Registre e monitore as ausências do corpo docente.'
+                                        }
+                                    </p>
+                                </div>
+                                <Button onClick={() => handleOpenRecordModal('TEACHER_ABSENCE')} className="flex items-center gap-2">
+                                    <Plus size={16} /> Novo Registro
+                                </Button>
+                            </div>
+
+                            {/* Tabela com registros filtrados */}
+                            <div className="overflow-x-auto">
+                                <div className="flex justify-between mb-4 items-center">
+                                    <div className="flex items-center gap-4">
+                                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-wide pt-2">Registros</h4>
+                                        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                                            <button onClick={() => setGroupBy('none')} className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${groupBy === 'none' ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Original</button>
+                                            <button onClick={() => setGroupBy('teacher')} className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${groupBy === 'teacher' ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Por Professor</button>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {selectedRecords.length > 0 && (
+                                            <Button variant="outline" size="sm" onClick={handleBulkDelete} className="text-red-500 border-red-200 bg-red-50 hover:bg-red-100 !rounded-xl">
+                                                <Trash2 size={16} className="mr-2" /> Excluir ({selectedRecords.length})
+                                            </Button>
+                                        )}
+                                        <Button variant="ghost" size="sm" onClick={() => {
+                                            const printTitle = absenceFilterTeacher
+                                                ? `Faltas - ${teachers.find(t => t.id === absenceFilterTeacher)?.name || 'Professor'}`
+                                                : absenceSearchName
+                                                    ? `Faltas - "${absenceSearchName}"`
+                                                    : 'Faltas de Professores';
+                                            handlePrintSection('TEACHER_ABSENCE', printTitle, filteredAbsences);
+                                        }} className="text-slate-500 !rounded-xl">
+                                            <Printer size={16} className="mr-2" /> Imprimir Relatório
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {filteredAbsences.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                        <AlertTriangle size={40} className="mb-3 text-slate-300" />
+                                        <p className="font-bold text-sm">{hasActiveFilters ? 'Nenhum registro encontrado para os filtros aplicados.' : 'Nenhuma falta registrada.'}</p>
+                                        {hasActiveFilters && (
+                                            <button
+                                                onClick={() => { setAbsenceSearchName(''); setAbsenceFilterTeacher(''); setAbsenceFilterMonth(''); setAbsenceFilterYear(''); setAbsenceFilterStatus(''); setAbsenceFilterShift(''); }}
+                                                className="mt-2 text-xs text-indigo-500 hover:underline"
+                                            >Limpar filtros</button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-medium border-b border-slate-200 dark:border-slate-700">
+                                            <tr>
+                                                <th className="px-4 py-3 w-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={filteredAbsences.length > 0 && selectedRecords.length === filteredAbsences.length}
+                                                        onChange={e => { if (e.target.checked) setSelectedRecords(filteredAbsences.map(r => r.id)); else setSelectedRecords([]); }}
+                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                </th>
+                                                <th className="px-4 py-3">Professor</th>
+                                                <th className="px-4 py-3">Data da Falta</th>
+                                                <th className="px-4 py-3">Turno</th>
+                                                <th className="px-4 py-3">Aulas</th>
+                                                <th className="px-4 py-3">Status</th>
+                                                <th className="px-4 py-3">Arquivo</th>
+                                                <th className="px-4 py-3 text-right">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                            {(() => {
+                                                let displayRecords = [...filteredAbsences];
+                                                if (groupBy === 'teacher') displayRecords.sort((a, b) => a.teacherName.localeCompare(b.teacherName));
+
+                                                return displayRecords.map((r, idx) => {
+                                                    let showGroupHeader = false;
+                                                    if (groupBy === 'teacher') {
+                                                        if (idx === 0) showGroupHeader = true;
+                                                        else if (displayRecords[idx - 1].teacherName !== r.teacherName) showGroupHeader = true;
+                                                    }
+                                                    return (
+                                                        <React.Fragment key={r.id}>
+                                                            {showGroupHeader && (
+                                                                <tr className="bg-slate-100/30 dark:bg-slate-800/20">
+                                                                    <td colSpan={8} className="px-4 py-2 text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-tighter">{r.teacherName}</td>
+                                                                </tr>
+                                                            )}
+                                                            <tr className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${selectedRecords.includes(r.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
+                                                                <td className="px-4 py-3">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedRecords.includes(r.id)}
+                                                                        onChange={() => setSelectedRecords(prev => prev.includes(r.id) ? prev.filter(x => x !== r.id) : [...prev, r.id])}
+                                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                </td>
+                                                                <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{r.teacherName}</td>
+                                                                <td className="px-4 py-3 text-slate-700 font-bold">
+                                                                    {r.deliveryDate ? new Date(r.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {r.shift ? (
+                                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${r.shift === 'Manhã' ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400'}`}>{r.shift}</span>
+                                                                    ) : <span className="text-slate-400 text-xs">-</span>}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {(() => {
+                                                                        if (!r.observation) return <span className="text-slate-400 italic text-xs">-</span>;
+                                                                        try {
+                                                                            const parsed = JSON.parse(r.observation);
+                                                                            if (parsed && typeof parsed.scheduled !== 'undefined') {
+                                                                                return (
+                                                                                    <div className="flex flex-col gap-0.5 text-[11px]">
+                                                                                        <span className="text-slate-600 dark:text-slate-400">Previstas: <strong>{parsed.scheduled}</strong></span>
+                                                                                        <span className="text-green-600 dark:text-green-400">Dadas: <strong>{parsed.given}</strong></span>
+                                                                                        <span className="text-red-600 dark:text-red-400">Faltas: <strong>{parsed.missed}</strong></span>
+                                                                                        {(parsed.schedule && parsed.schedule.length > 0) && (
+                                                                                            <button onClick={() => setSelectedAbsenceDetails(parsed)} className="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold mt-1 text-left uppercase">Ver Detalhes</button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            }
+                                                                        } catch(e) {}
+                                                                        return <span className="text-slate-400 italic text-[11px] block max-w-[150px] truncate" title={r.observation}>{r.observation}</span>;
+                                                                    })()}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${
+                                                                        r.status === 'Falta Justificada'
+                                                                            ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
+                                                                            : 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30'
+                                                                    }`}>{r.status}</span>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {r.fileUrl ? (
+                                                                        <a href={r.fileUrl} target="_blank" className="text-indigo-500 dark:text-indigo-400 hover:underline flex items-center gap-1 text-[11px] font-bold"><FileText size={14} /> Ver</a>
+                                                                    ) : '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-right">
+                                                                    <div className="flex justify-end gap-1">
+                                                                        <button onClick={() => handleOpenRecordModal('TEACHER_ABSENCE', r)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"><Edit size={16} /></button>
+                                                                        <button onClick={() => handleDeleteRecord(r.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        </React.Fragment>
+                                                    );
+                                                });
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* --- MODAL: TEACHER --- */}
             {isTeacherModalOpen && (

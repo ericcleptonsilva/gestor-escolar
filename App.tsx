@@ -80,6 +80,27 @@ import { Button } from '@/components/ui/Button';
 const STORAGE_KEY_SESSION = 'escola360_session_v1';
 const STORAGE_KEY_THEME = 'escola360_theme';
 
+// Retorna a chave de tema específica do usuário
+const getThemeKey = (userId?: string) =>
+  userId ? `${STORAGE_KEY_THEME}_${userId}` : STORAGE_KEY_THEME;
+
+// Carrega preferência de tema de um usuário. Se não houver salvo, não-admins são dark por padrão.
+const loadUserTheme = (user: { id: string; role: string } | null): boolean => {
+  try {
+    if (!user) {
+      const saved = localStorage.getItem(STORAGE_KEY_THEME);
+      return saved === 'dark';
+    }
+    const key = getThemeKey(user.id);
+    const saved = localStorage.getItem(key);
+    if (saved !== null) return saved === 'dark';
+    // Sem preferência salva: dark para não-Admin, light para Admin
+    return user.role !== 'Admin';
+  } catch {
+    return false;
+  }
+};
+
 const createEmptyStudent = (): Student => ({
   id: '',
   name: '',
@@ -128,22 +149,13 @@ export default function App() {
   // --- THEME STATE ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_THEME);
-      return saved === 'dark';
+      const saved = localStorage.getItem(STORAGE_KEY_SESSION);
+      const user = saved ? JSON.parse(saved) : null;
+      return loadUserTheme(user);
     } catch {
       return false;
     }
   });
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem(STORAGE_KEY_THEME, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem(STORAGE_KEY_THEME, 'light');
-    }
-  }, [isDarkMode]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
@@ -165,6 +177,20 @@ export default function App() {
       return null;
     }
   });
+
+  // Aplicar e salvar tema (depois de currentUser estar declarado)
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    if (currentUser) {
+      localStorage.setItem(getThemeKey(currentUser.id), isDarkMode ? 'dark' : 'light');
+    } else {
+      localStorage.setItem(STORAGE_KEY_THEME, isDarkMode ? 'dark' : 'light');
+    }
+  }, [isDarkMode, currentUser]);
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
@@ -389,6 +415,8 @@ export default function App() {
       setCurrentUser(user);
       setLoginError('');
       setView('dashboard');
+      // Aplicar tema do usuário ao logar
+      setIsDarkMode(loadUserTheme(user));
     } else {
       setLoginError('Credenciais inválidas. Tente novamente.');
     }
@@ -398,6 +426,8 @@ export default function App() {
     setCurrentUser(null);
     setLoginEmail('');
     setLoginPass('');
+    // Voltar para tema padrão ao sair
+    setIsDarkMode(false);
   };
 
   const handleManualSync = async () => {
@@ -592,6 +622,31 @@ export default function App() {
         id: Math.random().toString(36).substr(2, 9),
         studentId,
         date: attendanceDate,
+        status
+      };
+    }
+    api.saveAttendance(recordToSave);
+    let newAttendance = [...state.attendance];
+    if (existingIndex >= 0) {
+      newAttendance[existingIndex] = recordToSave;
+    } else {
+      newAttendance.push(recordToSave);
+    }
+    setState(prev => ({ ...prev, attendance: newAttendance }));
+  };
+
+  const handleAttendanceUpdateByDate = async (studentId: string, date: string, status: AttendanceStatus) => {
+    const existingIndex = state.attendance.findIndex(
+      a => a.studentId === studentId && a.date === date
+    );
+    let recordToSave: AttendanceRecord;
+    if (existingIndex >= 0 && state.attendance[existingIndex]) {
+      recordToSave = { ...state.attendance[existingIndex]!, status };
+    } else {
+      recordToSave = {
+        id: Math.random().toString(36).substr(2, 9),
+        studentId,
+        date,
         status
       };
     }
@@ -1903,7 +1958,7 @@ export default function App() {
 
           {view === 'attendance' && (
             <AttendanceView
-              students={state.students}
+              students={getVisibleStudents}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               attendance={state.attendance}
@@ -1919,6 +1974,7 @@ export default function App() {
               currentUser={currentUser}
               onPrint={handlePrint}
               onUpdateStatus={handleAttendanceUpdate}
+              onUpdateStatusByDate={handleAttendanceUpdateByDate}
               onUpdateObservation={handleAttendanceObservation}
               onImportTurnstile={handleImportTurnstile}
               onImportTurnstileLocal={handleImportTurnstileLocal}
