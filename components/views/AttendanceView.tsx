@@ -300,6 +300,7 @@ export const AttendanceView = ({
                 )}
             </div>
 
+            {activeTab === 'daily' && (
             <div className="no-print relative z-20">
                 <Card className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/20 overflow-visible">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -353,6 +354,7 @@ export const AttendanceView = ({
                     </div>
                 </Card>
             </div>
+            )}
 
             {activeTab === 'daily' && (
                 <>
