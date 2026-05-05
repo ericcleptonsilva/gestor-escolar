@@ -101,6 +101,10 @@ export const AttendanceView = ({
                 const absences = records.filter(r => r.status === 'Absent');
                 const excused = records.filter(r => r.status === 'Excused');
                 const present = records.filter(r => r.status === 'Present');
+                // Observação mais recente do aluno no período
+                const latestObs = records
+                    .filter(r => r.observation && r.observation.trim() !== '')
+                    .sort((a, b) => b.date.localeCompare(a.date))[0]?.observation || '';
                 return {
                     student: s,
                     totalDays: records.length,
@@ -109,6 +113,7 @@ export const AttendanceView = ({
                     present: present.length,
                     absenceRecords: absences,
                     excusedRecords: excused,
+                    observation: latestObs,
                 };
             })
             .filter(r => {
@@ -497,10 +502,11 @@ export const AttendanceView = ({
                                         <th className="text-center px-4 py-3 text-[10px] font-black text-amber-400 uppercase tracking-widest">Justif.</th>
                                         <th className="text-center px-4 py-3 text-[10px] font-black text-emerald-400 uppercase tracking-widest">Presenças</th>
                                         <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Datas das Faltas</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black text-violet-400 uppercase tracking-widest">Obs.</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                                    {periodReport.map(({ student, absences, excused, present, absenceRecords, excusedRecords }) => (
+                                    {periodReport.map(({ student, absences, excused, present, absenceRecords, excusedRecords, observation }) => (
                                         <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
@@ -557,11 +563,22 @@ export const AttendanceView = ({
                                                     )}
                                                 </div>
                                             </td>
+                                            <td className="px-4 py-3 min-w-[120px]">
+                                                {observation ? (
+                                                    <span
+                                                        className="block text-[11px] text-violet-600 dark:text-violet-400 font-medium italic break-words whitespace-normal"
+                                                    >
+                                                        {observation}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-300 dark:text-slate-600">—</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                     {periodReport.length === 0 && (
                                         <tr>
-                                            <td colSpan={7} className="py-16 text-center text-slate-400">
+                                            <td colSpan={8} className="py-16 text-center text-slate-400">
                                                 <BarChart2 size={40} className="mx-auto mb-3 opacity-20" />
                                                 <p className="font-medium">Nenhum registro encontrado no período selecionado.</p>
                                             </td>
