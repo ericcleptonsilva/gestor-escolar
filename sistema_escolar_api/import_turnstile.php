@@ -585,14 +585,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 // Checa se a turma tem aulas no período de filtro (Manhã / Tarde)
                 $countThisClass = false;
                 if (!isset($cls['shift']) || $cls['shift'] == '') {
-                    $countThisClass = true; 
+                    // Turma sem turno definido: conta sempre
+                    $countThisClass = true;
                 } else {
                     $classShift = mb_strtolower(trim($cls['shift']), 'UTF-8');
                     $isMorningClass = ($classShift === 'manhã' || $classShift === 'manha');
                     $isAfternoonClass = ($classShift === 'tarde' || $classShift === 'vespertino');
-                    
+
                     if (!$hasMorningFilter && !$hasAfternoonFilter) {
-                        // Se não tem nenhum filtro definido, processa a turma independente do turno
+                        // Se não tem nenhum filtro de turno definido, processa independente
                         $countThisClass = true;
                     } else {
                         if ($hasMorningFilter && $isMorningClass) $countThisClass = true;
@@ -602,19 +603,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 if (!$countThisClass) continue;
 
-                if (isset($cls['schedules']) && is_array($cls['schedules'])) {
+                $hasSchedules = isset($cls['schedules']) && is_array($cls['schedules']) && count($cls['schedules']) > 0;
+
+                if ($hasSchedules) {
+                    // CASO NORMAL: verificar se há aula cadastrada para o dia da semana
+                    $foundDayInSchedule = false;
                     foreach ($cls['schedules'] as $sch) {
-                        if ($sch['dayOfWeek'] === $dayName) {
+                        if (isset($sch['dayOfWeek']) && $sch['dayOfWeek'] === $dayName) {
+                            $foundDayInSchedule = true;
                             $scheduleEntry = [
-                                'grade' => $cls['grade'],
-                                'subject' => $cls['subject'],
-                                'startTime' => isset($sch['startTime']) ? $sch['startTime'] : '',
-                                'endTime' => isset($sch['endTime']) ? $sch['endTime'] : ''
+                                'grade'     => $cls['grade'] ?? '',
+                                'subject'   => $cls['subject'] ?? '',
+                                'startTime' => $sch['startTime'] ?? '',
+                                'endTime'   => $sch['endTime'] ?? ''
                             ];
-                            
-                            if (isset($sch['periods']) && is_array($sch['periods'])) {
+
+                            if (isset($sch['periods']) && is_array($sch['periods']) && count($sch['periods']) > 0) {
                                 $scheduledClassesCount += count($sch['periods']);
-                                for($i=0; $i<count($sch['periods']); $i++){
+                                for ($i = 0; $i < count($sch['periods']); $i++) {
                                     $todaysSchedule[] = $scheduleEntry;
                                 }
                             } else {
@@ -623,9 +629,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             }
                         }
                     }
+                    // Se a turma tem schedules mas nenhum bate com o dia atual, não conta (professor não tem aula esse dia)
+                } else {
+                    // FALLBACK: turma sem horários cadastrados.
+                    // Não é possível saber em quais dias o professor tem aula, então
+                    // contamos como 1 aula prevista para cada turma naquele dia.
+                    // Isso garante que faltas sejam detectadas mesmo sem horários configurados.
+                    $scheduledClassesCount++;
+                    $todaysSchedule[] = [
+                        'grade'     => $cls['grade'] ?? '',
+                        'subject'   => $cls['subject'] ?? '',
+                        'startTime' => '(sem horário)',
+                        'endTime'   => ''
+                    ];
                 }
             }
 
+            // Se o professor não tem nenhuma aula prevista para o dia, pula
             if ($scheduledClassesCount == 0) continue;
 
             usort($todaysSchedule, function($a, $b) {

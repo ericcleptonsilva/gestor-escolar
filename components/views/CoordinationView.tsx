@@ -1562,6 +1562,34 @@ export function CoordinationView({ state, currentUser, onRefresh, onSelectTeache
                                 )}
                             </div>
 
+                            {/* Turno para Falta Manual */}
+                            {recordForm.type === 'TEACHER_ABSENCE' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">Turno</label>
+                                        <select
+                                            className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                                            value={recordForm.shift || ''}
+                                            onChange={e => setRecordForm({ ...recordForm, shift: e.target.value as any })}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {getTeachersShifts().map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">Série</label>
+                                        <select
+                                            className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                                            value={recordForm.grade || ''}
+                                            onChange={e => setRecordForm({ ...recordForm, grade: e.target.value })}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {getTeachersGrades().map(g => <option key={g} value={g}>{g}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Série checklist + Turno dropdown (Hidden for Absences) */}
                             {recordForm.type !== 'TEACHER_ABSENCE' && (
                                 <>
