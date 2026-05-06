@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -160,7 +160,7 @@ export default function App() {
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   // --- APP STATE ---
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'error'>('online');
   const [isImporting, setIsImporting] = useState(false);
@@ -301,7 +301,6 @@ export default function App() {
     window.addEventListener('api-sync-status', handleSyncStatus);
 
     const fetchData = async () => {
-      setIsLoading(true);
       try {
         const data = await api.loadAllData();
         setState(data);
@@ -309,7 +308,7 @@ export default function App() {
         console.error("Failed to load data", error);
         alert("Erro ao carregar dados do servidor: " + error.message + "\nVerifique se o XAMPP está rodando.");
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
     fetchData();
@@ -407,9 +406,7 @@ export default function App() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     const user = await api.login(loginEmail, loginPass);
-    setIsLoading(false);
 
     if (user) {
       setCurrentUser(user);
@@ -483,7 +480,6 @@ export default function App() {
       return;
     }
 
-    setIsLoading(true);
     let studentToSave = { ...tempStudent };
 
     if (!studentToSave.id) {
@@ -513,8 +509,6 @@ export default function App() {
       setIsEditingStudent(false);
     } catch (e: any) {
       alert("Erro ao salvar aluno: " + e.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -523,12 +517,10 @@ export default function App() {
       "Excluir Aluno",
       "Tem certeza que deseja remover este aluno? Esta ação apagará permanentemente o cadastro, histórico de frequência e documentos associados.",
       async () => {
-        setIsLoading(true);
         await api.deleteStudent(id);
         setState(prev => ({ ...prev, students: (prev.students || []).filter(s => s.id !== id) }));
         if (selectedStudent?.id === id) setSelectedStudent(null);
         setIsEditingStudent(false);
-        setIsLoading(false);
         closeConfirm();
       }
     );
@@ -557,7 +549,7 @@ export default function App() {
   };
 
   // Toggle Actions
-  const handleToggleBookStatus = async (student: Student, e: React.MouseEvent) => {
+  const handleToggleBookStatus = useCallback(async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextStatus: Record<BookStatus, BookStatus> = {
       'Nao Comprou': 'Comprou',
@@ -569,9 +561,9 @@ export default function App() {
     const updatedStudent = { ...student, bookStatus: newStatus };
     setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? updatedStudent : s) }));
     await api.saveStudent(updatedStudent);
-  };
+  }, []);
 
-  const handleToggleAgenda = async (student: Student, e: React.MouseEvent) => {
+  const handleToggleAgenda = useCallback(async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const oldStudent = { ...student };
     const updatedStudent = { ...student, hasAgenda: !student.hasAgenda };
@@ -586,9 +578,9 @@ export default function App() {
       setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? oldStudent : s) }));
       alert("Erro ao salvar status da agenda: " + error.message);
     }
-  };
+  }, []);
 
-  const handleTogglePEStatus = async (student: Student, e: React.MouseEvent) => {
+  const handleTogglePEStatus = useCallback(async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextStatus: Record<PEStatus, PEStatus> = {
       'Pendente': 'Em Análise',
@@ -600,65 +592,50 @@ export default function App() {
     const updatedStudent = { ...student, peStatus: newStatus };
     setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? updatedStudent : s) }));
     await api.saveStudent(updatedStudent);
-  };
+  }, []);
 
-  const handleToggleTurnstile = async (student: Student, e: React.MouseEvent) => {
+  const handleToggleTurnstile = useCallback(async (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
     const updatedStudent = { ...student, turnstileRegistered: !student.turnstileRegistered };
     setState(prev => ({ ...prev, students: prev.students.map(s => s.id === student.id ? updatedStudent : s) }));
     await api.saveStudent(updatedStudent);
-  };
+  }, []);
 
-  const handleAttendanceUpdate = async (studentId: string, status: AttendanceStatus) => {
-    const existingIndex = state.attendance.findIndex(
-      a => a.studentId === studentId && a.date === attendanceDate
-    );
-    let recordToSave: AttendanceRecord;
+  const handleAttendanceUpdate = useCallback(async (studentId: string, status: AttendanceStatus) => {
+    setState(prev => {
+      const existingIndex = prev.attendance.findIndex(
+        a => a.studentId === studentId && a.date === attendanceDate
+      );
+      let recordToSave: AttendanceRecord;
+      if (existingIndex >= 0 && prev.attendance[existingIndex]) {
+        recordToSave = { ...prev.attendance[existingIndex]!, status };
+      } else {
+        recordToSave = { id: Math.random().toString(36).substr(2, 9), studentId, date: attendanceDate, status };
+      }
+      api.saveAttendance(recordToSave);
+      const newAttendance = [...prev.attendance];
+      if (existingIndex >= 0) { newAttendance[existingIndex] = recordToSave; } else { newAttendance.push(recordToSave); }
+      return { ...prev, attendance: newAttendance };
+    });
+  }, [attendanceDate]);
 
-    if (existingIndex >= 0 && state.attendance[existingIndex]) {
-      recordToSave = { ...state.attendance[existingIndex]!, status };
-    } else {
-      recordToSave = {
-        id: Math.random().toString(36).substr(2, 9),
-        studentId,
-        date: attendanceDate,
-        status
-      };
-    }
-    api.saveAttendance(recordToSave);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) {
-      newAttendance[existingIndex] = recordToSave;
-    } else {
-      newAttendance.push(recordToSave);
-    }
-    setState(prev => ({ ...prev, attendance: newAttendance }));
-  };
-
-  const handleAttendanceUpdateByDate = async (studentId: string, date: string, status: AttendanceStatus) => {
-    const existingIndex = state.attendance.findIndex(
-      a => a.studentId === studentId && a.date === date
-    );
-    let recordToSave: AttendanceRecord;
-    if (existingIndex >= 0 && state.attendance[existingIndex]) {
-      recordToSave = { ...state.attendance[existingIndex]!, status };
-    } else {
-      recordToSave = {
-        id: Math.random().toString(36).substr(2, 9),
-        studentId,
-        date,
-        status
-      };
-    }
-    api.saveAttendance(recordToSave);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) {
-      newAttendance[existingIndex] = recordToSave;
-    } else {
-      newAttendance.push(recordToSave);
-    }
-    setState(prev => ({ ...prev, attendance: newAttendance }));
-  };
+  const handleAttendanceUpdateByDate = useCallback(async (studentId: string, date: string, status: AttendanceStatus) => {
+    setState(prev => {
+      const existingIndex = prev.attendance.findIndex(
+        a => a.studentId === studentId && a.date === date
+      );
+      let recordToSave: AttendanceRecord;
+      if (existingIndex >= 0 && prev.attendance[existingIndex]) {
+        recordToSave = { ...prev.attendance[existingIndex]!, status };
+      } else {
+        recordToSave = { id: Math.random().toString(36).substr(2, 9), studentId, date, status };
+      }
+      api.saveAttendance(recordToSave);
+      const newAttendance = [...prev.attendance];
+      if (existingIndex >= 0) { newAttendance[existingIndex] = recordToSave; } else { newAttendance.push(recordToSave); }
+      return { ...prev, attendance: newAttendance };
+    });
+  }, []);
 
   const handleRemoveAttendanceRecord = (studentId: string) => {
     requestConfirm(
@@ -684,27 +661,24 @@ export default function App() {
     }
   };
 
-  const handleAttendanceObservation = async (studentId: string, observation: string) => {
-    const existingIndex = state.attendance.findIndex(
-      a => a.studentId === studentId && a.date === attendanceDate
-    );
-    let record;
-    if (existingIndex >= 0) {
-      record = { ...state.attendance[existingIndex], observation };
-    } else {
-      record = {
-        id: Math.random().toString(36).substr(2, 9),
-        studentId, date: attendanceDate,
-        status: 'Present',
-        observation
-      };
-    }
-    await api.saveAttendance(record);
-    let newAttendance = [...state.attendance];
-    if (existingIndex >= 0) newAttendance[existingIndex] = record;
-    else newAttendance.push(record);
-    setState(prev => ({ ...prev, attendance: newAttendance }));
-  };
+  const handleAttendanceObservation = useCallback(async (studentId: string, observation: string) => {
+    setState(prev => {
+      const existingIndex = prev.attendance.findIndex(
+        a => a.studentId === studentId && a.date === attendanceDate
+      );
+      let record: any;
+      if (existingIndex >= 0) {
+        record = { ...prev.attendance[existingIndex], observation };
+      } else {
+        record = { id: Math.random().toString(36).substr(2, 9), studentId, date: attendanceDate, status: 'Present', observation };
+      }
+      api.saveAttendance(record);
+      const newAttendance = [...prev.attendance];
+      if (existingIndex >= 0) newAttendance[existingIndex] = record;
+      else newAttendance.push(record);
+      return { ...prev, attendance: newAttendance };
+    });
+  }, [attendanceDate]);
 
   // Health Docs
   const handleSaveDocument = async () => {
@@ -750,7 +724,6 @@ export default function App() {
       return;
     }
 
-    setIsLoading(true);
     try {
       const examsToSave: MakeUpExam[] = examForm.items.map(item => ({
         id: Math.random().toString(36).substr(2, 9),
@@ -762,7 +735,6 @@ export default function App() {
         period: examForm.period
       }));
 
-      // In a real app we might want a batch save endpoint, but for now we loop
       for (const exam of examsToSave) {
         await api.saveExam(exam);
       }
@@ -772,8 +744,6 @@ export default function App() {
       alert("Agendamentos salvos com sucesso.");
     } catch (e: any) {
       alert("Erro ao salvar agendamentos: " + e.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -852,7 +822,6 @@ export default function App() {
       alert("Por favor, preencha Nome, Email e Senha para novos usuários.");
       return;
     }
-    setIsLoading(true);
     let userToSave = { ...tempUser };
     if (!userToSave.id) {
       userToSave.id = Math.random().toString(36).substr(2, 9);
@@ -869,8 +838,6 @@ export default function App() {
       setIsEditingUser(false);
     } catch (e: any) {
       alert("Erro ao salvar usuário: " + e.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -880,10 +847,8 @@ export default function App() {
       return;
     }
     requestConfirm("Excluir Usuário", "Tem certeza que deseja excluir este usuário?", async () => {
-      setIsLoading(true);
       await api.deleteUser(id);
       setState(prev => ({ ...prev, users: (prev.users || []).filter(u => u.id !== id) }));
-      setIsLoading(false);
       closeConfirm();
     });
   };
@@ -902,7 +867,7 @@ export default function App() {
     }
   };
 
-  const handleSaveOccurrence = async (occurrence: Occurrence) => {
+  const handleSaveOccurrence = useCallback(async (occurrence: Occurrence) => {
     try {
       const savedOccurrence = await api.saveOccurrence(occurrence);
       setState(prev => {
@@ -916,7 +881,7 @@ export default function App() {
     } catch (e: any) {
       alert("Erro ao salvar ocorrência: " + e.message);
     }
-  };
+  }, []);
 
   // Imports
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1220,7 +1185,6 @@ export default function App() {
       processTurnstileImportResult(result);
 
       // Refresh data to show changes
-      setIsLoading(true);
       const freshData = await api.loadAllData();
       setState(freshData);
     } catch (error: any) {
@@ -1239,10 +1203,8 @@ export default function App() {
       processTurnstileImportResult(result);
 
       // Refresh data to show changes
-      setIsLoading(true);
       const freshData = await api.loadAllData();
       setState(freshData);
-      setIsLoading(false);
     } catch (error: any) {
       console.error("Local turnstile import failed", error);
       if (error.message.includes("404")) {
@@ -1252,7 +1214,6 @@ export default function App() {
       }
     } finally {
       setIsImportingTurnstile(false);
-      setIsLoading(false);
     }
   };
 
@@ -1651,7 +1612,7 @@ export default function App() {
 
   // --- RENDER ---
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="flex flex-col items-center">

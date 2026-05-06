@@ -27,7 +27,7 @@ interface DashboardViewProps {
     onSaveOccurrence: (occurrence: Occurrence) => Promise<void>;
 }
 
-export const DashboardView = ({ state, visibleStudents, handlePrint, setView, onSelectStudent, onSaveOccurrence }: DashboardViewProps) => {
+export const DashboardView = React.memo(({ state, visibleStudents, handlePrint, setView, onSelectStudent, onSaveOccurrence }: DashboardViewProps) => {
     const [showAbsenceModal, setShowAbsenceModal] = useState(false);
     const [absenceThreshold, setAbsenceThreshold] = useState(3);
     const [pendingUpdates, setPendingUpdates] = useState<Record<string, { status: string, date: string }>>({});
@@ -353,4 +353,4 @@ export const DashboardView = ({ state, visibleStudents, handlePrint, setView, on
             </div>
         </div>
     );
-};
+});

@@ -39,7 +39,7 @@ interface AttendanceViewProps {
     currentUser: User | null;
 }
 
-export const AttendanceView = ({
+export const AttendanceView = React.memo(({
     students,
     searchTerm, setSearchTerm,
     attendance,
@@ -142,7 +142,7 @@ export const AttendanceView = ({
             });
     }, [students, attendance, periodStart, periodEnd, periodSearch, periodClass, periodShift, periodStatus]);
 
-    const filteredStudents = (students || [])
+    const filteredStudents = useMemo(() => (students || [])
         .filter(s => {
             const matchSearch = searchTerm === "" || 
                 s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -159,25 +159,18 @@ export const AttendanceView = ({
         .sort((a, b) => {
             const gradeCompare = a.grade.localeCompare(b.grade);
             if (gradeCompare !== 0) return gradeCompare;
-
             const shiftCompare = a.shift.localeCompare(b.shift);
             if (shiftCompare !== 0) return shiftCompare;
-
             const seqA = parseInt(a.sequenceNumber);
             const seqB = parseInt(b.sequenceNumber);
             const hasSeqA = !isNaN(seqA);
             const hasSeqB = !isNaN(seqB);
-
-            if (hasSeqA && hasSeqB) {
-                if (seqA !== seqB) return seqA - seqB;
-            } else if (hasSeqA) {
-                return -1;
-            } else if (hasSeqB) {
-                return 1;
-            }
-
+            if (hasSeqA && hasSeqB) { if (seqA !== seqB) return seqA - seqB; }
+            else if (hasSeqA) return -1;
+            else if (hasSeqB) return 1;
             return a.name.localeCompare(b.name);
-        });
+        })
+    , [students, searchTerm, selectedClass, selectedShift, attendance, attendanceDate, filterAttendanceStatus]);
 
     return (
         <div className="space-y-6">
@@ -688,7 +681,7 @@ export const AttendanceView = ({
             )}
         </div>
     );
-};
+});
 
 interface AttendanceCardProps {
     key?: React.Key;
@@ -699,7 +692,7 @@ interface AttendanceCardProps {
     onUpdateObservation: (studentId: string, obs: string) => void;
 }
 
-const AttendanceCard = ({ student, status, observation, onUpdateStatus, onUpdateObservation }: AttendanceCardProps) => {
+const AttendanceCard = React.memo(({ student, status, observation, onUpdateStatus, onUpdateObservation }: AttendanceCardProps) => {
     const [localObs, setLocalObs] = useState(observation);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -773,4 +766,4 @@ const AttendanceCard = ({ student, status, observation, onUpdateStatus, onUpdate
             </div>
         </Card>
     );
-};
+});
